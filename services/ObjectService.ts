@@ -97,32 +97,36 @@ export class ObjectService extends BaseService<ObjectServiceDeps> {
       // Continue anyway - we can still delete from SQLite
     }
 
-    // Step 2: Delete from SQLite (transactional)
+    // Step 2: Delete from SQLite (transactional using manual BEGIN/COMMIT/ROLLBACK)
     try {
-      const deleteTransaction = this.deps.db.transaction(() => {
+      // Start manual transaction
+      this.deps.db.exec('BEGIN');
+      
+      try {
         // Order matters: delete from tables with foreign keys first
         this.deps.embeddingModel.deleteByObjectIds(objectIds);
         this.deps.chunkModel.deleteByObjectIds(objectIds);
         
         // Delete the objects themselves and track results
         for (const id of objectIds) {
-          try {
-            const stmt = this.deps.db.prepare('DELETE FROM objects WHERE id = ?');
-            const info = stmt.run(id);
-            if (info.changes > 0) {
-              result.successful.push(id);
-            } else {
-              result.notFound.push(id);
-            }
-          } catch (error) {
-            logger.error(`[ObjectService] Failed to delete object ${id}:`, error);
-            throw error; // Re-throw to rollback transaction
+          const stmt = this.deps.db.prepare('DELETE FROM objects WHERE id = ?');
+          const info = stmt.run(id);
+          if (info.changes > 0) {
+            result.successful.push(id);
+          } else {
+            result.notFound.push(id);
           }
         }
-      });
-
-      deleteTransaction();
-      logger.info(`[ObjectService] Successfully deleted ${result.successful.length} objects from SQLite, ${result.notFound.length} not found`);
+        
+        // Commit the transaction
+        this.deps.db.exec('COMMIT');
+        logger.info(`[ObjectService] Successfully deleted ${result.successful.length} objects from SQLite, ${result.notFound.length} not found`);
+        
+      } catch (error) {
+        // Rollback on any error
+        this.deps.db.exec('ROLLBACK');
+        throw error;
+      }
 
     } catch (error) {
       logger.error('[ObjectService] SQLite deletion failed:', error);

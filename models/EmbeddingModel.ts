@@ -94,8 +94,11 @@ export class EmbeddingModel {
             VALUES (@chunkId, @model, @vectorId)
         `);
 
-        const insertMany = this.db.transaction((recs) => {
-            for (const rec of recs) {
+        // Use manual transaction management to avoid async issues
+        try {
+            this.db.exec('BEGIN');
+            
+            for (const rec of records) {
                 try {
                     insert.run(rec);
                 } catch (err: any) {
@@ -104,17 +107,16 @@ export class EmbeddingModel {
                         logger.warn(`[EmbeddingModel] UNIQUE constraint violation during bulk insert for vector_id ${rec.vectorId}. Skipping.`);
                     } else {
                         logger.error(`[EmbeddingModel] Error during bulk insert for chunk ${rec.chunkId}:`, err);
-                        // Depending on desired behavior, you might want to re-throw to fail the transaction
+                        // Re-throw to fail the transaction
                         throw err;
                     }
                 }
             }
-        });
-
-        try {
-            insertMany(records);
+            
+            this.db.exec('COMMIT');
             logger.debug(`[EmbeddingModel] Bulk inserted or skipped ${records.length} embedding records.`);
         } catch (error) {
+            this.db.exec('ROLLBACK');
             logger.error('[EmbeddingModel] Bulk embedding record insertion failed:', error);
             throw error;
         }

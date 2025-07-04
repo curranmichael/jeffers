@@ -254,23 +254,6 @@ export abstract class BaseIngestionWorker implements IIngestionWorker {
       logger.error(`[${this.workerName}] Job ${job.id} permanently failed after ${job.attempts} attempts`);
     }
   }
-  
-  /**
-   * Helper method to run code in a transaction
-   */
-  protected async runInTransaction<T>(
-    db: any, // Better-sqlite3 Database instance
-    operation: () => T
-  ): Promise<T> {
-    const transaction = db.transaction(operation);
-    try {
-      return transaction();
-    } catch (error) {
-      logger.error(`[${this.workerName}] Transaction failed:`, error);
-      throw error;
-    }
-  }
-
   /**
    * Transform propositions from AI-generated array format to ObjectPropositions format
    * Shared utility method for both PDF and URL ingestion
