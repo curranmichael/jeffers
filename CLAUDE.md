@@ -1,3 +1,5 @@
+Hi, Claude! Please never, ever use emojis
+
 # Jeffers Codebase Instructions
 
 ## Project Overview
