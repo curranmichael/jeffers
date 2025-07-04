@@ -108,18 +108,9 @@ export class CompositeObjectEnrichmentService extends BaseService<CompositeEnric
       uuid: child.id,
       title: child.title || 'Untitled',
       summary: child.summary || '',
-      tags: this.safeParseJSON(child.tagsJson, []),
-      propositions: this.safeParseJSON(child.propositionsJson, [])
+      tags: child.tagsJson ? JSON.parse(child.tagsJson) : [],
+      propositions: child.propositionsJson ? JSON.parse(child.propositionsJson) : []
     }));
-  }
-
-  private safeParseJSON<T>(json: string | null, defaultValue: T): T {
-    if (!json) return defaultValue;
-    try {
-      return JSON.parse(json);
-    } catch {
-      return defaultValue;
-    }
   }
 
   private buildTSTPPrompt(childrenTSTP: ChildTSTP[]): string {
