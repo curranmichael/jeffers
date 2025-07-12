@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
 import { IngestionJobModel, IngestionJob } from '../../models/IngestionJobModel';
-import { ObjectModel } from '../../models/ObjectModel';
+import { ObjectModelCore } from '../../models/ObjectModelCore';
 import { ChunkModel } from '../../models/ChunkModel';
 import { EmbeddingModel } from '../../models/EmbeddingModel';
 import { IVectorStoreModel } from '../../shared/types/vector.types';
@@ -28,7 +28,7 @@ export interface JobProcessor {
 
 interface IngestionQueueServiceDeps extends BaseServiceDependencies {
   ingestionJobModel: IngestionJobModel;
-  objectModel: ObjectModel;
+  objectModelCore: ObjectModelCore;
   chunkModel: ChunkModel;
   embeddingModel: EmbeddingModel;
   vectorModel: IVectorStoreModel;
@@ -63,16 +63,20 @@ export class IngestionQueueService extends BaseService<IngestionQueueServiceDeps
   async initialize(): Promise<void> {
     await super.initialize();
     
+    // Log job stats on startup for debugging
+    const stats = this.deps.ingestionJobModel.getStats();
+    this.logInfo('Ingestion job stats on startup:', stats);
+    
     // Create worker instances with their dependencies
     const urlWorker = new UrlIngestionWorker(
-      this.deps.objectModel,
+      this.deps.objectModelCore,
       this.deps.ingestionJobModel,
       this.deps.ingestionAiService
     );
     
     const pdfWorker = new PdfIngestionWorker(
       this.deps.pdfIngestionService,
-      this.deps.objectModel,
+      this.deps.objectModelCore,
       this.deps.chunkModel,
       this.deps.embeddingModel,
       this.deps.vectorModel,
@@ -143,7 +147,7 @@ export class IngestionQueueService extends BaseService<IngestionQueueServiceDeps
   async createUrlIngestionJob(url: string, title?: string): Promise<{ jobId: string | null; alreadyExists: boolean }> {
     try {
       // Check if the URL already exists in the objects table
-      const exists = await this.deps.objectModel.existsBySourceUri(url);
+      const exists = await this.deps.objectModelCore.existsBySourceUri(url);
       
       if (exists) {
         this.logInfo(`URL already exists in objects: ${url}`);
@@ -382,7 +386,7 @@ export class IngestionQueueService extends BaseService<IngestionQueueServiceDeps
    */
   async createLomJobFromWomObject(objectId: string): Promise<IngestionJob | null> {
     return this.execute('createLomJobFromWomObject', async () => {
-      const object = await this.deps.objectModel.getById(objectId);
+      const object = await this.deps.objectModelCore.getById(objectId);
       if (!object) {
         throw new NotFoundError('Object', objectId);
       }
