@@ -12,16 +12,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useRouter, useParams } from "next/navigation";
+import { useAppNavigationStore } from '@/store/appNavigationStore';
 
 interface NotebookInfoPillProps {
   title: string;
+  notebookId: string;
   className?: string;
   onTitleChange?: (newTitle: string) => void;
   parentZIndex?: number;
 }
 
-export function NotebookInfoPill({ title, className = "", onTitleChange, parentZIndex = 5 }: NotebookInfoPillProps) {
+export function NotebookInfoPill({ title, notebookId, className = "", onTitleChange, parentZIndex = 5 }: NotebookInfoPillProps) {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(title);
@@ -29,9 +30,8 @@ export function NotebookInfoPill({ title, className = "", onTitleChange, parentZ
   const [recentNotebooks, setRecentNotebooks] = useState<RecentNotebook[]>([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const router = useRouter();
-  const params = useParams();
-  const currentNotebookId = params?.notebookId as string;
+  const { openNotebook } = useAppNavigationStore();
+  const currentNotebookId = notebookId;
   
   useEffect(() => {
     const timer = setInterval(() => {
@@ -93,11 +93,11 @@ export function NotebookInfoPill({ title, className = "", onTitleChange, parentZ
     }
   }, [isDropdownOpen]);
 
-  const handleSelectNotebook = useCallback((notebookId: string) => {
-    if (notebookId === currentNotebookId) return;
-    router.push(`/notebook/${notebookId}`);
+  const handleSelectNotebook = useCallback((selectedNotebookId: string) => {
+    if (selectedNotebookId === currentNotebookId) return;
+    openNotebook(selectedNotebookId);
     setIsDropdownOpen(false);
-  }, [currentNotebookId, router]);
+  }, [currentNotebookId, openNotebook]);
 
   const handleCreateNotebook = useCallback(async () => {
     try {
@@ -106,13 +106,13 @@ export function NotebookInfoPill({ title, className = "", onTitleChange, parentZ
           title: "Untitled Notebook",
           sourceObjectIds: []
         });
-        router.push(`/notebook/${result.notebookId}`);
+        openNotebook(result.notebookId);
         setIsDropdownOpen(false);
       }
     } catch (error) {
       console.error("Failed to create notebook:", error);
     }
-  }, [router]);
+  }, [openNotebook]);
   
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString('en-US', { 

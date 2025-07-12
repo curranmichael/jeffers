@@ -19,7 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { BookmarkUploadDialog } from "@/components/BookmarkUploadDialog";
 import { PdfUploadDialog } from "@/components/PdfUploadDialog";
-import { useRouter } from "next/navigation";
+import { useAppNavigationStore } from '@/store/appNavigationStore';
 import { IntentLine } from "@/components/ui/intent-line";
 import { IntentResultPayload, ContextState, DisplaySlice, SuggestedAction, RecentNotebook, WeatherData } from "../../shared/types";
 import { WebLayer } from '@/components/apps/web-layer/WebLayer';
@@ -49,7 +49,7 @@ export default function HomeView() {
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [isPdfUploadDialogOpen, setIsPdfUploadDialogOpen] = useState(false);
-  const router = useRouter();
+  const { openNotebook } = useAppNavigationStore();
 
   const [webLayerInitialUrl, setWebLayerInitialUrl] = useState<string | null>(null);
   const [isWebLayerVisible, setIsWebLayerVisible] = useState<boolean>(false);
@@ -225,7 +225,7 @@ export default function HomeView() {
     if (!intentText.trim()) {
       try {
         const notebook = await window.api.getOrCreateDailyNotebook();
-        router.push(`/notebook/${notebook.id}`);
+        openNotebook(notebook.id);
         return;
       } catch (error) {
         console.error("Failed to create daily notebook:", error);
@@ -337,7 +337,7 @@ export default function HomeView() {
         { id: `error-submit-${Date.now()}`, role: 'assistant', content: "Error submitting your request.", createdAt: new Date() }
       ]);
     }
-  }, [intentText, fullGreeting, router]);
+  }, [intentText, fullGreeting, openNotebook]);
 
   useEffect(() => {
     if (!window.api?.onIntentResult) {
@@ -406,7 +406,7 @@ export default function HomeView() {
         }
         // Small delay to show intent line animation before navigation
         setTimeout(() => {
-          router.push(`/notebook/${result.notebookId}`);
+          openNotebook(result.notebookId);
         }, 300); // Just enough time to see the intent line start moving
       } else if (result.type === 'chat_reply') {
         setChatMessages(prevMessages => {
@@ -464,7 +464,7 @@ export default function HomeView() {
     return () => {
       unsubscribe();
     };
-  }, [router, fullGreeting, hasSubmittedOnce]);
+  }, [openNotebook, fullGreeting, hasSubmittedOnce]);
 
   // Add streaming handlers
   useEffect(() => {
@@ -642,7 +642,7 @@ export default function HomeView() {
       setIsComposeDialogOpen(false);
       
       // Navigate to the new notebook
-      router.push(`/notebook/${result.notebookId}`);
+      openNotebook(result.notebookId);
       
     } catch (error) {
       console.error("[HomeView] Error composing notebook:", error);
@@ -650,7 +650,7 @@ export default function HomeView() {
     } finally {
       setIsComposing(false);
     }
-  }, [composeTitle, contextSlices.data, router]);
+  }, [composeTitle, contextSlices.data, openNotebook]);
 
   // Fetch recently viewed notebooks on mount
   useEffect(() => {
@@ -671,8 +671,8 @@ export default function HomeView() {
   }, []);
 
   const handleSelectRecentNotebook = useCallback((notebookId: string) => {
-    router.push(`/notebook/${notebookId}`);
-  }, [router]);
+    openNotebook(notebookId);
+  }, [openNotebook]);
 
   // Effect to measure greeting position
   useEffect(() => {
@@ -697,7 +697,7 @@ export default function HomeView() {
     switch (action.type) {
       case 'open_notebook':
         if (action.payload.notebookId) {
-          router.push(`/notebook/${action.payload.notebookId}`);
+          openNotebook(action.payload.notebookId);
         }
         break;
         
@@ -717,7 +717,7 @@ export default function HomeView() {
         }
         break;
     }
-  }, [router]);
+  }, [openNotebook]);
 
   return (
     <motion.div 

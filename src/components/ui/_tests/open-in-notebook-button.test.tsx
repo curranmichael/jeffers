@@ -3,10 +3,10 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { OpenInNotebookButton } from '../open-in-notebook-button';
 
-// Mock next/navigation
-vi.mock('next/navigation', () => ({
-  useRouter: () => ({
-    push: vi.fn(),
+// Mock the app navigation store
+vi.mock('@/store/appNavigationStore', () => ({
+  useAppNavigationStore: () => ({
+    openNotebook: vi.fn(),
   }),
 }));
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useAppNavigationStore } from '@/store/appNavigationStore';
 import type { StoreApi } from "zustand";
 import { useStore } from "zustand";
 import { motion } from "framer-motion";
@@ -188,6 +188,7 @@ function NotebookContent({
         >
           <NotebookInfoPill 
             title={notebookTitle} 
+            notebookId={notebookId}
             onTitleChange={handleNotebookTitleChange}
             parentZIndex={isPillHovered || isPillClicked ? 10000 : 5}
           />
@@ -246,7 +247,7 @@ function NotebookWorkspace({ notebookId }: { notebookId: string }) {
     console.log(`[NotebookWorkspace] Creating store for notebook ${notebookId}`);
     return createNotebookWindowStore(notebookId);
   });
-  const router = useRouter();
+  const { openNotebook, openHome } = useAppNavigationStore();
 
   // Hooks are called unconditionally here, and activeStore is guaranteed to be valid.
   const windows = useStore(activeStore, (state) => state.windows);
@@ -633,7 +634,7 @@ function NotebookWorkspace({ notebookId }: { notebookId: string }) {
         // Handle switching to a different notebook
         if (result.notebookId !== notebookId) {
           console.log(`[NotebookWorkspace] Switching to notebook: ${result.notebookId} (${result.title})`);
-          router.push(`/notebook/${result.notebookId}`);
+          openNotebook(result.notebookId);
         } else {
           console.log(`[NotebookWorkspace] Already in notebook: ${result.notebookId}`);
         }
@@ -689,7 +690,7 @@ function NotebookWorkspace({ notebookId }: { notebookId: string }) {
         unsubscribe();
       }
     };
-  }, [notebookId, activeStore, windows.length, router]);
+  }, [notebookId, activeStore, windows.length, openNotebook]);
 
   // MOVED UP: Define useCallback before any conditional returns.
   const handleAddWindow = useCallback(() => {
@@ -753,8 +754,8 @@ function NotebookWorkspace({ notebookId }: { notebookId: string }) {
   }, [activeStore]);
 
   const handleGoHome = useCallback(() => {
-    router.push('/');
-  }, [router]);
+    openHome();
+  }, [openHome]);
 
   // Guard: Ensure store is hydrated.
   if (!isHydrated) {

@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { ExternalLink } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useAppNavigationStore } from '@/store/appNavigationStore';
 import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
@@ -23,7 +23,7 @@ interface OpenInNotebookButtonProps {
 export function OpenInNotebookButton({ url, className, onBeforeOpen, onAfterClose }: OpenInNotebookButtonProps) {
   const [notebooks, setNotebooks] = useState<Array<{ id: string; title: string }>>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
+  const { openNotebook } = useAppNavigationStore();
 
   const loadNotebooks = useCallback(async () => {
     setIsLoading(true);
@@ -40,7 +40,7 @@ export function OpenInNotebookButton({ url, className, onBeforeOpen, onAfterClos
 
   const handleOpenInNotebook = useCallback(async (notebookId: string) => {
     // Navigate to notebook
-    router.push(`/notebook/${notebookId}`);
+    openNotebook(notebookId);
     
     // Send intent to open URL
     await window.api.setIntent({
@@ -48,7 +48,7 @@ export function OpenInNotebookButton({ url, className, onBeforeOpen, onAfterClos
       context: 'notebook',
       notebookId: notebookId
     });
-  }, [url, router]);
+  }, [url, openNotebook]);
 
   const handleCreateNewNotebook = useCallback(async () => {
     try {
