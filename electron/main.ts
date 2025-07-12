@@ -166,17 +166,42 @@ function createWindow() {
       // Intercept file:// requests to serve static assets
       mainWindow.webContents.session.protocol.interceptFileProtocol('file', (request, callback) => {
         const url = request.url.substr(7); // Remove 'file://' prefix
+        logger.debug(`[Protocol Interceptor] Request: ${request.url} -> ${url}`);
         
         // If it's a request for _next/static or other assets, serve from the out directory
         if (url.startsWith('/_next/') || url.startsWith('_next/') || url.includes('/_next/')) {
           // Extract the path after the domain/base and resolve it relative to the out directory
           const assetPath = url.replace(/^.*\/_next\//, '_next/');
           const filePath = path.join(appPath, 'out', assetPath);
-          callback(filePath);
+          logger.debug(`[Protocol Interceptor] Asset: ${filePath}`);
+          callback({ path: filePath });
+        } else if (url.includes('/notebook/') && url.endsWith('.html')) {
+          // Handle notebook routes - serve placeholder.html for any notebook ID
+          const notebookPlaceholderPath = path.join(appPath, 'out', 'notebook', 'placeholder.html');
+          logger.info(`[Protocol Interceptor] Notebook route: serving ${notebookPlaceholderPath} for ${url}`);
+          callback({ path: notebookPlaceholderPath });
         } else {
           // For other files, serve as normal
-          callback(url);
+          logger.debug(`[Protocol Interceptor] Other: ${url}`);
+          callback({ path: url });
         }
+      });
+
+      // Add debugging for navigation events
+      mainWindow.webContents.on('did-navigate', (event, navigationUrl) => {
+        logger.info(`[Navigation] did-navigate: ${navigationUrl}`);
+      });
+
+      mainWindow.webContents.on('did-navigate-in-page', (event, navigationUrl) => {
+        logger.info(`[Navigation] did-navigate-in-page: ${navigationUrl}`);
+      });
+
+      mainWindow.webContents.on('dom-ready', () => {
+        logger.info(`[Navigation] DOM ready`);
+      });
+
+      mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+        logger.error(`[Navigation] did-fail-load: ${validatedURL} - ${errorDescription} (${errorCode})`);
       });
       
       mainWindow.loadFile(indexPath)
