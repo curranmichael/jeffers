@@ -1,15 +1,22 @@
 import React from 'react';
 import { render, waitFor } from '@testing-library/react';
-import { vi, describe, it, expect, beforeEach, afterEach, Mock } from 'vitest';
-import { useParams, useRouter } from 'next/navigation';
-import NotebookWorkspacePageLoader from '../[notebookId]/page';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
+import HomePage from '../../page';
 import '@testing-library/jest-dom/vitest';
 
-// Mock only what's absolutely necessary
-vi.mock('next/navigation', () => ({
-  useParams: vi.fn(),
-  useRouter: vi.fn(),
-}));
+// Mock the app navigation store with notebook state
+vi.mock('@/store/appNavigationStore', () => {
+  const actual = vi.importActual('@/store/appNavigationStore');
+  return {
+    ...actual,
+    useAppNavigationStore: vi.fn(() => ({
+      currentNotebookId: 'test-notebook-id',
+      _hasHydrated: true,
+      openNotebook: vi.fn(),
+      openHome: vi.fn(),
+    })),
+  };
+});
 
 // Mock Next.js font loading
 vi.mock('next/font/local', () => ({
@@ -72,16 +79,8 @@ vi.mock('@/store/windowStoreFactory', () => {
 });
 
 describe('Window Stack Synchronization', () => {
-  const mockRouter = {
-    push: vi.fn(),
-    replace: vi.fn(),
-    prefetch: vi.fn(),
-  };
-
   beforeEach(() => {
     vi.useFakeTimers();
-    (useParams as Mock).mockReturnValue({ notebookId: 'test-notebook-id' });
-    (useRouter as Mock).mockReturnValue(mockRouter);
     vi.clearAllMocks();
 
     // Setup basic notebook data
@@ -98,7 +97,7 @@ describe('Window Stack Synchronization', () => {
 
   it('syncs window order with native views', async () => {
     // Act
-    render(<NotebookWorkspacePageLoader />);
+    render(<HomePage />);
     
     // Wait for initial mount
     await waitFor(() => {
@@ -123,7 +122,7 @@ describe('Window Stack Synchronization', () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     // Act
-    render(<NotebookWorkspacePageLoader />);
+    render(<HomePage />);
     
     // Wait for mount and trigger sync
     await waitFor(() => {
@@ -142,11 +141,11 @@ describe('Window Stack Synchronization', () => {
 
   it('cleans up on unmount', () => {
     // Act
-    const { unmount } = render(<NotebookWorkspacePageLoader />);
+    const { unmount } = render(<HomePage />);
     
     // Clear any pending syncs
     vi.clearAllTimers();
-    (window.api.syncWindowStackOrder as Mock).mockClear();
+    vi.mocked(window.api.syncWindowStackOrder).mockClear();
     
     // Unmount
     unmount();

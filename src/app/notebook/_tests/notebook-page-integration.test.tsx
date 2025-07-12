@@ -1,15 +1,22 @@
 import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import { vi, describe, it, expect, beforeEach, Mock } from 'vitest';
-import { useParams, useRouter } from 'next/navigation';
-import NotebookWorkspacePageLoader from '../[notebookId]/page';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
+import HomePage from '../../page';
 import '@testing-library/jest-dom/vitest';
 
-// Mock only what's absolutely necessary - Next.js routing
-vi.mock('next/navigation', () => ({
-  useParams: vi.fn(),
-  useRouter: vi.fn(),
-}));
+// Mock the app navigation store with notebook state
+vi.mock('@/store/appNavigationStore', () => {
+  const actual = vi.importActual('@/store/appNavigationStore');
+  return {
+    ...actual,
+    useAppNavigationStore: vi.fn(() => ({
+      currentNotebookId: 'test-notebook-id',
+      _hasHydrated: true,
+      openNotebook: vi.fn(),
+      openHome: vi.fn(),
+    })),
+  };
+});
 
 // Mock Next.js font loading
 vi.mock('next/font/local', () => ({
@@ -20,15 +27,7 @@ vi.mock('next/font/local', () => ({
 }));
 
 describe('NotebookWorkspace', () => {
-  const mockRouter = {
-    push: vi.fn(),
-    replace: vi.fn(),
-    prefetch: vi.fn(),
-  };
-
   beforeEach(() => {
-    (useParams as Mock).mockReturnValue({ notebookId: 'test-notebook-id' });
-    (useRouter as Mock).mockReturnValue(mockRouter);
     vi.clearAllMocks();
   });
 
@@ -45,7 +44,7 @@ describe('NotebookWorkspace', () => {
     window.api.getNotebookById = vi.fn().mockResolvedValue(notebook);
     
     // Act
-    render(<NotebookWorkspacePageLoader />);
+    render(<HomePage />);
     
     // Assert - user can see their notebook
     expect(await screen.findByText('My Research Notes')).toBeInTheDocument();
@@ -59,7 +58,7 @@ describe('NotebookWorkspace', () => {
     });
     
     // Act
-    render(<NotebookWorkspacePageLoader />);
+    render(<HomePage />);
     
     // Assert - notebook is fetched
     await waitFor(() => {
@@ -80,7 +79,7 @@ describe('NotebookWorkspace', () => {
     });
     
     // Act
-    render(<NotebookWorkspacePageLoader />);
+    render(<HomePage />);
     
     // Wait for notebook to load
     const titleElement = await screen.findByText('Original Title');
@@ -108,7 +107,7 @@ describe('NotebookWorkspace', () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     
     // Act
-    render(<NotebookWorkspacePageLoader />);
+    render(<HomePage />);
     
     // Assert - error is logged
     await waitFor(() => {
@@ -126,7 +125,7 @@ describe('NotebookWorkspace', () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     
     // Act
-    render(<NotebookWorkspacePageLoader />);
+    render(<HomePage />);
     
     // Edit title
     const titleElement = await screen.findByText('My Notebook');
@@ -154,7 +153,7 @@ describe('NotebookWorkspace', () => {
     });
     
     // Act
-    render(<NotebookWorkspacePageLoader />);
+    render(<HomePage />);
     
     // Edit title
     const titleElement = await screen.findByText('Old Title');

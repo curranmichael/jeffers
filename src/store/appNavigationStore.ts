@@ -85,7 +85,7 @@ export const appNavigationStorageAsync: PersistStorage<PersistedAppNavigationSta
  */
 export const useAppNavigationStore = create<AppNavigationState>()(
   persist<AppNavigationState, [], [], PersistedAppNavigationState>(
-    (set, get) => ({
+    (set) => ({
       currentNotebookId: null,
       _hasHydrated: false,
 
@@ -113,7 +113,7 @@ export const useAppNavigationStore = create<AppNavigationState>()(
       migrate: (persistedState, version) => {
         console.log(`[App Navigation Storage] Attempting migration. Persisted version: ${version}, Current version: ${CURRENT_PERSIST_VERSION}`);
         
-        let stateToMigrate = persistedState as unknown as PersistedAppNavigationState;
+        const stateToMigrate = persistedState as unknown as PersistedAppNavigationState;
 
         // Validate persisted state structure
         if (!stateToMigrate || typeof stateToMigrate !== 'object') {
