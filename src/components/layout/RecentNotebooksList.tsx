@@ -100,7 +100,7 @@ export function RecentNotebooksList({ notebooks, onSelectNotebook, onDeleteNoteb
   return (
     <motion.div 
       className="flex flex-col space-y-3" 
-      style={{ paddingTop: topOffset ? `${topOffset - 16}px` : 0 }}
+      style={{ paddingTop: topOffset ? `${topOffset - 24}px` : 0 }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
