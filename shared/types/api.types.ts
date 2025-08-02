@@ -278,6 +278,8 @@ export interface IAppAPI {
   // --- Object Operations ---
   /** Get an object by its ID */
   getObjectById: (objectId: string) => Promise<JeffersObject | null>;
+  /** Update an object by its ID */
+  updateObject: (objectId: string, updates: Partial<Omit<JeffersObject, 'id' | 'createdAt' | 'updatedAt'>>) => Promise<void>;
   /** Delete objects by their IDs */
   deleteObjects: (objectIds: string[]) => Promise<DeleteResult>;
   /** Delete an object by its source URI */

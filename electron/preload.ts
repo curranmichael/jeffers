@@ -80,6 +80,7 @@ import {
     PDF_INGEST_CANCEL,
     // Object channels
     OBJECT_GET_BY_ID,
+    OBJECT_UPDATE,
     OBJECT_DELETE,
     OBJECT_DELETE_BY_SOURCE_URI,
     // Note channels
@@ -609,6 +610,11 @@ const api = {
   getObjectById: (objectId: string): Promise<JeffersObject | null> => {
     console.log('[Preload Script] Getting object by ID via IPC');
     return ipcRenderer.invoke(OBJECT_GET_BY_ID, objectId);
+  },
+
+  updateObject: (objectId: string, updates: any): Promise<void> => {
+    console.log('[Preload Script] Updating object via IPC');
+    return ipcRenderer.invoke(OBJECT_UPDATE, objectId, updates);
   },
 
   deleteObjects: (objectIds: string[]): Promise<DeleteResult> => {

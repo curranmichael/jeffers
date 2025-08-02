@@ -1,5 +1,5 @@
 import { IpcMain, IpcMainInvokeEvent } from 'electron';
-import { OBJECT_GET_BY_ID, OBJECT_DELETE, OBJECT_DELETE_BY_SOURCE_URI } from '../../shared/ipcChannels';
+import { OBJECT_GET_BY_ID, OBJECT_UPDATE, OBJECT_DELETE, OBJECT_DELETE_BY_SOURCE_URI } from '../../shared/ipcChannels';
 import { ObjectModelCore } from '../../models/ObjectModelCore';
 import { ObjectService } from '../../services/ObjectService';
 import { ClassicBrowserService } from '../../services/browser/ClassicBrowserService';
@@ -30,6 +30,22 @@ export function registerObjectHandlers(
       return object;
     } catch (error) {
       logger.error('[ObjectHandlers] Error getting object:', error);
+      throw error;
+    }
+  });
+
+  // Update object by ID
+  ipcMain.handle(OBJECT_UPDATE, async (
+    event: IpcMainInvokeEvent,
+    objectId: string,
+    updates: Partial<Omit<JeffersObject, 'id' | 'createdAt' | 'updatedAt'>>
+  ): Promise<void> => {
+    try {
+      logger.info(`[ObjectHandlers] Updating object ${objectId}:`, updates);
+      await objectModelCore.update(objectId, updates);
+      logger.info(`[ObjectHandlers] Successfully updated object ${objectId}`);
+    } catch (error) {
+      logger.error('[ObjectHandlers] Error updating object:', error);
       throw error;
     }
   });

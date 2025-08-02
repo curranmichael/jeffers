@@ -203,6 +203,8 @@ export const PDF_INGEST_CANCEL = 'pdf:ingest:cancel';
 // --- Object Operations ---
 /** Renderer -> Main: Get an object by its ID. */
 export const OBJECT_GET_BY_ID = 'object:getById';
+/** Renderer -> Main: Update an object by its ID. */
+export const OBJECT_UPDATE = 'object:update';
 /** Renderer -> Main: Delete objects by their IDs. */
 export const OBJECT_DELETE = 'object:delete';
 /** Renderer -> Main: Delete an object by its source URI. */

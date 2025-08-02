@@ -2,6 +2,7 @@
 
 import { Home, MessageSquare, Globe, MonitorIcon, FileText, LucideIcon } from "lucide-react";
 import { NoteEditorPayload, WindowContentType } from "../../shared/types";
+import { VerticalTabs } from "@/components/VerticalTabs";
 import {
   Sidebar,
   SidebarContent,
@@ -160,61 +161,6 @@ export function AppSidebar({ onAddChat, onAddBrowser, onGoHome, windows = [], ac
                       return <IconComponent className="h-4 w-4 text-step-10 hover:text-birkin" />;
                     };
                     
-                    const getPopoverContent = () => {
-                      if (localWindow.type === 'classic-browser') {
-                        const browserPayload = localWindow.payload as ClassicBrowserPayload;
-                        if (browserPayload.tabs && browserPayload.tabs.length > 1) {
-                          return (
-                            <div className="flex flex-col">
-                              {browserPayload.tabs.map((tab) => (
-                                <div 
-                                  key={tab.id} 
-                                  className="px-2 py-1.5 text-sm text-step-11.5 dark:text-step-11 truncate rounded transition-colors hover:bg-step-1 hover:text-step-12 dark:hover:text-step-11.5 cursor-pointer group"
-                                  onClick={async (e) => {
-                                    e.stopPropagation();
-                                    
-                                    // Update the window state with the selected tab
-                                    activeStore?.getState().updateWindowProps(localWindow.id, {
-                                      payload: {
-                                        ...browserPayload,
-                                        activeTabId: tab.id
-                                      }
-                                    });
-                                    
-                                    // Add a small delay to ensure state update is processed
-                                    // This allows the store update to propagate before restoration
-                                    await new Promise(resolve => setTimeout(resolve, 50));
-                                    
-                                    // Restore the window (which will create browser with correct tab)
-                                    activeStore?.getState().restoreWindow(localWindow.id);
-                                  }}
-                                >
-                                  <div className="flex items-center gap-2">
-                                    {/* Tab favicon */}
-                                    <Favicon 
-                                      url={tab.faviconUrl || ''} 
-                                      fallback={<Globe className="h-4 w-4" />}
-                                      className="flex-shrink-0 h-4 w-4"
-                                    />
-                                    
-                                    {/* Tab title */}
-                                    <span className="truncate flex-1">
-                                      {tab.title || 'Untitled'}
-                                    </span>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          );
-                        }
-                      }
-                      return (
-                        <div className="text-sm truncate">
-                          {localWindow.title}
-                        </div>
-                      );
-                    };
-                    
                     return (
                       <SidebarMenuItem key={localWindow.id}>
                         <HoverCard openDelay={200} closeDelay={100}>
@@ -237,7 +183,7 @@ export function AppSidebar({ onAddChat, onAddBrowser, onGoHome, windows = [], ac
                               await activeStore?.getState().restoreWindow(localWindow.id);
                             }}
                           >
-                            {getPopoverContent()}
+                            <VerticalTabs localWindow={localWindow} activeStore={activeStore} />
                           </HoverCardContent>
                         </HoverCard>
                       </SidebarMenuItem>
