@@ -52,7 +52,7 @@ export function VerticalTabs({ localWindow, activeStore }: VerticalTabsProps) {
       return (
         <div className="flex flex-col">
           {/* Tab group title header */}
-          <div className="px-2 py-2 border-b border-step-6 mb-1">
+          <div className="px-2 py-2">
             {isEditingTitle ? (
               <input
                 ref={titleInputRef}
@@ -68,19 +68,19 @@ export function VerticalTabs({ localWindow, activeStore }: VerticalTabsProps) {
                     setEditedTitle(browserPayload.tabGroupTitle || 'Browser Window');
                   }
                 }}
-                className="w-full px-1 py-0.5 text-sm font-medium bg-transparent border border-step-6 rounded outline-none focus:border-step-8"
+                className="w-full px-1 py-0.5 text-sm font-bold bg-transparent border border-step-6 rounded outline-none focus:border-step-8"
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (
               <div 
-                className="flex items-center gap-2 group/title cursor-pointer"
+                className="flex items-center justify-between group/title cursor-pointer"
                 onClick={(e) => {
                   e.stopPropagation();
                   setEditedTitle(browserPayload.tabGroupTitle || 'Browser Window');
                   setIsEditingTitle(true);
                 }}
               >
-                <span className="text-sm font-medium text-step-12">
+                <span className="text-sm font-bold text-step-12">
                   {browserPayload.tabGroupTitle || 'Browser Window'}
                 </span>
                 <Edit2 className="h-3 w-3 opacity-0 group-hover/title:opacity-50 transition-opacity" />
