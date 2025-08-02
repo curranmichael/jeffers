@@ -685,6 +685,11 @@ export default function HomeView() {
     setRecentNotebooks(prev => prev.filter(notebook => notebook.id !== notebookId));
   }, []);
 
+  const handleShowNotebooks = useCallback(() => {
+    // Reset context slices to idle state to show notebooks
+    setContextSlices({ status: 'idle', data: null });
+  }, []);
+
   // Effect to measure greeting position
   useEffect(() => {
     const measureGreeting = () => {
@@ -986,6 +991,7 @@ export default function HomeView() {
                     contextState={contextSlices} 
                     isNotebookCover={true} 
                     onWebLayerOpen={handleLinkClick}
+                    onShowNotebooks={handleShowNotebooks}
                   />
                 </motion.div>
               )}
