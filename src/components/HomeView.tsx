@@ -954,7 +954,7 @@ export default function HomeView() {
         </div>
 
         {/* Right Column (context slices or recent notebooks) */}
-        <div className="bg-step-2 pr-2 pt-2 pb-2 h-full">
+        <div className="bg-step-2 pr-2 pt-2 pb-2 h-full overflow-hidden">
           <div className="bg-step-3 h-full p-4 overflow-y-auto flex justify-center">
             <div className="w-full max-w-2xl">
             {/* Show recent notebooks when no slices are available */}
