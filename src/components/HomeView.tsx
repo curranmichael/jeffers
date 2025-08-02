@@ -59,7 +59,7 @@ export default function HomeView() {
   const [isThinking, setIsThinking] = useState<boolean>(false);
   const [isNavigatingToNotebook, setIsNavigatingToNotebook] = useState<boolean>(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const intentLineRef = useRef<HTMLInputElement>(null);
+  const intentLineRef = useRef<HTMLTextAreaElement>(null);
   const [streamingMessage, setStreamingMessage] = useState<string>('');
   const [activeStreamId, setActiveStreamId] = useState<string | null>(null);
   const intentTimingRef = useRef<{startTime: number, correlationId: string} | null>(null);
@@ -866,7 +866,6 @@ export default function HomeView() {
             <div className="relative h-9">
               <IntentLine
                 ref={intentLineRef}
-                type="text"
                 value={intentText}
                 onChange={(e) => setIntentText(e.target.value)}
                 transcribeAudio={typeof window !== 'undefined' ? window.api.audio.transcribe : undefined}

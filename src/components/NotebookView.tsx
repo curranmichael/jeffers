@@ -54,7 +54,7 @@ function NotebookContent({
   const [isPillHovered, setIsPillHovered] = useState(false);
   const [isPillClicked, setIsPillClicked] = useState(false);
   const [isNotebookDropdownOpen, setIsNotebookDropdownOpen] = useState(false);
-  const intentLineRef = useRef<HTMLInputElement>(null);
+  const intentLineRef = useRef<HTMLTextAreaElement>(null);
   
   // Focus intent line when it becomes visible
   useEffect(() => {
@@ -256,8 +256,7 @@ function NotebookContent({
           onClick={() => setIsIntentLineVisible(!isIntentLineVisible)}
         >
           <HumanComputerIcon 
-            onClick={(e) => {
-              e.stopPropagation();
+            onClick={() => {
               setIsIntentLineVisible(!isIntentLineVisible);
             }}
             isActive={isIntentLineVisible}
@@ -270,7 +269,6 @@ function NotebookContent({
         >
           <IntentLine
             ref={intentLineRef}
-            type="text"
             value={notebookIntentText}
             onChange={(e) => setNotebookIntentText(e.target.value)}
             transcribeAudio={typeof window !== 'undefined' ? window.api.audio.transcribe : undefined}
