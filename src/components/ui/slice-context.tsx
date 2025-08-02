@@ -1,7 +1,7 @@
 "use client"
 
 import React from 'react';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, BookOpen } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { ContextState, DisplaySlice } from '../../../shared/types'; // Adjust path as needed
 import { MarkdownRenderer } from './markdown-renderer'; // Assuming it's in the same directory
@@ -11,6 +11,7 @@ interface SliceContextProps {
   contextState?: ContextState<DisplaySlice[]>;
   isNotebookCover?: boolean;
   onWebLayerOpen?: (url: string) => void; // For notebook cover
+  onShowNotebooks?: () => void; // Callback to show notebooks view
 }
 
 // Basic styling for the cards - can be refined
@@ -28,7 +29,8 @@ const notebookCoverLinkStyle = "hover:underline hover:text-birkin text-step-12 t
 export const SliceContext: React.FC<SliceContextProps> = ({ 
   contextState, 
   isNotebookCover = false,
-  onWebLayerOpen
+  onWebLayerOpen,
+  onShowNotebooks
 }) => {
   if (!contextState) {
     return null; // Nothing to render if no state provided
@@ -109,8 +111,21 @@ export const SliceContext: React.FC<SliceContextProps> = ({
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3 }}
       >
-        {/* Heading for references */}
-        <h3 className="text-xs font-bold text-step-11 mb-2 pl-2">References from your personal internet</h3>
+        {/* Heading for references with notebook icon */}
+        <div className="flex items-center justify-between mb-2 px-2">
+          <h3 className="text-xs font-bold text-step-11">
+            References from your personal internet
+          </h3>
+          {isNotebookCover && onShowNotebooks && (
+            <button
+              onClick={onShowNotebooks}
+              className="p-1 hover:bg-step-2 rounded transition-colors duration-200 group"
+              title="Show notebooks"
+            >
+              <BookOpen className="h-4 w-4 text-step-11 group-hover:text-birkin transition-colors duration-200" />
+            </button>
+          )}
+        </div>
         {/* Container for slice cards - using flex-wrap */}
         <div className={cn("flex flex-wrap justify-center", isNotebookCover ? "gap-2" : "gap-0.5")}>
           {slices.map((slice, index) => (

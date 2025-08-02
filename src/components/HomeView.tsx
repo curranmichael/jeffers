@@ -59,7 +59,7 @@ export default function HomeView() {
   const [isThinking, setIsThinking] = useState<boolean>(false);
   const [isNavigatingToNotebook, setIsNavigatingToNotebook] = useState<boolean>(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const intentLineRef = useRef<HTMLInputElement>(null);
+  const intentLineRef = useRef<HTMLTextAreaElement>(null);
   const [streamingMessage, setStreamingMessage] = useState<string>('');
   const [activeStreamId, setActiveStreamId] = useState<string | null>(null);
   const intentTimingRef = useRef<{startTime: number, correlationId: string} | null>(null);
@@ -685,6 +685,11 @@ export default function HomeView() {
     setRecentNotebooks(prev => prev.filter(notebook => notebook.id !== notebookId));
   }, []);
 
+  const handleShowNotebooks = useCallback(() => {
+    // Reset context slices to idle state to show notebooks
+    setContextSlices({ status: 'idle', data: null });
+  }, []);
+
   // Effect to measure greeting position
   useEffect(() => {
     const measureGreeting = () => {
@@ -861,7 +866,6 @@ export default function HomeView() {
             <div className="relative h-9">
               <IntentLine
                 ref={intentLineRef}
-                type="text"
                 value={intentText}
                 onChange={(e) => setIntentText(e.target.value)}
                 transcribeAudio={typeof window !== 'undefined' ? window.api.audio.transcribe : undefined}
@@ -954,7 +958,7 @@ export default function HomeView() {
         </div>
 
         {/* Right Column (context slices or recent notebooks) */}
-        <div className="bg-step-2 pr-2 pt-2 pb-2 h-full">
+        <div className="bg-step-2 pr-2 pt-2 pb-2 h-full overflow-hidden">
           <div className="bg-step-3 h-full p-4 overflow-y-auto flex justify-center">
             <div className="w-full max-w-2xl">
             {/* Show recent notebooks when no slices are available */}
@@ -986,6 +990,7 @@ export default function HomeView() {
                     contextState={contextSlices} 
                     isNotebookCover={true} 
                     onWebLayerOpen={handleLinkClick}
+                    onShowNotebooks={handleShowNotebooks}
                   />
                 </motion.div>
               )}

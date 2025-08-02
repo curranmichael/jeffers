@@ -583,8 +583,7 @@ export class ObjectModelCore extends BaseModel {
   }
 
   async existsBySourceUri(sourceUri: string): Promise<boolean> {
-    // Only check LOM layer to distinguish explicit bookmarks from WOM navigation history
-    const stmt = this.db.prepare("SELECT 1 FROM objects WHERE source_uri = ? AND layer = 'LOM' LIMIT 1");
+    const stmt = this.db.prepare("SELECT 1 FROM objects WHERE source_uri = ? LIMIT 1");
     try {
       const record = stmt.get(sourceUri);
       return record !== undefined;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { Clock, Notebook, Plus } from "lucide-react";
+import { Clock, BookOpen, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { WeatherData, RecentNotebook } from "../../../shared/types";
 import {
@@ -183,7 +183,7 @@ export function NotebookInfoPill({ title, className = "", onTitleChange, parentZ
             className="p-0 border-0 bg-transparent hover:bg-transparent focus:outline-none focus-visible:outline-none"
             onClick={(e) => e.stopPropagation()}
           >
-            <Notebook className="w-3.5 h-3.5 transition-colors duration-200 hover:text-birkin" />
+            <BookOpen className="w-3.5 h-3.5 transition-colors duration-200 hover:text-birkin" />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent 
