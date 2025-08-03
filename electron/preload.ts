@@ -36,6 +36,10 @@ import {
     NOTEBOOK_COMPOSE,
     NOTEBOOK_GET_RECENTLY_VIEWED,
     NOTEBOOK_GET_OR_CREATE_DAILY,
+    NOTEBOOK_GET_TSTP,
+    NOTEBOOK_GET_SUMMARY,
+    NOTEBOOK_GET_TAGS,
+    NOTEBOOK_GET_PROPOSITIONS,
     CHAT_SESSION_CREATE_IN_NOTEBOOK,
     CHAT_SESSION_LIST_FOR_NOTEBOOK,
     CHAT_SESSION_TRANSFER_TO_NOTEBOOK,
@@ -406,6 +410,27 @@ const api = {
   getOrCreateDailyNotebook: (): Promise<NotebookRecord> => {
     console.log(`[Preload Script] Invoking ${NOTEBOOK_GET_OR_CREATE_DAILY}`);
     return ipcRenderer.invoke(NOTEBOOK_GET_OR_CREATE_DAILY);
+  },
+  getNotebookTSTP: (notebookId: string): Promise<any> => {
+    console.log(`[Preload Script] Invoking ${NOTEBOOK_GET_TSTP} for notebook ID: ${notebookId}`);
+    return ipcRenderer.invoke(NOTEBOOK_GET_TSTP, notebookId);
+  },
+  getNotebookSummary: (notebookId: string): Promise<string | null> => {
+    console.log(`[Preload Script] Invoking ${NOTEBOOK_GET_SUMMARY} for notebook ID: ${notebookId}`);
+    return ipcRenderer.invoke(NOTEBOOK_GET_SUMMARY, notebookId);
+  },
+  getNotebookTags: (notebookId: string): Promise<string[]> => {
+    console.log(`[Preload Script] Invoking ${NOTEBOOK_GET_TAGS} for notebook ID: ${notebookId}`);
+    return ipcRenderer.invoke(NOTEBOOK_GET_TAGS, notebookId);
+  },
+  getNotebookPropositions: (notebookId: string): Promise<Array<{
+    objectId: string;
+    objectTitle: string;
+    type: 'main' | 'supporting' | 'action';
+    content: string;
+  }>> => {
+    console.log(`[Preload Script] Invoking ${NOTEBOOK_GET_PROPOSITIONS} for notebook ID: ${notebookId}`);
+    return ipcRenderer.invoke(NOTEBOOK_GET_PROPOSITIONS, notebookId);
   },
 
   // --- Chat Session Functions (within Notebooks) ---

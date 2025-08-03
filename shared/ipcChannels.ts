@@ -102,6 +102,16 @@ export const NOTEBOOK_GET_OR_CREATE_DAILY = 'notebook:getOrCreateDaily';
 /** Renderer -> Main: Get recently viewed notebooks. */
 export const NOTEBOOK_GET_RECENTLY_VIEWED = 'notebook:get-recently-viewed';
 
+// --- Notebook TSTP Operations ---
+/** Renderer -> Main: Get full TSTP data for a notebook. */
+export const NOTEBOOK_GET_TSTP = 'notebook:getTSTP';
+/** Renderer -> Main: Get aggregated summary for a notebook. */
+export const NOTEBOOK_GET_SUMMARY = 'notebook:getSummary';
+/** Renderer -> Main: Get aggregated tags for a notebook. */
+export const NOTEBOOK_GET_TAGS = 'notebook:getTags';
+/** Renderer -> Main: Get all propositions from a notebook. */
+export const NOTEBOOK_GET_PROPOSITIONS = 'notebook:getPropositions';
+
 // --- Chat Session Operations within Notebooks ---
 /** Renderer -> Main: Create a new chat session in a notebook. */
 export const CHAT_SESSION_CREATE_IN_NOTEBOOK = 'chatSession:createInNotebook';

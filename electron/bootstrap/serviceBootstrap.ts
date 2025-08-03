@@ -42,6 +42,7 @@ import { SearchResultFormatter } from '../../services/SearchResultFormatter';
 import { NoteService } from '../../services/NoteService';
 import { ObjectService } from '../../services/ObjectService';
 import { NotebookCompositionService } from '../../services/NotebookCompositionService';
+import { NotebookTSTPService } from '../../services/NotebookTSTPService';
 import { StreamManager } from '../../services/StreamManager';
 import { WeatherService } from '../../services/WeatherService';
 import { AudioTranscriptionService } from '../../services/AudioTranscriptionService';
@@ -80,6 +81,7 @@ export interface ServiceRegistry {
   intent?: IntentService;
   notebook?: NotebookService;
   notebookComposition?: NotebookCompositionService;
+  notebookTSTP?: NotebookTSTPService;
   note?: NoteService;
   object?: ObjectService;
   profile?: ProfileService;
@@ -343,6 +345,14 @@ export async function initializeServices(
       activityLogModel
     }]);
     registry.notebook = notebookService;
+    
+    // Initialize NotebookTSTPService (depends on object models)
+    const notebookTSTPService = await createService('NotebookTSTPService', NotebookTSTPService, [{
+      db: deps.db,
+      objectModel: objectModelCore,
+      objectAssociationModel: objectAssociation
+    }]);
+    registry.notebookTSTP = notebookTSTPService;
     
     // Initialize SliceService (depends on ChunkModel and ObjectModelCore)
     const sliceService = await createService('SliceService', SliceService, [{
