@@ -21,9 +21,10 @@ export function registerClassicBrowserCreateHandler(classicBrowserService: Class
     _event: IpcMainInvokeEvent, 
     windowId: string, 
     bounds: Electron.Rectangle, 
-    payload: ClassicBrowserPayload
+    payload: ClassicBrowserPayload,
+    notebookId?: string
   ) => {
-    logger.debug(`Handling ${CLASSIC_BROWSER_CREATE} for windowId: ${windowId} with bounds: ${JSON.stringify(bounds)}, payload tabs: ${payload?.tabs?.length || 0}`);
+    logger.debug(`Handling ${CLASSIC_BROWSER_CREATE} for windowId: ${windowId} with bounds: ${JSON.stringify(bounds)}, payload tabs: ${payload?.tabs?.length || 0}, notebookId: ${notebookId || 'none'}`);
 
     if (!windowId || typeof windowId !== 'string') {
       logger.error('Invalid windowId for ClassicBrowserCreate. Must be a non-empty string.');
@@ -40,7 +41,7 @@ export function registerClassicBrowserCreateHandler(classicBrowserService: Class
     }
 
     try {
-      classicBrowserService.createBrowserView(windowId, bounds, payload);
+      classicBrowserService.createBrowserView(windowId, bounds, payload, notebookId);
       return { success: true };
     } catch (err: any) {
       logger.error(`Error in ${CLASSIC_BROWSER_CREATE} handler:`, err.message || err);

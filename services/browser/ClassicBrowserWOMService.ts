@@ -1,5 +1,6 @@
 import { BaseService } from '../base/BaseService';
 import { ObjectModelCore } from '../../models/ObjectModelCore';
+import { ObjectAssociationModel } from '../../models/ObjectAssociationModel';
 import { CompositeObjectEnrichmentService } from '../CompositeObjectEnrichmentService';
 import { ClassicBrowserStateService } from './ClassicBrowserStateService';
 import { MediaType } from '../../shared/types/vector.types';
@@ -8,6 +9,7 @@ import { BrowserEventBus } from './BrowserEventBus';
 
 export interface ClassicBrowserWOMServiceDeps {
   objectModelCore: ObjectModelCore;
+  objectAssociationModel?: ObjectAssociationModel;
   compositeEnrichmentService: CompositeObjectEnrichmentService;
   eventBus: BrowserEventBus;
   stateService: ClassicBrowserStateService;
@@ -17,6 +19,7 @@ export interface ClassicBrowserWOMServiceDeps {
 export class ClassicBrowserWOMService extends BaseService<ClassicBrowserWOMServiceDeps> {
   private tabToObjectMap: Map<string, string> = new Map();
   private tabGroupUpdateQueue: Map<string, NodeJS.Timeout> = new Map();
+  private windowToNotebookMap: Map<string, string> = new Map();
 
   constructor(deps: ClassicBrowserWOMServiceDeps) {
     super('ClassicBrowserWOMService', deps);
@@ -25,10 +28,23 @@ export class ClassicBrowserWOMService extends BaseService<ClassicBrowserWOMServi
 
   setLateDependencies(deps: {
     womIngestionService: WOMIngestionService,
-    compositeEnrichmentService: CompositeObjectEnrichmentService
+    compositeEnrichmentService: CompositeObjectEnrichmentService,
+    objectAssociationModel?: ObjectAssociationModel
   }): void {
     this.deps.womIngestionService = deps.womIngestionService;
     this.deps.compositeEnrichmentService = deps.compositeEnrichmentService;
+    if (deps.objectAssociationModel) {
+      this.deps.objectAssociationModel = deps.objectAssociationModel;
+    }
+  }
+
+  /**
+   * Associates a browser window with a notebook.
+   * This should be called when creating a browser in a notebook context.
+   */
+  setWindowNotebook(windowId: string, notebookId: string): void {
+    this.windowToNotebookMap.set(windowId, notebookId);
+    this.logInfo(`Associated window ${windowId} with notebook ${notebookId}`);
   }
 
   private setupEventListeners(): void {
@@ -96,6 +112,13 @@ export class ClassicBrowserWOMService extends BaseService<ClassicBrowserWOMServi
       browserState.tabGroupId = tabGroup.id;
       this.logInfo(`Created tab group ${tabGroup.id} for window ${windowId} with ${browserState.tabs.length} tabs`);
       
+      // Associate the tab group with the notebook if we have the mapping
+      const notebookId = this.windowToNotebookMap.get(windowId);
+      if (notebookId && this.deps.objectAssociationModel) {
+        await this.deps.objectAssociationModel.addToNotebook(tabGroup.id, notebookId);
+        this.logInfo(`Associated tab group ${tabGroup.id} with notebook ${notebookId}`);
+      }
+      
       // Schedule initial update to set child objects
       this.scheduleTabGroupUpdate(windowId);
     } catch (error) {
@@ -160,6 +183,9 @@ export class ClassicBrowserWOMService extends BaseService<ClassicBrowserWOMServi
     
     // Clear tab mappings
     this.tabToObjectMap.clear();
+    
+    // Clear notebook mappings
+    this.windowToNotebookMap.clear();
     
     // Remove event listeners
     this.deps.eventBus.removeAllListeners('view:did-navigate');

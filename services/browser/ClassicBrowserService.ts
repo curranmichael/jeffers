@@ -429,7 +429,12 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
     return this.deps.stateService.states.get(windowId) || null;
   }
 
-  createBrowserView(windowId: string, bounds: Electron.Rectangle, payload: ClassicBrowserPayload): void {
+  createBrowserView(windowId: string, bounds: Electron.Rectangle, payload: ClassicBrowserPayload, notebookId?: string): void {
+    // Store the notebook ID for this window if provided
+    if (notebookId) {
+      this.deps.womService.setWindowNotebook(windowId, notebookId);
+    }
+    
     // Check if we already have state for this window (i.e., it's already live in this session)
     if (this.deps.stateService.states.has(windowId)) {
       this.logInfo(`[CREATE] State for windowId ${windowId} already exists. Using existing state.`);

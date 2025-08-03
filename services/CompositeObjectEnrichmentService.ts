@@ -86,6 +86,8 @@ export class CompositeObjectEnrichmentService extends BaseService<CompositeEnric
         status: 'complete'
       });
 
+      this.logInfo(`Updated composite object ${objectId} title to: "${tstp.title}" (${validChildren.length} children)`);
+
       // Emit title update event if we have a window ID
       const windowId = this.windowIdByTabGroupId.get(objectId);
       if (windowId) {
@@ -147,7 +149,7 @@ ${JSON.stringify(childrenTSTP, null, 2)}
 
 Generate composite metadata in the following JSON format:
 {
-  "title": "A thematic title capturing the essence (max 6 words)",
+  "title": "A descriptive title capturing the key words (max 3 words)",
   "summary": "A comprehensive one-paragraph summary that synthesizes the common themes and key insights from all pages",
   "tags": ["select the most relevant tags from children", "add 1-2 meta-tags that capture the group theme"],
   "propositions": [
