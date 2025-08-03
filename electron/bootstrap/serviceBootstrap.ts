@@ -346,12 +346,13 @@ export async function initializeServices(
     }]);
     registry.notebook = notebookService;
     
-    // Initialize NotebookTSTPService (depends on object models and notebookModel)
+    // Initialize NotebookTSTPService (depends on object models, notebookModel, and LLM)
     const notebookTSTPService = await createService('NotebookTSTPService', NotebookTSTPService, [{
       db: deps.db,
       objectModel: objectModelCore,
       objectAssociationModel: objectAssociation,
-      notebookModel
+      notebookModel,
+      llm: ingestionAiService.llm
     }]);
     registry.notebookTSTP = notebookTSTPService;
     

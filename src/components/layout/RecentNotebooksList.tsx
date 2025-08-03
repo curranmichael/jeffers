@@ -162,9 +162,7 @@ export function RecentNotebooksList({ notebooks, onSelectNotebook, onDeleteNoteb
               >
                 <div className="space-y-2">
                   <p className="text-sm">
-                    {/* TODO: Fetch actual summary from JeffersObject using notebook.objectId */}
-                    Beautiful country burn again, Point Pinos down to the
-                    Sur Rivers. Burn as before with bitter wonders, land and ocean and the Carmel water.
+                    {notebook.summary || notebook.description || 'No summary available'}
                   </p>
                   <div className="flex justify-between text-sm">
                     <div className="flex gap-3">
