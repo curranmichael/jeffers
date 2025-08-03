@@ -660,8 +660,24 @@ function NotebookWorkspace({ notebookId }: { notebookId: string }) {
       // No specific cleanup needed for onMainRequestFlush as it doesn't return a remover
       // and is intended as a global, app-lifecycle listener.
       console.log('[NotebookWorkspace] Cleanup: beforeunload listener removed. Main flush listener was global.');
+      
+      // Generate and save TSTP data when leaving the notebook
+      if (window.api?.generateNotebookTSTP) {
+        console.log(`[NotebookWorkspace] Generating TSTP for notebook ${notebookId} on unmount`);
+        window.api.generateNotebookTSTP(notebookId)
+          .then(result => {
+            if (result.success) {
+              console.log(`[NotebookWorkspace] Successfully generated TSTP for notebook ${notebookId}`);
+            } else {
+              console.warn(`[NotebookWorkspace] Failed to generate TSTP: ${result.error}`);
+            }
+          })
+          .catch(error => {
+            console.error(`[NotebookWorkspace] Error generating TSTP:`, error);
+          });
+      }
     };
-  }, []); // Empty dependency array: runs once on mount, cleans up on unmount
+  }, [notebookId]); // Add notebookId to dependencies to ensure we have the correct ID
 
   // NOTE: Removed onClassicBrowserViewFocused listener to prevent focus feedback loop.
   // With the new controller pattern, all focus changes originate from the frontend.

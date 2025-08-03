@@ -40,6 +40,7 @@ import {
     NOTEBOOK_GET_SUMMARY,
     NOTEBOOK_GET_TAGS,
     NOTEBOOK_GET_PROPOSITIONS,
+    NOTEBOOK_GENERATE_TSTP,
     CHAT_SESSION_CREATE_IN_NOTEBOOK,
     CHAT_SESSION_LIST_FOR_NOTEBOOK,
     CHAT_SESSION_TRANSFER_TO_NOTEBOOK,
@@ -431,6 +432,10 @@ const api = {
   }>> => {
     console.log(`[Preload Script] Invoking ${NOTEBOOK_GET_PROPOSITIONS} for notebook ID: ${notebookId}`);
     return ipcRenderer.invoke(NOTEBOOK_GET_PROPOSITIONS, notebookId);
+  },
+  generateNotebookTSTP: (notebookId: string): Promise<{ success: boolean; error?: string }> => {
+    console.log(`[Preload Script] Invoking ${NOTEBOOK_GENERATE_TSTP} for notebook ID: ${notebookId}`);
+    return ipcRenderer.invoke(NOTEBOOK_GENERATE_TSTP, notebookId);
   },
 
   // --- Chat Session Functions (within Notebooks) ---

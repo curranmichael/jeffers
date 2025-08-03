@@ -4,7 +4,8 @@ import {
   NOTEBOOK_GET_TSTP,
   NOTEBOOK_GET_SUMMARY,
   NOTEBOOK_GET_TAGS,
-  NOTEBOOK_GET_PROPOSITIONS
+  NOTEBOOK_GET_PROPOSITIONS,
+  NOTEBOOK_GENERATE_TSTP
 } from '../../shared/ipcChannels';
 import { logger } from '../../utils/logger';
 
@@ -63,6 +64,20 @@ export function registerNotebookTSTPHandlers(
         return await notebookTSTPService.getNotebookPropositions(notebookId);
       } catch (error) {
         logger.error('[NotebookTSTP] Error getting propositions:', error);
+        throw error;
+      }
+    }
+  );
+
+  // Generate and save TSTP data for a notebook
+  ipcMain.handle(
+    NOTEBOOK_GENERATE_TSTP,
+    async (event, notebookId: string) => {
+      try {
+        logger.debug('[NotebookTSTP] Generating TSTP for notebook:', notebookId);
+        return await notebookTSTPService.generateAndSaveTSTP(notebookId);
+      } catch (error) {
+        logger.error('[NotebookTSTP] Error generating TSTP:', error);
         throw error;
       }
     }

@@ -111,6 +111,8 @@ export const NOTEBOOK_GET_SUMMARY = 'notebook:getSummary';
 export const NOTEBOOK_GET_TAGS = 'notebook:getTags';
 /** Renderer -> Main: Get all propositions from a notebook. */
 export const NOTEBOOK_GET_PROPOSITIONS = 'notebook:getPropositions';
+/** Renderer -> Main: Generate and save TSTP data for a notebook. */
+export const NOTEBOOK_GENERATE_TSTP = 'notebook:generateTSTP';
 
 // --- Chat Session Operations within Notebooks ---
 /** Renderer -> Main: Create a new chat session in a notebook. */

@@ -1,6 +1,7 @@
 import { BaseService } from './base/BaseService';
 import { ObjectModelCore } from '../models/ObjectModelCore';
 import { ObjectAssociationModel } from '../models/ObjectAssociationModel';
+import { NotebookModel } from '../models/NotebookModel';
 import type { Database } from 'better-sqlite3';
 import type { JeffersObject } from '../shared/types/object.types';
 
@@ -8,6 +9,7 @@ interface NotebookTSTPDeps {
   db: Database;
   objectModel: ObjectModelCore;
   objectAssociationModel: ObjectAssociationModel;
+  notebookModel: NotebookModel;
 }
 
 interface ObjectTSTP {
@@ -189,6 +191,73 @@ export class NotebookTSTPService extends BaseService<NotebookTSTPDeps> {
       }
 
       return allPropositions;
+    }, { notebookId });
+  }
+
+  /**
+   * Generates TSTP data for a notebook and saves it to the database.
+   * This aggregates all tags, summaries, and propositions from objects in the notebook.
+   * @param notebookId - The UUID of the notebook to process.
+   * @returns Promise resolving to success status and optional error message.
+   */
+  async generateAndSaveTSTP(notebookId: string): Promise<{ success: boolean; error?: string }> {
+    return this.execute('generateAndSaveTSTP', async () => {
+      try {
+        // Get the full TSTP data
+        const tstp = await this.getNotebookTSTP(notebookId);
+        
+        if (tstp.objects.length === 0) {
+          this.logInfo(`No objects found in notebook ${notebookId}, skipping TSTP generation`);
+          return { success: true };
+        }
+
+        // Aggregate summaries
+        const summaries = tstp.objects
+          .map(obj => obj.summary)
+          .filter((summary): summary is string => summary !== null && summary.length > 0);
+        const aggregatedSummary = summaries.length > 0 ? summaries.join('\n\n') : '';
+
+        // Collect all propositions with metadata
+        const propositions = [];
+        for (const obj of tstp.objects) {
+          for (const prop of obj.propositions) {
+            propositions.push({
+              objectId: obj.id,
+              objectTitle: obj.title,
+              type: prop.type,
+              content: prop.content
+            });
+          }
+        }
+
+        // Save to database
+        const updatedNotebook = await this.deps.notebookModel.updateTSTP(notebookId, {
+          summary: aggregatedSummary,
+          tags: tstp.aggregatedTags,
+          propositions
+        });
+
+        if (!updatedNotebook) {
+          return { 
+            success: false, 
+            error: `Notebook ${notebookId} not found` 
+          };
+        }
+
+        this.logInfo(`Successfully generated and saved TSTP for notebook ${notebookId}:`, {
+          tagCount: tstp.aggregatedTags.length,
+          propositionCount: propositions.length,
+          summaryLength: aggregatedSummary.length
+        });
+
+        return { success: true };
+      } catch (error) {
+        this.logError(`Failed to generate TSTP for notebook ${notebookId}`, error);
+        return { 
+          success: false, 
+          error: error instanceof Error ? error.message : 'Unknown error' 
+        };
+      }
     }, { notebookId });
   }
 }
