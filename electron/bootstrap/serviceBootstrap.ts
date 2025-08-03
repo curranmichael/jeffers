@@ -548,6 +548,7 @@ export async function initializeServices(
       // Initialize ClassicBrowserWOMService with all dependencies
       const womService = await createService('ClassicBrowserWOMService', ClassicBrowserWOMService, [{
         objectModelCore: objectModelCore,
+        objectAssociationModel: objectAssociation,
         compositeEnrichmentService: compositeEnrichmentService,
         eventBus: browserEventBus,
         stateService,
