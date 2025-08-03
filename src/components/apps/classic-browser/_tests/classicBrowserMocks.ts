@@ -92,6 +92,7 @@ export function createMockWindowApi(): IAppAPI {
     
     // Object methods
     getObjectById: vi.fn().mockResolvedValue(null),
+    updateObject: vi.fn().mockResolvedValue(undefined),
     deleteObjects: vi.fn().mockResolvedValue({ deletedCount: 0, chunkCount: 0 }),
     deleteObjectBySourceUri: vi.fn().mockResolvedValue({ deletedCount: 0, chunkCount: 0 }),
     // Notebook methods
@@ -103,6 +104,7 @@ export function createMockWindowApi(): IAppAPI {
     getChunksForNotebook: vi.fn().mockResolvedValue([]),
     getOrCreateDailyNotebook: vi.fn().mockResolvedValue({ id: 'daily-1', title: 'Daily Note', description: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }),
     composeNotebook: vi.fn().mockResolvedValue({ notebookId: 'nb-1' }),
+    generateNotebookTSTP: vi.fn().mockResolvedValue({ success: true }),
     
     // Note methods
     createNote: vi.fn().mockResolvedValue({ id: 'note-1', notebookId: 'nb-1', content: '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() }),
