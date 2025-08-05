@@ -31,7 +31,6 @@ export function useIntentStream({
   const [isLoading, setIsLoading] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [currentStreamId, setCurrentStreamId] = useState<string | null>(null);
   
   // Performance tracking refs
   const streamStartTimeRef = useRef<number>(0);
@@ -63,12 +62,6 @@ export function useIntentStream({
     const handleStreamStart = (data: { streamId: string }) => {
       log('log', `Stream started: ${data.streamId}`);
       
-      // Only process if this is our current stream
-      if (data.streamId !== currentStreamId) {
-        log('log', 'Ignoring stream start for different stream:', data.streamId);
-        return;
-      }
-      
       // Track stream start timing
       if (currentCorrelationIdRef.current) {
         const elapsed = performance.now() - streamStartTimeRef.current;
@@ -83,12 +76,6 @@ export function useIntentStream({
     };
 
     const handleChunk = (data: { streamId: string; chunk: string }) => {
-      // Only process if this is our current stream
-      if (data.streamId !== currentStreamId) {
-        log('log', 'Ignoring chunk for different stream:', data.streamId);
-        return;
-      }
-      
       // Track first chunk timing
       if (!firstChunkReceivedRef.current && currentCorrelationIdRef.current) {
         firstChunkReceivedRef.current = true;
@@ -110,12 +97,6 @@ export function useIntentStream({
     const handleEnd = (data: { streamId: string; messageId?: string }) => {
       log('log', `Stream ended: ${data.streamId}`);
       
-      // Only process if this is our current stream
-      if (data.streamId !== currentStreamId) {
-        log('log', 'Ignoring stream end for different stream:', data.streamId);
-        return;
-      }
-      
       // Track stream completion timing
       if (currentCorrelationIdRef.current) {
         const elapsed = performance.now() - streamStartTimeRef.current;
@@ -135,22 +116,14 @@ export function useIntentStream({
       });
       
       setIsLoading(false);
-      setCurrentStreamId(null);
     };
 
     const handleError = (data: { streamId?: string; error: string }) => {
       log('error', 'Stream error:', data.error);
       
-      // Only process if this is our current stream or no streamId provided (global error)
-      if (data.streamId && data.streamId !== currentStreamId) {
-        log('log', 'Ignoring error for different stream:', data.streamId);
-        return;
-      }
-      
       setError(`Stream error: ${data.error}`);
       setIsLoading(false);
       setStreamingContent('');
-      setCurrentStreamId(null);
     };
 
     const removeResultListener = window.api.onIntentResult(handleResult);
@@ -173,10 +146,9 @@ export function useIntentStream({
         log('log', 'Cleanup with active stream. Unable to stop intent stream from client.');
         setIsLoading(false);
         setStreamingContent('');
-        setCurrentStreamId(null);
       }
     };
-  }, [currentStreamId, isLoading, log]);
+  }, [isLoading, log]);
 
   const startStream = useCallback((intent: string) => {
     if (!intent.trim() || isLoading) return;
@@ -188,17 +160,15 @@ export function useIntentStream({
     setError(null);
     setStreamingContent('');
 
-    // Generate a correlation ID for this stream
-    const streamCorrelationId = `intent-${Date.now()}`;
-    const streamId = `${streamCorrelationId}-${Math.random().toString(36).substr(2, 9)}`;
+    // Generate a correlation ID for performance tracking
+    const correlationId = `intent-${Date.now()}`;
     
     streamStartTimeRef.current = performance.now();
     firstChunkReceivedRef.current = false;
-    currentCorrelationIdRef.current = streamCorrelationId;
-    setCurrentStreamId(streamId);
+    currentCorrelationIdRef.current = correlationId;
     
-    log('log', `Starting intent stream with correlationId: ${streamCorrelationId}`);
-    logTiming(streamCorrelationId, 'intent_submitted', { intent: intent.substring(0, 50) });
+    log('log', `Starting intent stream with correlationId: ${correlationId}`);
+    logTiming(correlationId, 'intent_submitted', { intent: intent.substring(0, 50) });
     
     // Send the intent
     const payload: SetIntentPayload = {
@@ -215,7 +185,6 @@ export function useIntentStream({
       log('log', 'Stopping intent stream tracking (client-side only).');
       setIsLoading(false);
       setStreamingContent('');
-      setCurrentStreamId(null);
       setError('Stream cancelled by user');
     }
   }, [isLoading, log]);
