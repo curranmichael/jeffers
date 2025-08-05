@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { BookmarkUploadDialog } from "@/components/BookmarkUploadDialog";
 import { PdfUploadDialog } from "@/components/PdfUploadDialog";
 import { useHashRouter } from "@/hooks/useHashRouter";
+import { useIntentStream } from "@/hooks/useIntentStream";
 import { IntentLine } from "@/components/ui/intent-line";
 import { IntentResultPayload, ContextState, DisplaySlice, SuggestedAction, RecentNotebook, WeatherData } from "../../shared/types";
 import { WebLayer } from '@/components/apps/web-layer/WebLayer';
@@ -60,9 +61,6 @@ export default function HomeView() {
   const [isNavigatingToNotebook, setIsNavigatingToNotebook] = useState<boolean>(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const intentLineRef = useRef<HTMLTextAreaElement>(null);
-  const [streamingMessage, setStreamingMessage] = useState<string>('');
-  const [activeStreamId, setActiveStreamId] = useState<string | null>(null);
-  const intentTimingRef = useRef<{startTime: number, correlationId: string} | null>(null);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedText, setSubmittedText] = useState('');
@@ -78,6 +76,9 @@ export default function HomeView() {
   const [isComposing, setIsComposing] = useState(false);
   const [suggestedActions, setSuggestedActions] = useState<SuggestedAction[]>([]);
   const [recentNotebooks, setRecentNotebooks] = useState<RecentNotebook[]>([]);
+  
+  // Use the intent stream hook
+  const { response: streamingResponse, slices: intentSlices, isLoading: isStreaming, error: streamError, startStream } = useIntentStream();
   
   // Refs for alignment
   const greetingRef = useRef<HTMLParagraphElement>(null);
@@ -241,22 +242,12 @@ export default function HomeView() {
     }
     
     const currentIntent = intentText;
-    const intentStartTime = performance.now();
-    const intentCorrelationId = `intent-${Date.now()}`;
-    
-    console.log(`[Performance] ${intentCorrelationId} - Frontend:intent_submitted at 0.00ms`);
-    
-    // Store timing info for response measurement
-    intentTimingRef.current = { startTime: intentStartTime, correlationId: intentCorrelationId };
     
     setSubmittedText(intentText);
     setIsSubmitting(true);
     
     // Clear suggested actions from previous query
     setSuggestedActions([]);
-    
-    // Don't clear the input immediately - let it fade out
-    // setIntentText('');
     
     // Mark that we've submitted at least once
     setHasSubmittedOnce(true);
@@ -319,79 +310,28 @@ export default function HomeView() {
     });
 
     console.log(`[HomeView] Submitting intent: "${currentIntent}"`);
-    try {
-      if (window.api?.setIntent) {
-        await window.api.setIntent({ intentText: currentIntent, context: 'welcome' });
-        // Refocus the intent line after submission
-        setTimeout(() => {
-          intentLineRef.current?.focus();
-        }, 0);
-      } else {
-        console.warn("[HomeView] window.api.setIntent is not available.");
-        setIsThinking(false);
-        setChatMessages(prev => prev.filter(m => m.id !== `user-${Date.now()}` && m.id !== 'greeting-message'));
-      }
-    } catch (error) {
-      console.error("Failed to set intent:", error);
-      setIsThinking(false);
-      // Don't reset isSubmitting here - let the timeout handle it
-      setChatMessages(prev => [
-        ...prev,
-        { id: `error-submit-${uuidv4()}`, role: 'assistant', content: "Error submitting your request.", createdAt: new Date().toISOString() }
-      ]);
-    }
-  }, [intentText, fullGreeting, router]);
+    
+    // Use the hook to start the stream
+    startStream(currentIntent);
+    
+    // Refocus the intent line after submission
+    setTimeout(() => {
+      intentLineRef.current?.focus();
+    }, 0);
+  }, [intentText, fullGreeting, router, startStream]);
 
+  // This effect is now handled by the useIntentStream hook and the navigation effect below
+  
+  // Handle navigation to notebook based on intent result
   useEffect(() => {
     if (!window.api?.onIntentResult) {
-      console.warn("[HomeView] window.api.onIntentResult is not available. Intent results will not be handled.");
+      console.warn("[HomeView] window.api.onIntentResult is not available. Intent navigation will not be handled.");
       return;
     }
 
     const handleResult = (result: IntentResultPayload) => {
-      console.log("[HomeView] Received intent result:", result);
+      console.log("[HomeView] Received intent result for navigation:", result);
       
-      // Track intent response timing
-      if (intentTimingRef.current) {
-        const elapsed = performance.now() - intentTimingRef.current.startTime;
-        console.log(`[Performance] ${intentTimingRef.current.correlationId} - Frontend:intent_result_received at ${elapsed.toFixed(2)}ms`, {
-          resultType: result.type,
-          hasSlices: !!(result.type === 'chat_reply' && result.slices?.length)
-        });
-        intentTimingRef.current = null; // Clear timing info
-      }
-      
-      // Clear the thinking timeout if it hasn't fired yet
-      if (thinkingTimeoutRef.current) {
-        console.log("[HomeView] Clearing thinking timeout since we got a result");
-        clearTimeout(thinkingTimeoutRef.current);
-        thinkingTimeoutRef.current = null;
-      }
-      
-      console.log("[HomeView] Setting isThinking to false in onIntentResult handler, result type:", result.type);
-      setIsThinking(false);
-      // No need to reset anything here anymore
-      
-      // Reset placeholder for next interaction (unless navigating away)
-      if (result.type !== 'open_notebook') {
-        // Keep "What's next?" if we've already submitted once
-        if (!hasSubmittedOnce) {
-          setPlaceholderText("What would you like to find, organize, or do?");
-        }
-        setShowPlaceholder(true);
-      }
-      
-      // Handle slices if this is a chat_reply with slices
-      if (result.type === 'chat_reply' && result.slices) {
-        setContextSlices({ status: 'loaded', data: result.slices });
-      } else if (result.type === 'chat_reply') {
-        // No slices returned, but still mark as loaded
-        setContextSlices({ status: 'loaded', data: [] });
-      } else if (result.type === 'error') {
-        // Error case - reset slices to idle
-        setContextSlices({ status: 'idle', data: null });
-      }
-
       if (result.type === 'open_notebook' && result.notebookId) {
         // Reset context slices since we're navigating away
         setContextSlices({ status: 'idle', data: null });
@@ -411,36 +351,6 @@ export default function HomeView() {
         setTimeout(() => {
           router.push(`/notebook/${result.notebookId}`);
         }, 300); // Just enough time to see the intent line start moving
-      } else if (result.type === 'chat_reply') {
-        setChatMessages(prevMessages => {
-          const assistantMessage: DisplayMessage = {
-            id: `assistant-${uuidv4()}`,
-            role: 'assistant',
-            content: result.message || '',
-            createdAt: new Date().toISOString(),
-          };
-          if (prevMessages.length === 0 && fullGreeting) {
-            return [
-              { id: 'greeting-message', role: 'assistant', content: fullGreeting, createdAt: new Date(Date.now() - 1000).toISOString() },
-              assistantMessage
-            ];
-          }
-          if (fullGreeting && (!prevMessages.length || prevMessages[0].id !== 'greeting-message')) {
-            return [
-                { id: 'greeting-message', role: 'assistant', content: fullGreeting, createdAt: new Date(Date.now() - 1000).toISOString() },
-                ...prevMessages.filter(m => m.id !== 'greeting-message'),
-                assistantMessage
-            ];
-          }
-          return [...prevMessages, assistantMessage];
-        });
-      } else if (result.type === 'error') {
-        setChatMessages(prevMessages => [...prevMessages, {
-          id: `error-${uuidv4()}`,
-          role: 'assistant',
-          content: `Sorry, an error occurred: ${result.message || 'Unknown error'}`,
-          createdAt: new Date().toISOString(),
-        }]);
       } else if (result.type === 'open_url' && result.url) {
         // Reset context slices to show recent notebooks instead
         setContextSlices({ status: 'idle', data: null });
@@ -467,127 +377,68 @@ export default function HomeView() {
     return () => {
       unsubscribe();
     };
-  }, [router, fullGreeting, hasSubmittedOnce]);
+  }, [router]);
 
-  // Add streaming handlers
+  // Handle streaming response and errors from the hook
   useEffect(() => {
-    if (!window.api) {
-      console.warn("[HomeView] window.api is not available. Streaming will not work.");
-      return;
+    if (streamingResponse && isStreaming) {
+      // Update temporary streaming message
+      // This will be handled when stream ends
     }
-
-    const unsubscribers: (() => void)[] = [];
-
-    // Handle stream start
-    if (window.api.onIntentStreamStart) {
-      const unsubStart = window.api.onIntentStreamStart((data: { streamId: string }) => {
-        console.log("[HomeView] Stream started:", data.streamId);
-        setActiveStreamId(data.streamId);
-        setStreamingMessage('');
-        
-        // Track streaming start timing
-        if (intentTimingRef.current) {
-          const elapsed = performance.now() - intentTimingRef.current.startTime;
-          console.log(`[Performance] ${intentTimingRef.current.correlationId} - Frontend:stream_start at ${elapsed.toFixed(2)}ms`);
-        }
+    
+    if (streamError) {
+      // Clear thinking state on error
+      if (thinkingTimeoutRef.current) {
+        clearTimeout(thinkingTimeoutRef.current);
+        thinkingTimeoutRef.current = null;
+      }
+      setIsThinking(false);
+      setShowPlaceholder(true);
+      setContextSlices({ status: 'idle', data: null });
+      
+      // Show error message
+      setChatMessages(prevMessages => [...prevMessages, {
+        id: `error-stream-${uuidv4()}`,
+        role: 'assistant',
+        content: streamError,
+        createdAt: new Date().toISOString(),
+      }]);
+    }
+  }, [streamingResponse, isStreaming, streamError]);
+  
+  // Handle stream completion
+  useEffect(() => {
+    if (!isStreaming && streamingResponse && !streamError) {
+      // Stream has completed successfully
+      console.log("[HomeView] Stream completed, adding response to chat");
+      
+      // Clear thinking state
+      if (thinkingTimeoutRef.current) {
+        clearTimeout(thinkingTimeoutRef.current);
+        thinkingTimeoutRef.current = null;
+      }
+      setIsThinking(false);
+      setShowPlaceholder(true);
+      
+      // Add the complete message to chat
+      setChatMessages(prevMessages => {
+        const assistantMessage: DisplayMessage = {
+          id: `assistant-stream-${uuidv4()}`,
+          role: 'assistant',
+          content: streamingResponse,
+          createdAt: new Date().toISOString(),
+        };
+        return [...prevMessages, assistantMessage];
       });
-      unsubscribers.push(unsubStart);
+      
+      // Update context slices from the hook
+      if (intentSlices && intentSlices.length > 0) {
+        setContextSlices({ status: 'loaded', data: intentSlices });
+      } else {
+        setContextSlices({ status: 'loaded', data: [] });
+      }
     }
-
-    // Handle stream chunks
-    if (window.api.onIntentStreamChunk) {
-      const unsubChunk = window.api.onIntentStreamChunk((data: { streamId: string; chunk: string }) => {
-        if (data.streamId === activeStreamId) {
-          setStreamingMessage(prev => prev + data.chunk);
-        }
-      });
-      unsubscribers.push(unsubChunk);
-    }
-
-    // Handle stream end
-    if (window.api.onIntentStreamEnd) {
-      const unsubEnd = window.api.onIntentStreamEnd((data: { streamId: string; messageId?: string }) => {
-        console.log("[HomeView] Stream ended:", data.streamId);
-        
-        if (data.streamId === activeStreamId) {
-          // Track streaming end timing
-          if (intentTimingRef.current) {
-            const elapsed = performance.now() - intentTimingRef.current.startTime;
-            console.log(`[Performance] ${intentTimingRef.current.correlationId} - Frontend:stream_end at ${elapsed.toFixed(2)}ms`);
-            intentTimingRef.current = null;
-          }
-          
-          // Use setStreamingMessage with a callback to get the current value (fixes stale closure)
-          setStreamingMessage(currentStreamingMessage => {
-            // Add the complete message to chat
-            if (currentStreamingMessage) {
-              setChatMessages(prevMessages => {
-                const assistantMessage: DisplayMessage = {
-                  id: data.messageId || `assistant-stream-${uuidv4()}`,
-                  role: 'assistant',
-                  content: currentStreamingMessage,
-                  createdAt: new Date().toISOString(),
-                };
-                return [...prevMessages, assistantMessage];
-              });
-            }
-            
-            // Clear the streaming message
-            return '';
-          });
-          
-          // Clean up streaming state
-          setActiveStreamId(null);
-          console.log("[HomeView] Setting isThinking to false in stream end handler");
-          setIsThinking(false);
-          setShowPlaceholder(true);
-          
-          // Mark slices as loaded if we got them via ON_INTENT_RESULT
-          if (contextSlices.status === 'loading') {
-            setContextSlices(prev => ({ ...prev, status: 'loaded' }));
-          }
-        }
-      });
-      unsubscribers.push(unsubEnd);
-    }
-
-    // Handle stream error
-    if (window.api.onIntentStreamError) {
-      const unsubError = window.api.onIntentStreamError((data: { streamId?: string; error: string }) => {
-        console.error("[HomeView] Stream error:", data);
-        
-        if (!data.streamId || data.streamId === activeStreamId) {
-          // Track error timing
-          if (intentTimingRef.current) {
-            const elapsed = performance.now() - intentTimingRef.current.startTime;
-            console.log(`[Performance] ${intentTimingRef.current.correlationId} - Frontend:stream_error at ${elapsed.toFixed(2)}ms`);
-            intentTimingRef.current = null;
-          }
-          
-          // Show error message
-          setChatMessages(prevMessages => [...prevMessages, {
-            id: `error-stream-${uuidv4()}`,
-            role: 'assistant',
-            content: `Sorry, an error occurred: ${data.error}`,
-            createdAt: new Date().toISOString(),
-          }]);
-          
-          // Clean up streaming state
-          setActiveStreamId(null);
-          setStreamingMessage('');
-          console.log("[HomeView] Setting isThinking to false in stream error handler");
-          setIsThinking(false);
-          setShowPlaceholder(true);
-          setContextSlices({ status: 'idle', data: null });
-        }
-      });
-      unsubscribers.push(unsubError);
-    }
-
-    return () => {
-      unsubscribers.forEach(unsub => unsub());
-    };
-  }, [activeStreamId, streamingMessage, contextSlices.status]);
+  }, [isStreaming, streamingResponse, streamError, intentSlices]);
 
   // Add listener for suggested actions
   useEffect(() => {
@@ -813,20 +664,20 @@ export default function HomeView() {
               </motion.div>
             )}
             {/* MessageList (only if chat has started or AI is thinking) */} 
-            {(chatMessages.length > 0 || isThinking || streamingMessage) && (
+            {(chatMessages.length > 0 || isThinking || (isStreaming && streamingResponse)) && (
               <>
                 <MessageList
                   messages={
-                    streamingMessage 
+                    isStreaming && streamingResponse 
                       ? [...chatMessages, {
                           id: 'streaming-message',
                           role: 'assistant' as const,
-                          content: streamingMessage,
+                          content: streamingResponse,
                           createdAt: new Date().toISOString()
                         }]
                       : chatMessages
                   }
-                  isTyping={isThinking && !streamingMessage} 
+                  isTyping={isThinking && !(isStreaming && streamingResponse)} 
                   showTimeStamp={false}
                   messageOptions={(message) => {
                     // Special animation for the greeting message
