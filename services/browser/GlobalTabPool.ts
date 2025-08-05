@@ -235,7 +235,7 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
   private async destroyView(view: WebContentsView): Promise<void> {
     const wc = view.webContents;
     if (wc && !wc.isDestroyed()) {
-      const tabId = (view as any)._tabId || this.findTabIdForWebContents(wc);
+      const tabId = (view as any)._tabId;
       if (tabId) {
         // TODO: Enhance state preservation.
         // For now, we only preserve the URL. Later, we can add:
@@ -266,17 +266,7 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
     this.lruOrder.unshift(tabId); // Add to the front (most recent)
   }
 
-  /**
-   * Finds the tab ID associated with a given WebContents instance.
-   */
-  private findTabIdForWebContents(webContents: Electron.WebContents): string | undefined {
-    for (const [tabId, view] of this.pool.entries()) {
-      if (view.webContents === webContents) {
-        return tabId;
-      }
-    }
-    return undefined;
-  }
+  
 
   /**
    * Cleans up all views in the pool.

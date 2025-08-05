@@ -35,7 +35,7 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
     // Listen for title updates and update the active tab
     eventBus.on('view:page-title-updated', ({ windowId, title }) => {
       this.logDebug(`Received title update for window ${windowId}: ${title}`);
-      const activeTabId = this.getActiveTabId(windowId);
+      const activeTabId = this.deps.stateService.getState(windowId)?.activeTabId;
       if (activeTabId) {
         this.deps.stateService.updateTab(windowId, activeTabId, { title });
       }
@@ -45,20 +45,14 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
     eventBus.on('view:page-favicon-updated', ({ windowId, faviconUrl }) => {
       this.logDebug(`Received favicon update for window ${windowId}: ${faviconUrl.length} favicons`);
       const favicon = faviconUrl.length > 0 ? faviconUrl[0] : null;
-      const activeTabId = this.getActiveTabId(windowId);
+      const activeTabId = this.deps.stateService.getState(windowId)?.activeTabId;
       if (activeTabId) {
         this.deps.stateService.updateTab(windowId, activeTabId, { faviconUrl: favicon });
       }
     });
   }
 
-  /**
-   * Get the active tab ID for a window
-   */
-  private getActiveTabId(windowId: string): string | undefined {
-    const state = this.deps.stateService.getState(windowId);
-    return state?.activeTabId;
-  }
+  
 
   async cleanup(): Promise<void> {
     // Remove event listeners
@@ -95,7 +89,19 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
   }
 
   public navigate(windowId: string, action: 'back' | 'forward' | 'reload' | 'stop'): void {
-    this.deps.navigationService.navigate(windowId, action);
+    const activeTabId = this.deps.stateService.getState(windowId)?.activeTabId;
+    if (!activeTabId) return;
+
+    const view = this.deps.viewManager.getView(activeTabId);
+    if (!view) return;
+
+    const wc = view.webContents;
+    switch (action) {
+      case 'back': wc.goBack(); break;
+      case 'forward': wc.goForward(); break;
+      case 'reload': wc.reload(); break;
+      case 'stop': wc.stop(); break;
+    }
   }
 
   public setBounds(windowId: string, bounds: Electron.Rectangle): void {
@@ -107,16 +113,20 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
   }
 
   public async destroyBrowserView(windowId: string): Promise<void> {
-    const state = this.deps.stateService.getState(windowId);
-    if (state) {
-      // Clean up view mappings for this window
-      await this.deps.viewManager.cleanupWindow(windowId);
-      
-      // Release all tab views from the pool
-      await Promise.all(state.tabs.map(tab => this.deps.viewManager.releaseView(tab.id)));
-      
-      // Remove state
-      this.deps.stateService.removeState(windowId);
+    try {
+      const state = this.deps.stateService.getState(windowId);
+      if (state) {
+        // Clean up view mappings for this window
+        await this.deps.viewManager.cleanupWindow(windowId);
+        
+        // Release all tab views from the pool
+        await Promise.all(state.tabs.map(tab => this.deps.viewManager.releaseView(tab.id)));
+        
+        // Remove state
+        this.deps.stateService.removeState(windowId);
+      }
+    } catch (error) {
+      this.logError(`Error destroying browser view for window ${windowId}:`, error);
     }
   }
 
@@ -132,11 +142,27 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
 
   // Missing methods that IPC handlers expect
   public setBackgroundColor(windowId: string, color: string): void {
-    // Delegate to view manager or handle here
+    const activeTabId = this.deps.stateService.getState(windowId)?.activeTabId;
+    if (!activeTabId) return;
+
+    const view = this.deps.viewManager.getView(activeTabId);
+    if (view) {
+      view.setBackgroundColor(color);
+    }
   }
 
   public setVisibility(windowId: string, shouldBeDrawn: boolean, isFocused?: boolean): void {
-    // Delegate to view manager or handle here
+    const activeTabId = this.deps.stateService.getState(windowId)?.activeTabId;
+    if (!activeTabId) return;
+
+    const view = this.deps.viewManager.getView(activeTabId);
+    if (view) {
+      if (shouldBeDrawn) {
+        this.deps.mainWindow.contentView.addChildView(view);
+      } else {
+        this.deps.mainWindow.contentView.removeChildView(view);
+      }
+    }
   }
 
   public async captureSnapshot(windowId: string): Promise<string> {
@@ -167,15 +193,22 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
   }
 
   public hideContextMenuOverlay(windowId: string): void {
-    // Delegate to view manager
+    this.deps.viewManager.hideContextMenuOverlay(windowId);
   }
 
   public syncViewStackingOrder(orderedWindows: Array<{ id: string; isFrozen: boolean; isMinimized: boolean }>): void {
-    // Handle view stacking order
+    this.deps.viewManager.handleZOrderUpdate({ orderedWindows: orderedWindows.map(w => ({ windowId: w.id, zIndex: 0, isFocused: false, isMinimized: w.isFrozen })) });
   }
 
   public showAndFocusView(windowId: string): void {
-    // Show and focus the browser view
+    const activeTabId = this.deps.stateService.getState(windowId)?.activeTabId;
+    if (!activeTabId) return;
+
+    const view = this.deps.viewManager.getView(activeTabId);
+    if (view) {
+      this.deps.mainWindow.contentView.addChildView(view);
+      view.webContents.focus();
+    }
   }
 
   public async destroyAllBrowserViews(): Promise<void> {

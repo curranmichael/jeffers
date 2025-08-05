@@ -27,7 +27,7 @@ export class ClassicBrowserNavigationService extends BaseService<ClassicBrowserN
     const browserState = this.deps.stateService.getState(windowId);
     const activeTabId = browserState?.activeTabId;
     if (!activeTabId) {
-      throw new Error(`No active tab found for windowId ${windowId}`);
+      throw new Error(`No active tab found for windowId ${windowId} while trying to load URL: ${url}`);
     }
 
     let view = this.deps.globalTabPool.getView(activeTabId);
@@ -54,22 +54,7 @@ export class ClassicBrowserNavigationService extends BaseService<ClassicBrowserN
     await view.webContents.loadURL(validUrl);
   }
 
-  navigate(windowId: string, action: 'back' | 'forward' | 'reload' | 'stop'): void {
-    const browserState = this.deps.stateService.getState(windowId);
-    const activeTabId = browserState?.activeTabId;
-    if (!activeTabId) return;
-
-    const view = this.deps.globalTabPool.getView(activeTabId);
-    if (!view) return;
-
-    const wc = view.webContents;
-    switch (action) {
-      case 'back': wc.goBack(); break;
-      case 'forward': wc.goForward(); break;
-      case 'reload': wc.reload(); break;
-      case 'stop': wc.stop(); break;
-    }
-  }
+  
 
   async executeContextMenuAction(windowId: string, action: string, data?: BrowserActionData): Promise<void> {
     const browserState = this.deps.stateService.getState(windowId);
@@ -82,10 +67,10 @@ export class ClassicBrowserNavigationService extends BaseService<ClassicBrowserN
     const webContents = view.webContents;
 
     switch (action) {
-      case 'navigate:back': this.navigate(windowId, 'back'); break;
-      case 'navigate:forward': this.navigate(windowId, 'forward'); break;
-      case 'navigate:reload': this.navigate(windowId, 'reload'); break;
-      case 'navigate:stop': this.navigate(windowId, 'stop'); break;
+      case 'navigate:back': webContents.goBack(); break;
+      case 'navigate:forward': webContents.goForward(); break;
+      case 'navigate:reload': webContents.reload(); break;
+      case 'navigate:stop': webContents.stop(); break;
       case 'link:open-new-tab':
         if (data?.url && isSecureUrl(data.url, { context: 'link:open-new-tab' })) {
           this.deps.eventBus.emit('tab:new', { url: data.url, windowId });
@@ -103,7 +88,7 @@ export class ClassicBrowserNavigationService extends BaseService<ClassicBrowserN
         break;
       case 'edit:copy': webContents.copy(); break;
       case 'edit:paste': webContents.paste(); break;
-      // ... other actions
+      default: this.logWarn(`Unknown context menu action: ${action}`); break;
     }
   }
 

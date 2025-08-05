@@ -35,72 +35,73 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
     this.deps.eventBus.on('window:z-order-update', this.handleZOrderUpdate.bind(this));
   }
 
-  private async handleStateChange({ windowId, newState, previousState, isNavigationRelevant }: { 
-    windowId: string; 
-    newState: ClassicBrowserPayload; 
+  private async handleStateChange({ windowId, newState, previousState, isNavigationRelevant }: {
+    windowId: string;
+    newState: ClassicBrowserPayload;
     previousState?: ClassicBrowserPayload;
     isNavigationRelevant?: boolean;
   }): Promise<void> {
-    // Handle tab cleanup - release views for tabs that were removed
-    if (previousState) {
-      const removedTabIds = previousState.tabs
-        .filter(prevTab => !newState.tabs.find(newTab => newTab.id === prevTab.id))
-        .map(tab => tab.id);
-      
-      for (const removedTabId of removedTabIds) {
-        // Release the view from the pool
-        await this.deps.globalTabPool.releaseView(removedTabId);
-      }
-    }
+    await this.cleanupRemovedTabs(newState, previousState);
 
     const activeTabId = newState.activeTabId;
     const currentView = this.activeViews.get(windowId);
     const currentViewTabId = this.findTabIdForView(currentView);
 
-
     if (currentViewTabId === activeTabId) {
-      // The correct tab is already active, but we might need to update bounds
-      if (currentView && newState.bounds) {
-        currentView.setBounds(newState.bounds);
-      }
-      
-      // Only navigate if this is truly a content change on the currently active tab
-      // Check if the tab's content (URL, loading state) actually changed
-      if (isNavigationRelevant && previousState && previousState.activeTabId === activeTabId) {
-        const activeTab = newState.tabs.find(tab => tab.id === activeTabId);
-        const previousTab = previousState.tabs.find(tab => tab.id === activeTabId);
-        
-        // Only reload if the tab's content actually changed (not just a tab switch)
-        if (activeTab && previousTab && currentView && 
-            (activeTab.url !== previousTab.url || activeTab.isLoading !== previousTab.isLoading)) {
-          await this.ensureViewNavigatedToTab(currentView, activeTab);
-        }
-      }
-      return;
+      this.handleActiveTabUpdate(windowId, newState, previousState, isNavigationRelevant);
+    } else {
+      this.handleTabSwitch(windowId, newState, activeTabId, currentView);
+    }
+  }
+
+  private async cleanupRemovedTabs(newState: ClassicBrowserPayload, previousState?: ClassicBrowserPayload): Promise<void> {
+    if (!previousState) return;
+
+    const removedTabIds = previousState.tabs
+      .filter(prevTab => !newState.tabs.find(newTab => newTab.id === prevTab.id))
+      .map(tab => tab.id);
+
+    for (const removedTabId of removedTabIds) {
+      await this.deps.globalTabPool.releaseView(removedTabId);
+    }
+  }
+
+  private handleActiveTabUpdate(windowId: string, newState: ClassicBrowserPayload, previousState?: ClassicBrowserPayload, isNavigationRelevant?: boolean): void {
+    const activeTabId = newState.activeTabId;
+    const currentView = this.activeViews.get(windowId);
+
+    if (currentView && newState.bounds) {
+      currentView.setBounds(newState.bounds);
     }
 
-    // A different tab needs to be shown. First, detach the old view.
-    
+    if (isNavigationRelevant && previousState && previousState.activeTabId === activeTabId) {
+      const activeTab = newState.tabs.find(tab => tab.id === activeTabId);
+      const previousTab = previousState.tabs.find(tab => tab.id === activeTabId);
+
+      if (activeTab && previousTab && currentView &&
+          (activeTab.url !== previousTab.url || activeTab.isLoading !== previousTab.isLoading)) {
+        this.ensureViewNavigatedToTab(currentView, activeTab);
+      }
+    }
+  }
+
+  private async handleTabSwitch(windowId: string, newState: ClassicBrowserPayload, activeTabId?: string, currentView?: WebContentsView): Promise<void> {
     if (currentView) {
-      this.detachView(currentView);
+      this.setViewState(currentView, false);
       this.activeViews.delete(windowId);
-      // Keep the view-to-tab mapping - the view still represents the same tab
     }
 
-    // Now, acquire and attach the new view.
     if (activeTabId) {
       const newView = await this.deps.globalTabPool.acquireView(activeTabId, windowId);
       this.activeViews.set(windowId, newView);
-      this.viewToTabMapping.set(newView, activeTabId); // Track which tab this view represents
-      this.attachView(newView, windowId, newState.bounds);
-      
-      // Only ensure navigation if the view is blank or the tab has a specific URL requirement
+      this.viewToTabMapping.set(newView, activeTabId);
+      this.setViewState(newView, true, newState.bounds);
+
       const activeTab = newState.tabs.find(tab => tab.id === activeTabId);
       if (activeTab) {
-        // Check if view needs navigation - only reload if view is empty/blank
         const viewUrl = newView.webContents.getURL();
         const isBlankView = !viewUrl || viewUrl === 'about:blank' || viewUrl === '';
-        
+
         if (isBlankView) {
           await this.ensureViewNavigatedToTab(newView, activeTab);
         }
@@ -108,23 +109,19 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
     }
   }
 
-  private attachView(view: WebContentsView, windowId: string, bounds: Electron.Rectangle): void {
+  private setViewState(view: WebContentsView, isAttached: boolean, bounds?: Electron.Rectangle): void {
     if (!this.deps.mainWindow || this.deps.mainWindow.isDestroyed()) return;
 
-    // First ensure the view is not already attached to avoid double-attachment
-    if (this.deps.mainWindow.contentView.children.includes(view)) {
-      this.deps.mainWindow.contentView.removeChildView(view);
-    }
-    
-    view.setBounds(bounds);
-    this.deps.mainWindow.contentView.addChildView(view);
-  }
+    const contentView = this.deps.mainWindow.contentView;
+    const isCurrentlyAttached = contentView.children.includes(view);
 
-  private detachView(view: WebContentsView): void {
-    if (!this.deps.mainWindow || this.deps.mainWindow.isDestroyed()) return;
-
-    if (this.deps.mainWindow.contentView.children.includes(view)) {
-      this.deps.mainWindow.contentView.removeChildView(view);
+    if (isAttached && !isCurrentlyAttached) {
+      if (bounds) {
+        view.setBounds(bounds);
+      }
+      contentView.addChildView(view);
+    } else if (!isAttached && isCurrentlyAttached) {
+      contentView.removeChildView(view);
     }
   }
 
@@ -151,7 +148,7 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
     const view = this.activeViews.get(windowId);
     if (view) {
       // Detach the view from the main window and store it
-      this.detachView(view);
+      this.setViewState(view, false);
       this.detachedViews.set(windowId, view);
       this.activeViews.delete(windowId);
       // Keep the view-to-tab mapping - it's still valid
@@ -171,7 +168,7 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
       // Re-attach the view - it will be positioned correctly by z-order update
       const bounds = this.getBoundsForWindow(windowId);
       if (bounds) {
-        this.attachView(view, windowId, bounds);
+        this.setViewState(view, true, bounds);
       }
       
       // Ensure the view navigates to the correct URL for the active tab
@@ -184,7 +181,7 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
     }
   }
 
-  private async handleZOrderUpdate({ orderedWindows }: { orderedWindows: Array<{ windowId: string; zIndex: number; isFocused: boolean; isMinimized: boolean }> }): Promise<void> {
+  public async handleZOrderUpdate({ orderedWindows }: { orderedWindows: Array<{ windowId:string; zIndex: number; isFocused: boolean; isMinimized: boolean }> }): Promise<void> {
     // Re-attach all non-minimized views in correct z-order (lowest to highest)
     const activeWindowsInOrder = orderedWindows
       .filter(w => !w.isMinimized)
@@ -365,8 +362,8 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
     this.deps.eventBus.removeAllListeners('window:restored');
     this.deps.eventBus.removeAllListeners('window:z-order-update');
     
-    this.activeViews.forEach(view => this.detachView(view));
-    this.detachedViews.forEach(view => this.detachView(view));
+    this.activeViews.forEach(view => this.setViewState(view, false));
+    this.detachedViews.forEach(view => this.setViewState(view, false));
     this.activeViews.clear();
     this.detachedViews.clear();
     this.viewToTabMapping.clear();
@@ -385,6 +382,10 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
     // Handle context menu overlay display
   }
 
+  public hideContextMenuOverlay(windowId: string): void {
+    // Handle context menu overlay hide
+  }
+
   public handleOverlayReady(windowId: string): void {
     // Handle overlay ready event
   }
@@ -396,7 +397,7 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
     // Detach any active view from the main window
     const currentView = this.activeViews.get(windowId);
     if (currentView) {
-      this.detachView(currentView);
+      this.setViewState(currentView, false);
       this.activeViews.delete(windowId);
       // Keep the view-to-tab mapping - the view might be reused by other windows
     }
