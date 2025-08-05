@@ -43,9 +43,9 @@ export function useHashRouter(): HashRouter {
     };
   }, [currentPath]);
 
-  return {
+  return useMemo(() => ({
     push,
     params,
     pathname: currentPath
-  };
+  }), [push, params, currentPath]);
 }

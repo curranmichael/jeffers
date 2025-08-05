@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import type { DisplaySlice } from '@/../shared/types/search.types';
 import type { IntentResultPayload, SetIntentPayload } from '@/../shared/types/intent.types';
 
@@ -26,6 +26,11 @@ interface UseIntentStreamReturn {
 export function useIntentStream({
   debugId = 'IntentStream',
 }: UseIntentStreamOptions = {}): UseIntentStreamReturn {
+  // Stabilize debugId to prevent log function recreation
+  const stableDebugId = useRef(debugId);
+  useEffect(() => {
+    stableDebugId.current = debugId;
+  }, [debugId]);
   const [response, setResponse] = useState('');
   const [slices, setSlices] = useState<DisplaySlice[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -38,11 +43,11 @@ export function useIntentStream({
   const firstChunkReceivedRef = useRef<boolean>(false);
 
   const log = useCallback((level: 'log' | 'warn' | 'error', ...args: unknown[]) => {
-    const prefix = `[${debugId}]`;
+    const prefix = `[${stableDebugId.current}]`;
     if (process.env.NODE_ENV === 'development') {
       console[level](prefix, ...args);
     }
-  }, [debugId]);
+  }, []); // No dependencies - function is now stable
 
   // Effect for handling IPC listeners for intent streaming
   useEffect(() => {
@@ -187,12 +192,12 @@ export function useIntentStream({
   // Return the current response (either final or streaming)
   const displayResponse = isLoading && streamingContent ? streamingContent : response;
 
-  return {
+  return useMemo(() => ({
     response: displayResponse,
     slices,
     isLoading,
     error,
     startStream,
     stopStream,
-  };
+  }), [displayResponse, slices, isLoading, error, startStream, stopStream]);
 }
