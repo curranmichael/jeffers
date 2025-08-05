@@ -142,13 +142,8 @@ export function useIntentStream({
       
       // Note: Intent API doesn't have a stopIntentStream method like chat does
       // If the hook is cleaning up while a stream is active, we can't stop it from client side
-      if (isLoading) {
-        log('log', 'Cleanup with active stream. Unable to stop intent stream from client.');
-        setIsLoading(false);
-        setStreamingContent('');
-      }
     };
-  }, [isLoading, log]);
+  }, [log]);
 
   const startStream = useCallback((intent: string) => {
     if (!intent.trim() || isLoading) return;
