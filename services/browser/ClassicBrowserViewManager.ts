@@ -21,6 +21,7 @@ export interface ClassicBrowserViewManagerDeps {
 export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewManagerDeps> {
   private activeViews: Map<string, WebContentsView> = new Map(); // windowId -> view
   private detachedViews: Map<string, WebContentsView> = new Map(); // windowId -> view (for minimized windows)
+  private viewToTabMapping: Map<WebContentsView, string> = new Map(); // view -> tabId
 
   constructor(deps: ClassicBrowserViewManagerDeps) {
     super('ClassicBrowserViewManager', deps);
@@ -56,16 +57,22 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
     const currentView = this.activeViews.get(windowId);
     const currentViewTabId = this.findTabIdForView(currentView);
 
+
     if (currentViewTabId === activeTabId) {
       // The correct tab is already active, but we might need to update bounds
       if (currentView && newState.bounds) {
         currentView.setBounds(newState.bounds);
       }
       
-      if (isNavigationRelevant !== false) {
-        // Only check navigation if this is a navigation-relevant change
+      // Only navigate if this is truly a content change on the currently active tab
+      // Check if the tab's content (URL, loading state) actually changed
+      if (isNavigationRelevant && previousState && previousState.activeTabId === activeTabId) {
         const activeTab = newState.tabs.find(tab => tab.id === activeTabId);
-        if (activeTab && currentView) {
+        const previousTab = previousState.tabs.find(tab => tab.id === activeTabId);
+        
+        // Only reload if the tab's content actually changed (not just a tab switch)
+        if (activeTab && previousTab && currentView && 
+            (activeTab.url !== previousTab.url || activeTab.isLoading !== previousTab.isLoading)) {
           await this.ensureViewNavigatedToTab(currentView, activeTab);
         }
       }
@@ -73,23 +80,30 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
     }
 
     // A different tab needs to be shown. First, detach the old view.
+    
     if (currentView) {
       this.detachView(currentView);
       this.activeViews.delete(windowId);
-      
-      // No additional cleanup needed here
+      // Keep the view-to-tab mapping - the view still represents the same tab
     }
 
     // Now, acquire and attach the new view.
     if (activeTabId) {
       const newView = await this.deps.globalTabPool.acquireView(activeTabId, windowId);
       this.activeViews.set(windowId, newView);
+      this.viewToTabMapping.set(newView, activeTabId); // Track which tab this view represents
       this.attachView(newView, windowId, newState.bounds);
       
-      // Always ensure navigation for new view/tab switches
+      // Only ensure navigation if the view is blank or the tab has a specific URL requirement
       const activeTab = newState.tabs.find(tab => tab.id === activeTabId);
       if (activeTab) {
-        await this.ensureViewNavigatedToTab(newView, activeTab);
+        // Check if view needs navigation - only reload if view is empty/blank
+        const viewUrl = newView.webContents.getURL();
+        const isBlankView = !viewUrl || viewUrl === 'about:blank' || viewUrl === '';
+        
+        if (isBlankView) {
+          await this.ensureViewNavigatedToTab(newView, activeTab);
+        }
       }
     }
   }
@@ -115,25 +129,12 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
   }
 
   private findTabIdForView(view?: WebContentsView): string | undefined {
-    if (!view) return undefined;
-    
-    // Check in active views first
-    for (const [windowId, activeView] of this.activeViews.entries()) {
-      if (activeView === view) {
-        const state = this.deps.stateService.getState(windowId);
-        return state?.activeTabId;
-      }
+    if (!view) {
+      return undefined;
     }
     
-    // Check in detached views
-    for (const [windowId, detachedView] of this.detachedViews.entries()) {
-      if (detachedView === view) {
-        const state = this.deps.stateService.getState(windowId);
-        return state?.activeTabId;
-      }
-    }
-    
-    return undefined;
+    // Get the actual tab ID that this view represents from our mapping
+    return this.viewToTabMapping.get(view);
   }
 
   private async handleWindowFocusChanged({ windowId, isFocused }: { windowId: string; isFocused: boolean }): Promise<void> {
@@ -153,6 +154,7 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
       this.detachView(view);
       this.detachedViews.set(windowId, view);
       this.activeViews.delete(windowId);
+      // Keep the view-to-tab mapping - it's still valid
     }
   }
 
@@ -367,6 +369,7 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
     this.detachedViews.forEach(view => this.detachView(view));
     this.activeViews.clear();
     this.detachedViews.clear();
+    this.viewToTabMapping.clear();
   }
 
   // Missing methods that IPC handlers expect
@@ -395,12 +398,14 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
     if (currentView) {
       this.detachView(currentView);
       this.activeViews.delete(windowId);
+      // Keep the view-to-tab mapping - the view might be reused by other windows
     }
     
     // Remove any detached view
     const detachedView = this.detachedViews.get(windowId);
     if (detachedView) {
       this.detachedViews.delete(windowId);
+      // Keep the view-to-tab mapping - the view might be reused by other windows
     }
   }
 }

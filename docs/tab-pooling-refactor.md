@@ -172,4 +172,48 @@ WebContents → GlobalTabPool (capture & emit) → BrowserEventBus → ClassicBr
   - **Files**: `shared/ipcChannels.ts`, `services/browser/ClassicBrowserService.ts`
   - **Added**: `CLASSIC_BROWSER_TRANSFER_TAB_TO_NOTEBOOK` channel and `transferTabToNotebook()` method
 
-The refactor now maintains backward compatibility while providing robust memory efficiency, proper view lifecycle management, stable window positioning behavior, and complete tab metadata functionality.
+### 🐛 **Issue 5: Tab Switching Causing Unnecessary Reloads**
+**Problem**: When switching between tabs, previously visited tabs would reload instead of preserving their current state. For example, switching back to a Google tab would reload from search results back to the Google homepage.
+
+**Root Cause**: The `ClassicBrowserViewManager.findTabIdForView()` method was incorrectly returning the current active tab from state rather than the actual tab ID that the view represented. This caused the view manager to always think the correct view was already showing, preventing proper tab switching.
+
+**Solution**: Implemented proper view-to-tab tracking and intelligent reload prevention:
+- **Enhanced View Tracking**: Added `viewToTabMapping: Map<WebContentsView, string>` to properly track which tab each view represents
+  - **File**: `services/browser/ClassicBrowserViewManager.ts`
+  - **Property**: `viewToTabMapping` - maintains view-to-tab relationship
+- **Fixed Tab Detection**: Rewrote `findTabIdForView()` to return the actual tab ID from the mapping instead of current state
+  - **File**: `services/browser/ClassicBrowserViewManager.ts`
+  - **Method**: `findTabIdForView()` - now uses mapping instead of state lookup
+- **Intelligent Reload Prevention**: Modified tab switching logic to only reload views that are blank/empty
+  - **File**: `services/browser/ClassicBrowserViewManager.ts`
+  - **Method**: `handleStateChange()` - only calls `ensureViewNavigatedToTab()` for blank views
+  - **Logic**: Check if `viewUrl` is empty, `about:blank`, or unset before triggering reload
+
+**Technical Details**:
+The core issue was that `findTabIdForView()` was implemented as:
+```typescript
+// WRONG - always returned current active tab
+const state = this.deps.stateService.getState(windowId);
+return state?.activeTabId;
+```
+
+Fixed to:
+```typescript
+// CORRECT - returns the tab the view actually represents
+return this.viewToTabMapping.get(view);
+```
+
+**Result**: Tab switching now works correctly without unnecessary reloads. Users can navigate within tabs (e.g., Google searches) and switching back preserves their current page instead of reloading to the initial URL.
+
+### 🔧 **Additional Enhancements**
+- **Bounds Management**: Views now properly update their bounds when browser windows move or resize
+  - **File**: `services/browser/ClassicBrowserViewManager.ts`
+- **Error Handling**: Added comprehensive error handling and graceful fallbacks
+  - **Files**: `services/browser/ClassicBrowserNavigationService.ts`, `services/browser/GlobalTabPool.ts`
+- **Memory Safety**: Ensured proper cleanup of all resources during window lifecycle events
+  - **File**: `services/browser/GlobalTabPool.ts` - enhanced `cleanup()` method
+- **Type Safety**: Added missing IPC channels and method signatures
+  - **Files**: `shared/ipcChannels.ts`, `services/browser/ClassicBrowserService.ts`
+  - **Added**: `CLASSIC_BROWSER_TRANSFER_TAB_TO_NOTEBOOK` channel and `transferTabToNotebook()` method
+
+The refactor now maintains backward compatibility while providing robust memory efficiency, proper view lifecycle management, stable window positioning behavior, complete tab metadata functionality, and seamless tab switching without unnecessary reloads.
