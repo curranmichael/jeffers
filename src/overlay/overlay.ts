@@ -269,7 +269,7 @@ class ContextMenuOverlay {
     if (data.contextType === 'tab' && data.tabContext) {
       const tabCtx = data.tabContext;
       items.push(
-        { label: 'Close Tab', action: 'close', enabled: tabCtx.canClose }
+        { label: 'Close tab', action: 'close', enabled: tabCtx.canClose }
       );
       return items;
     }
@@ -284,10 +284,10 @@ class ContextMenuOverlay {
     // Link context menu
     if (ctx.linkURL) {
       items.push(
-        { label: 'Open Link in New Tab', action: 'openInNewTab', enabled: true },
-        { label: 'Open Link in Background', action: 'openInBackground', enabled: true },
+        { label: 'Open link in a new tab', action: 'openInNewTab', enabled: true },
+        { label: 'Open link in a new window', action: 'openInBackground', enabled: true },
         { type: 'separator' } as MenuItem,
-        { label: 'Copy Link', action: 'copyLink', enabled: true }
+        { label: 'Copy link', action: 'copyLink', enabled: true }
       );
     }
 
@@ -295,9 +295,9 @@ class ContextMenuOverlay {
     if (ctx.srcURL && ctx.mediaType === 'image') {
       if (items.length > 0) items.push({ type: 'separator' } as MenuItem);
       items.push(
-        { label: 'Open Image in New Tab', action: 'openImageInNewTab', enabled: true },
-        { label: 'Copy Image URL', action: 'copyImageURL', enabled: true },
-        { label: 'Save Image As...', action: 'saveImageAs', enabled: true }
+        { label: 'Open image in a new tab', action: 'openImageInNewTab', enabled: true },
+        { label: 'Copy image URL', action: 'copyImageURL', enabled: true },
+        { label: 'Save image as...', action: 'saveImageAs', enabled: true }
       );
     }
 
@@ -341,7 +341,7 @@ class ContextMenuOverlay {
         items.push({ label: 'Paste', action: 'paste', enabled: true });
       }
       if (ctx.editFlags.canSelectAll) {
-        items.push({ label: 'Select All', action: 'selectAll', enabled: true });
+        items.push({ label: 'Select all', action: 'selectAll', enabled: true });
       }
     }
 
@@ -352,15 +352,15 @@ class ContextMenuOverlay {
         { label: 'Forward', action: 'goForward', enabled: ctx.canGoForward ?? false },
         { label: 'Reload', action: 'reload', enabled: true },
         { type: 'separator' } as MenuItem,
-        { label: 'Copy Page URL', action: 'copyPageURL', enabled: true },
-        { label: 'View Page Source', action: 'viewSource', enabled: true }
+        { label: 'Copy page URL', action: 'copyPageURL', enabled: true },
+        { label: 'View page source', action: 'viewSource', enabled: true }
       );
     }
 
     // Always add inspect element at the end
     items.push(
       { type: 'separator' } as MenuItem,
-      { label: 'Inspect Element', action: 'inspect', enabled: true }
+      { label: 'Inspect element', action: 'inspect', enabled: true }
     );
 
     return items;
