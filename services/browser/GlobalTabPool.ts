@@ -246,6 +246,25 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
       this.logDebug(`Tab ${tabId} lost focus`);
     });
 
+    // Handle context menu (right-click) events
+    webContents.on('context-menu', (event, params) => {
+      this.logDebug(`Tab ${tabId} context menu requested at (${params.x}, ${params.y})`);
+      
+      // Get the window ID for this tab
+      const windowId = this.getWindowIdForTab(tabId);
+      if (windowId) {
+        // Get the view bounds for positioning
+        const viewBounds = view.getBounds();
+        
+        // Emit event through the event bus for ClassicBrowserService to handle
+        this.deps.eventBus.emit('view:context-menu-requested', {
+          windowId,
+          params,  // Pass the entire ContextMenuParams object
+          viewBounds
+        });
+      }
+    });
+
     // Store reference to cleanup listeners when view is destroyed
     // Note: WebContents doesn't have a destroy method, cleanup happens in destroyView
     (view as any)._tabId = tabId; // Store tabId for cleanup reference

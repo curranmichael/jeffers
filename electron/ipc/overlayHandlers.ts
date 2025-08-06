@@ -13,7 +13,7 @@ export function registerOverlayHandlers(
   ipcMain.on(OVERLAY_READY, (event) => {
     logger.info('[OverlayHandlers] Overlay ready');
     // Notify the view manager that the overlay is ready
-    viewManager.handleOverlayReady(event.sender.id.toString());
+    viewManager.handleOverlayReady(event.sender);
   });
 
   // Handle overlay menu closed notification (uses ipcMain.on for one-way communication)
@@ -24,7 +24,7 @@ export function registerOverlayHandlers(
     
     if (windowId) {
       // Hide the overlay when menu is closed
-      browserService.hideContextMenuOverlay(windowId);
+      viewManager.hideContextMenuOverlay(windowId);
     } else {
       logger.error('[OverlayHandlers] No windowId provided in menu closed event');
     }
@@ -43,7 +43,7 @@ export function registerOverlayHandlers(
       await browserService.executeContextMenuAction(windowId, action, data);
       
       // Hide the overlay after action execution
-      browserService.hideContextMenuOverlay(windowId);
+      viewManager.hideContextMenuOverlay(windowId);
       
       return { success: true };
     } catch (error) {

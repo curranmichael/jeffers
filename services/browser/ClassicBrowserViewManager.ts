@@ -1,7 +1,10 @@
 
-import { BrowserWindow, WebContentsView } from 'electron';
+import { BrowserWindow, WebContentsView, app } from 'electron';
+import * as path from 'path';
 import { BaseService } from '../base/BaseService';
 import { ClassicBrowserPayload, TabState } from '../../shared/types';
+import { BrowserContextMenuData } from '../../shared/types/contextMenu.types';
+import { BROWSER_CONTEXT_MENU_SHOW } from '../../shared/ipcChannels';
 import { BrowserEventBus } from './BrowserEventBus';
 import { GlobalTabPool } from './GlobalTabPool';
 import { ClassicBrowserStateService } from './ClassicBrowserStateService';
@@ -23,6 +26,12 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
   private detachedViews: Map<string, WebContentsView> = new Map(); // windowId -> view (for minimized windows)
   private frozenViews: Map<string, WebContentsView> = new Map(); // windowId -> view (for frozen windows)
   private viewToTabMapping: Map<WebContentsView, string> = new Map(); // view -> tabId
+  
+  // Overlay management properties
+  private overlayViews: Map<string, WebContentsView> = new Map();
+  private overlayTimeouts: Map<string, NodeJS.Timeout> = new Map();
+  private activeOverlayWindowIds: Set<string> = new Set();
+  private overlayReadyPromises: Map<string, { promise: Promise<void>; resolve: () => void }> = new Map();
 
   constructor(deps: ClassicBrowserViewManagerDeps) {
     super('ClassicBrowserViewManager', deps);
@@ -434,6 +443,22 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
     this.deps.eventBus.removeAllListeners('window:restored');
     this.deps.eventBus.removeAllListeners('window:z-order-update');
     
+    // Clean up all overlay views
+    for (const [windowId, overlay] of this.overlayViews.entries()) {
+      try {
+        if (overlay.webContents && !overlay.webContents.isDestroyed()) {
+          (overlay.webContents as any).destroy();
+        }
+      } catch (error) {
+        this.logError(`Error destroying overlay for ${windowId}:`, error);
+      }
+    }
+    
+    // Clear overlay timeouts
+    for (const timeout of this.overlayTimeouts.values()) {
+      clearTimeout(timeout);
+    }
+    
     this.activeViews.forEach(view => this.setViewState(view, false));
     this.detachedViews.forEach(view => this.setViewState(view, false));
     this.frozenViews.forEach(view => this.setViewState(view, false));
@@ -441,6 +466,10 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
     this.detachedViews.clear();
     this.frozenViews.clear();
     this.viewToTabMapping.clear();
+    this.overlayViews.clear();
+    this.overlayTimeouts.clear();
+    this.overlayReadyPromises.clear();
+    this.activeOverlayWindowIds.clear();
   }
 
   // Missing methods that IPC handlers expect
@@ -452,16 +481,308 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
     return this.deps.globalTabPool.getView(tabId);
   }
 
-  public async showContextMenuOverlay(windowId: string, data: any): Promise<void> {
-    // Handle context menu overlay display
+  /**
+   * Show the context menu overlay at the specified position
+   */
+  public async showContextMenuOverlay(windowId: string, contextData: BrowserContextMenuData): Promise<void> {
+    return this.execute('showContextMenuOverlay', async () => {
+      this.logInfo(`[showContextMenuOverlay] Starting for windowId: ${windowId} at position (${contextData.x}, ${contextData.y})`);
+      this.logDebug(`[showContextMenuOverlay] Full context data:`, JSON.stringify(contextData, null, 2));
+
+      // Hide any existing overlays for other windows
+      for (const activeWindowId of this.activeOverlayWindowIds) {
+        if (activeWindowId !== windowId) {
+          this.hideContextMenuOverlay(activeWindowId);
+        }
+      }
+
+      // Get or create the overlay view
+      let overlay = this.overlayViews.get(windowId);
+      if (!overlay || overlay.webContents.isDestroyed()) {
+        this.logInfo(`[showContextMenuOverlay] Creating new overlay for windowId: ${windowId}`);
+        overlay = this.createOverlayView(windowId);
+        this.overlayViews.set(windowId, overlay);
+      } else {
+        this.logInfo(`[showContextMenuOverlay] Reusing existing overlay for windowId: ${windowId}`);
+      }
+
+      // Clear any existing timeout for this overlay
+      const existingTimeout = this.overlayTimeouts.get(windowId);
+      if (existingTimeout) {
+        clearTimeout(existingTimeout);
+        this.overlayTimeouts.delete(windowId);
+      }
+
+      // Add the overlay to the main window
+      if (!this.deps.mainWindow.contentView.children.includes(overlay)) {
+        this.deps.mainWindow.contentView.addChildView(overlay);
+      }
+
+      // Position the overlay at the cursor location
+      // The overlay will be full window size, but the menu itself will be positioned via CSS
+      const windowBounds = this.deps.mainWindow.getBounds();
+      overlay.setBounds({
+        x: 0,
+        y: 0,
+        width: windowBounds.width,
+        height: windowBounds.height
+      });
+
+      // Ensure the overlay is on top by re-adding it last
+      // This is a simple way to ensure it's above all browser views
+      if (this.deps.mainWindow.contentView.children.includes(overlay)) {
+        this.deps.mainWindow.contentView.removeChildView(overlay);
+        this.deps.mainWindow.contentView.addChildView(overlay);
+      }
+
+      // Wait for the overlay to be ready before sending context data
+      const readyPromise = this.overlayReadyPromises.get(windowId);
+      if (readyPromise) {
+        this.logInfo(`[showContextMenuOverlay] Waiting for overlay to be ready...`);
+        await readyPromise.promise;
+        this.logInfo(`[showContextMenuOverlay] Overlay is ready, sending context data`);
+      } else {
+        this.logWarn(`[showContextMenuOverlay] No ready promise found for windowId: ${windowId}, sending immediately`);
+      }
+
+      // Send the context data to the overlay
+      this.logInfo(`[showContextMenuOverlay] Sending context data to overlay via IPC channel: ${BROWSER_CONTEXT_MENU_SHOW}`);
+      overlay.webContents.send(BROWSER_CONTEXT_MENU_SHOW, contextData);
+
+      this.activeOverlayWindowIds.add(windowId);
+      this.logInfo(`[showContextMenuOverlay] Context menu overlay shown successfully`);
+    });
   }
 
+  /**
+   * Hide the context menu overlay
+   */
   public hideContextMenuOverlay(windowId: string): void {
-    // Handle context menu overlay hide
+    this.logDebug(`Hiding context menu overlay for windowId: ${windowId}`);
+
+    const overlay = this.overlayViews.get(windowId);
+    if (!overlay || overlay.webContents.isDestroyed()) {
+      return;
+    }
+
+    // Remove from the main window
+    if (this.deps.mainWindow.contentView.children.includes(overlay)) {
+      this.deps.mainWindow.contentView.removeChildView(overlay);
+    }
+
+    // Note: We don't send hide events to the overlay to avoid circular loops
+    // The overlay manages its own lifecycle and notifies us when it's done
+
+    // Set a timeout to destroy the overlay if it's not reused
+    const timeout = setTimeout(() => {
+      this.destroyOverlay(windowId);
+    }, 5000); // 5 seconds
+
+    this.overlayTimeouts.set(windowId, timeout);
+
+    this.activeOverlayWindowIds.delete(windowId);
   }
 
-  public handleOverlayReady(windowId: string): void {
-    // Handle overlay ready event
+  /**
+   * Handle overlay ready notification
+   */
+  public handleOverlayReady(webContents: Electron.WebContents): void {
+    // Find which overlay this webContents belongs to
+    for (const [windowId, overlay] of this.overlayViews.entries()) {
+      if (overlay.webContents === webContents) {
+        this.logInfo(`[handleOverlayReady] Overlay ready for windowId: ${windowId}`);
+        const readyPromise = this.overlayReadyPromises.get(windowId);
+        if (readyPromise) {
+          readyPromise.resolve();
+          this.logDebug(`[handleOverlayReady] Resolved ready promise for windowId: ${windowId}`);
+        }
+        return;
+      }
+    }
+    this.logWarn(`[handleOverlayReady] Could not find overlay for webContents`);
+  }
+
+  /**
+   * Create an overlay WebContentsView for context menus
+   */
+  private createOverlayView(windowId: string): WebContentsView {
+    // Create a promise to track when the overlay is ready
+    let readyResolve: () => void;
+    const readyPromise = new Promise<void>((resolve) => {
+      readyResolve = resolve;
+    });
+    this.overlayReadyPromises.set(windowId, { promise: readyPromise, resolve: readyResolve! });
+    this.logInfo(`[createOverlayView] Creating overlay view for windowId: ${windowId}`);
+    
+    // Use app.getAppPath() for consistent path resolution
+    const appPath = app.getAppPath();
+    const preloadPath = path.join(appPath, 'dist', 'electron', 'preload.js');
+    
+    // Log for debugging
+    this.logDebug(`[createOverlayView] App path: ${appPath}`);
+    this.logDebug(`[createOverlayView] Preload path: ${preloadPath}`);
+    this.logDebug(`[createOverlayView] Preload exists: ${require('fs').existsSync(preloadPath)}`);
+    
+    const overlay = new WebContentsView({
+      webPreferences: {
+        preload: preloadPath,
+        contextIsolation: true,
+        sandbox: true,
+        nodeIntegration: false,
+        transparent: true,
+        webSecurity: false  // Disable web security for overlay to allow file:// URLs
+      }
+    });
+
+    // Set transparent background
+    overlay.setBackgroundColor('#00000000');
+    // Note: setAutoResize was removed in newer Electron versions
+    // The overlay will be manually resized when needed
+
+    // Load dedicated overlay HTML without query parameters first
+    const baseUrl = this.getAppURL();
+    const overlayUrl = `${baseUrl}/overlay.html`;
+    this.logInfo(`[createOverlayView] Base URL: ${baseUrl}`);
+    this.logInfo(`[createOverlayView] Loading overlay URL: ${overlayUrl}`);
+    
+    // Load the HTML file first, then inject the windowId via IPC
+    overlay.webContents.loadURL(overlayUrl).then(() => {
+      this.logInfo(`[createOverlayView] Successfully loaded overlay, will inject windowId: ${windowId}`);
+      // We'll send the windowId after the page loads
+    }).catch((error) => {
+      this.logError(`[createOverlayView] Failed to load overlay: ${error}`);
+    });
+
+    // Setup overlay-specific listeners
+    this.setupOverlayListeners(overlay, windowId);
+
+    return overlay;
+  }
+
+  /**
+   * Get the app URL based on environment
+   */
+  private getAppURL(): string {
+    const { app } = require('electron');
+    const isDev = !app.isPackaged && process.env.NODE_ENV !== 'production';
+    
+    if (isDev) {
+      const nextDevServerUrl = process.env.NEXT_DEV_SERVER_URL || 'http://localhost:3000';
+      this.logInfo(`[getAppURL] Development mode - using URL: ${nextDevServerUrl}`);
+      return nextDevServerUrl;
+    } else {
+      // For packaged apps, the overlay files are extracted to Resources directory
+      // not inside the asar archive
+      const resourcesPath = process.resourcesPath;
+      const outPath = path.join(resourcesPath, 'app.asar.unpacked', 'out');
+      // Ensure proper file URL format with forward slashes
+      const normalizedPath = outPath.replace(/\\/g, '/');
+      const resultUrl = `file:///${normalizedPath}`;
+      this.logInfo(`[getAppURL] Production mode - resourcesPath: ${resourcesPath}, outPath: ${outPath}, normalizedPath: ${normalizedPath}, resultUrl: ${resultUrl}`);
+      
+      // Additional debugging: check if files exist
+      const fs = require('fs');
+      const overlayPath = path.join(outPath, 'overlay.html');
+      const overlayJsPath = path.join(outPath, 'overlay.js');
+      this.logInfo(`[getAppURL] Checking file existence:`);
+      this.logInfo(`[getAppURL] overlay.html exists: ${fs.existsSync(overlayPath)}`);
+      this.logInfo(`[getAppURL] overlay.js exists: ${fs.existsSync(overlayJsPath)}`);
+      
+      return resultUrl;
+    }
+  }
+
+  /**
+   * Set up listeners for the overlay WebContentsView
+   */
+  private setupOverlayListeners(overlay: WebContentsView, windowId: string): void {
+    const wc = overlay.webContents;
+
+    // Listen for when the overlay is ready
+    wc.once('dom-ready', () => {
+      this.logInfo(`[setupOverlayListeners] Overlay DOM ready for windowId: ${windowId}`);
+      // Send windowId to overlay after DOM is ready
+      wc.executeJavaScript(`
+        if (window.overlayInstance) {
+          window.overlayInstance.setWindowId('${windowId}');
+        } else {
+          console.error('[Overlay] overlayInstance not found on window');
+        }
+      `).catch((error) => {
+        this.logError(`[setupOverlayListeners] Failed to set windowId: ${error}`);
+      });
+    });
+
+
+    // Add console message logging for debugging
+    wc.on('console-message', (event, level, message, line, sourceId) => {
+      this.logInfo(`[Overlay Console] ${message} (line ${line} in ${sourceId})`);
+    });
+
+    // Handle navigation prevention (overlays should not navigate)
+    wc.on('will-navigate', (event) => {
+      event.preventDefault();
+      this.logWarn(`Prevented navigation in overlay for windowId: ${windowId}`);
+    });
+
+    // Handle overlay crashes
+    wc.on('render-process-gone', (_event, details) => {
+      this.logError(`Overlay render process gone for windowId ${windowId}:`, details);
+      // Clean up the crashed overlay
+      this.overlayViews.delete(windowId);
+    });
+
+    // Log errors
+    wc.on('did-fail-load', (_event, errorCode, errorDescription) => {
+      this.logError(`Overlay failed to load for windowId ${windowId}: ${errorDescription} (${errorCode})`);
+    });
+
+    // Auto-hide overlay when it loses focus (user clicked elsewhere)
+    wc.on('blur', () => {
+      this.logDebug(`Overlay lost focus for windowId: ${windowId}`);
+      // Only hide if this is still an active overlay
+      if (this.activeOverlayWindowIds.has(windowId)) {
+        this.hideContextMenuOverlay(windowId);
+      }
+    });
+  }
+
+  /**
+   * Destroy an overlay view and clean up resources
+   */
+  private destroyOverlay(windowId: string): void {
+    this.logDebug(`Destroying overlay for windowId: ${windowId}`);
+
+    const overlay = this.overlayViews.get(windowId);
+    if (!overlay) {
+      return;
+    }
+
+    // Clear any timeout
+    const timeout = this.overlayTimeouts.get(windowId);
+    if (timeout) {
+      clearTimeout(timeout);
+      this.overlayTimeouts.delete(windowId);
+    }
+
+    // Remove from main window if still attached
+    if (!overlay.webContents.isDestroyed() && this.deps.mainWindow.contentView.children.includes(overlay)) {
+      this.deps.mainWindow.contentView.removeChildView(overlay);
+    }
+
+    // Destroy the webContents
+    try {
+      if (!overlay.webContents.isDestroyed()) {
+        (overlay.webContents as any).destroy();
+      }
+    } catch (error) {
+      this.logError(`Error destroying overlay webContents for ${windowId}:`, error);
+    }
+
+    // Remove from maps
+    this.overlayViews.delete(windowId);
+    this.activeOverlayWindowIds.delete(windowId);
+    this.overlayReadyPromises.delete(windowId);
   }
 
   /**
@@ -490,5 +811,8 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
       this.frozenViews.delete(windowId);
       // Keep the view-to-tab mapping - the view might be reused by other windows
     }
+    
+    // Also destroy any associated overlay
+    this.destroyOverlay(windowId);
   }
 }

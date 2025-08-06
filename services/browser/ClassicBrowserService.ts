@@ -2,6 +2,7 @@
 import { BrowserWindow } from 'electron';
 import { BaseService } from '../base/BaseService';
 import { ClassicBrowserPayload, TabState, BrowserActionData } from '../../shared/types';
+import { BrowserContextMenuData } from '../../shared/types/contextMenu.types';
 import { ClassicBrowserViewManager } from './ClassicBrowserViewManager';
 import { ClassicBrowserStateService } from './ClassicBrowserStateService';
 import { ClassicBrowserNavigationService } from './ClassicBrowserNavigationService';
@@ -50,6 +51,55 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
         this.deps.stateService.updateTab(windowId, activeTabId, { faviconUrl: favicon });
       }
     });
+
+    // Listen for context menu requests and show the overlay
+    eventBus.on('view:context-menu-requested', async (eventData) => {
+      const { windowId, params, viewBounds } = eventData;
+      this.logDebug(`Received context menu request for window ${windowId} at (${params.x}, ${params.y})`);
+      
+      // Get the current browser state for navigation info
+      const state = this.deps.stateService.getState(windowId);
+      if (!state) {
+        this.logWarn(`No state found for windowId ${windowId}, cannot show context menu`);
+        return;
+      }
+      
+      // Transform the parameters to BrowserContextMenuData format
+      // Note: params.x and params.y are relative to the WebContentsView
+      // We need to transform them to window coordinates by adding the view's position
+      const contextData = {
+        windowId,
+        x: params.x + viewBounds.x,
+        y: params.y + viewBounds.y,
+        contextType: 'browser' as const,
+        viewBounds,
+        browserContext: {
+          linkURL: params.linkURL || '',
+          srcURL: params.srcURL || '',
+          pageURL: params.pageURL || state.tabs.find(t => t.id === state.activeTabId)?.url || '',
+          frameURL: params.frameURL || '',
+          selectionText: params.selectionText || '',
+          isEditable: params.isEditable || false,
+          canGoBack: state.tabs.find(t => t.id === state.activeTabId)?.canGoBack || false,
+          canGoForward: state.tabs.find(t => t.id === state.activeTabId)?.canGoForward || false,
+          canReload: true,
+          canViewSource: true,
+          mediaType: params.mediaType as 'none' | 'image' | 'audio' | 'video' | 'canvas' | 'file' | 'plugin' | undefined,
+          hasImageContents: params.hasImageContents || false,
+          editFlags: {
+            canUndo: params.editFlags?.canUndo || false,
+            canRedo: params.editFlags?.canRedo || false,
+            canCut: params.editFlags?.canCut || false,
+            canCopy: params.editFlags?.canCopy || false,
+            canPaste: params.editFlags?.canPaste || false,
+            canSelectAll: params.editFlags?.canSelectAll || false,
+          }
+        }
+      };
+      
+      // Show the context menu overlay
+      await this.deps.viewManager.showContextMenuOverlay(windowId, contextData);
+    });
   }
 
   
@@ -59,6 +109,7 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
     const eventBus = this.deps.stateService.getEventBus();
     eventBus.removeAllListeners('view:page-title-updated');
     eventBus.removeAllListeners('view:page-favicon-updated');
+    eventBus.removeAllListeners('view:context-menu-requested');
     await super.cleanup();
   }
 
