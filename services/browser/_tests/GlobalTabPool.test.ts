@@ -1,0 +1,67 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { GlobalTabPool } from '../GlobalTabPool';
+import { BrowserEventBus } from '../BrowserEventBus';
+
+// Mock Electron
+vi.mock('electron', () => ({
+  WebContentsView: vi.fn().mockImplementation(() => ({
+    webContents: {
+      loadURL: vi.fn(),
+      getURL: vi.fn().mockReturnValue('https://example.com'),
+      isDestroyed: vi.fn().mockReturnValue(false),
+      on: vi.fn(),
+      removeAllListeners: vi.fn(),
+      setAudioMuted: vi.fn(),
+      stop: vi.fn(),
+    },
+    setBackgroundColor: vi.fn(),
+    setBorderRadius: vi.fn(), // Add the missing method
+  })),
+}));
+
+describe('GlobalTabPool', () => {
+  let pool: GlobalTabPool;
+  let eventBus: BrowserEventBus;
+
+  beforeEach(() => {
+    eventBus = new BrowserEventBus();
+    pool = new GlobalTabPool({ eventBus });
+  });
+
+  describe('cleanupWindowMappings', () => {
+    it('should remove all tab mappings for a window', async () => {
+      // Arrange: Create tabs associated with different windows
+      await pool.acquireView('tab1', 'window1');
+      await pool.acquireView('tab2', 'window1');
+      await pool.acquireView('tab3', 'window2');
+
+      // Act: Clean up mappings for window1
+      pool.cleanupWindowMappings('window1');
+
+      // Assert: window1 tabs should not have mappings anymore
+      // We can verify this indirectly by checking that eviction won't emit events for window1
+      const emitSpy = vi.spyOn(eventBus, 'emit');
+      
+      // Force eviction by filling the pool
+      for (let i = 0; i < 10; i++) {
+        await pool.acquireView(`new-tab-${i}`, 'window3');
+      }
+
+      // Check that no events were emitted for window1 tabs during eviction
+      const evictionEvents = emitSpy.mock.calls.filter(
+        call => call[0] === 'tab:snapshot-captured'
+      );
+      
+      const window1Events = evictionEvents.filter(
+        call => call[1]?.windowId === 'window1'
+      );
+      
+      expect(window1Events).toHaveLength(0);
+    });
+
+    it('should handle cleanup for non-existent window gracefully', () => {
+      // Should not throw when cleaning up a window that was never mapped
+      expect(() => pool.cleanupWindowMappings('non-existent')).not.toThrow();
+    });
+  });
+});

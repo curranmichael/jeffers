@@ -812,6 +812,9 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
       // Keep the view-to-tab mapping - the view might be reused by other windows
     }
     
+    // Clean up window mappings in the global tab pool
+    this.deps.globalTabPool.cleanupWindowMappings(windowId);
+    
     // Also destroy any associated overlay
     this.destroyOverlay(windowId);
   }

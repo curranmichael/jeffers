@@ -313,6 +313,23 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
   
 
   /**
+   * Remove all tab-to-window mappings for a specific window.
+   * Called when a window is being destroyed to prevent stale mappings.
+   */
+  public cleanupWindowMappings(windowId: string): void {
+    const tabsToClean: string[] = [];
+    for (const [tabId, winId] of this.tabToWindowMapping.entries()) {
+      if (winId === windowId) {
+        tabsToClean.push(tabId);
+      }
+    }
+    tabsToClean.forEach(tabId => this.tabToWindowMapping.delete(tabId));
+    if (tabsToClean.length > 0) {
+      this.logDebug(`Cleaned up ${tabsToClean.length} tab mappings for window ${windowId}`);
+    }
+  }
+
+  /**
    * Cleans up all views in the pool.
    */
   public async cleanup(): Promise<void> {
