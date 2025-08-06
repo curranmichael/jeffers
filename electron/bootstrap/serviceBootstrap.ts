@@ -556,7 +556,8 @@ export async function initializeServices(
         stateService,
         navigationService,
         tabService,
-        snapshotService
+        snapshotService,
+        globalTabPool
       }]);
       registry.classicBrowser = classicBrowserService;
     } else {

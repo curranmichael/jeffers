@@ -38,7 +38,8 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
    */
   public async acquireView(tabId: string, windowId?: string): Promise<WebContentsView> {
     return this.execute('acquireView', async () => {
-      // Store the window mapping if provided
+      // Store the window mapping BEFORE creating the view
+      // This ensures event handlers have access to the window ID
       if (windowId) {
         this.tabToWindowMapping.set(tabId, windowId);
       }
@@ -52,7 +53,8 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
         await this.evictOldest();
       }
 
-      const view = this.createView(tabId);
+      // Now create the view - event handlers will have access to window mapping
+      const view = this.createView(tabId, windowId);
       this.pool.set(tabId, view);
       this.updateLRU(tabId);
 
@@ -135,8 +137,10 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
 
   /**
    * Creates a new WebContentsView instance.
+   * @param tabId The ID of the tab
+   * @param windowId Optional window ID for immediate event context
    */
-  private createView(tabId: string): WebContentsView {
+  private createView(tabId: string, windowId?: string): WebContentsView {
     const securePrefs: Electron.WebPreferences = {
       nodeIntegration: false,
       contextIsolation: true,
@@ -347,6 +351,159 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
   /**
    * Cleans up all views in the pool.
    */
+  /**
+   * Prefetch favicon for a URL without fully loading the page.
+   * Creates a lightweight, hidden view optimized for favicon fetching.
+   * @param url The URL to fetch favicon for
+   * @param contextInfo Optional context info for event emission (windowId, tabId)
+   */
+  public async prefetchFavicon(
+    url: string, 
+    contextInfo?: { windowId?: string; tabId?: string }
+  ): Promise<string | null> {
+    this.logDebug(`Prefetching favicon for URL: ${url}`);
+    
+    // Create a lightweight, hidden view for prefetching
+    const prefetchView = new WebContentsView({
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: true,
+        images: true,  // Need images for favicon
+        javascript: true,  // Enable JS as many sites set favicons dynamically
+        webgl: false,  // Don't need WebGL
+        plugins: false,  // Don't need plugins
+        offscreen: true,  // Hidden rendering
+        backgroundThrottling: false,  // Don't throttle while fetching
+      }
+    });
+
+    return new Promise((resolve) => {
+      let faviconFound = false;
+      let timeoutId: NodeJS.Timeout;
+      
+      // Listen for favicon
+      const handleFaviconUpdate = (event: Electron.Event, favicons: string[]) => {
+        if (!faviconFound && favicons.length > 0) {
+          faviconFound = true;
+          const faviconUrl = favicons[0];
+          this.logDebug(`Favicon found for ${url}: ${faviconUrl}`);
+          clearTimeout(timeoutId);
+          
+          // Emit events based on context
+          if (contextInfo?.windowId && contextInfo?.tabId) {
+            this.deps.eventBus.emit('prefetch:tab-favicon-found', {
+              windowId: contextInfo.windowId,
+              tabId: contextInfo.tabId,
+              faviconUrl
+            });
+          } else if (contextInfo?.windowId) {
+            this.deps.eventBus.emit('prefetch:favicon-found', {
+              windowId: contextInfo.windowId,
+              faviconUrl
+            });
+          }
+          
+          resolve(faviconUrl);
+          
+          // Clean up immediately
+          prefetchView.webContents.stop();
+          prefetchView.webContents.removeAllListeners();
+          setImmediate(() => {
+            if (!prefetchView.webContents.isDestroyed()) {
+              prefetchView.webContents.close();
+            }
+          });
+        }
+      };
+
+      prefetchView.webContents.on('page-favicon-updated', handleFaviconUpdate);
+
+      // Handle load completion without favicon
+      prefetchView.webContents.once('did-stop-loading', () => {
+        if (!faviconFound) {
+          // Give it a bit more time after load completes
+          setTimeout(() => {
+            if (!faviconFound) {
+              this.logDebug(`No favicon found for ${url} after page load`);
+              faviconFound = true;
+              clearTimeout(timeoutId);
+              resolve(null);
+              prefetchView.webContents.removeAllListeners();
+              if (!prefetchView.webContents.isDestroyed()) {
+                prefetchView.webContents.close();
+              }
+            }
+          }, 1000);
+        }
+      });
+
+      // Timeout after 5 seconds
+      timeoutId = setTimeout(() => {
+        if (!faviconFound) {
+          this.logWarn(`Favicon prefetch timeout for ${url}`);
+          faviconFound = true;
+          resolve(null);
+          prefetchView.webContents.removeAllListeners();
+          if (!prefetchView.webContents.isDestroyed()) {
+            prefetchView.webContents.close();
+          }
+        }
+      }, 5000);
+
+      // Load URL - will stop as soon as favicon is found
+      prefetchView.webContents.loadURL(url).catch((error) => {
+        this.logDebug(`Failed to load URL for favicon prefetch ${url}: ${error}`);
+        faviconFound = true;
+        clearTimeout(timeoutId);
+        resolve(null);
+        prefetchView.webContents.removeAllListeners();
+        if (!prefetchView.webContents.isDestroyed()) {
+          prefetchView.webContents.close();
+        }
+      });
+    });
+  }
+
+  /**
+   * Prefetch favicons for multiple URLs in parallel.
+   * Limits concurrent fetches to avoid resource exhaustion.
+   * @param urlsWithContext Array of objects with url and optional context (windowId, tabId)
+   * @param maxConcurrent Maximum number of concurrent fetches
+   */
+  public async prefetchFavicons(
+    urlsWithContext: Array<{ url: string; windowId?: string; tabId?: string }> | string[],
+    maxConcurrent: number = 3
+  ): Promise<Map<string, string>> {
+    // Normalize input to always work with context objects
+    const normalizedInput = urlsWithContext.map(item => 
+      typeof item === 'string' ? { url: item } : item
+    );
+    
+    this.logInfo(`Prefetching favicons for ${normalizedInput.length} URLs`);
+    const results = new Map<string, string>();
+    
+    // Process in batches to limit concurrent fetches
+    for (let i = 0; i < normalizedInput.length; i += maxConcurrent) {
+      const batch = normalizedInput.slice(i, i + maxConcurrent);
+      const batchPromises = batch.map(async ({ url, windowId, tabId }) => {
+        try {
+          const favicon = await this.prefetchFavicon(url, { windowId, tabId });
+          if (favicon) {
+            results.set(url, favicon);
+          }
+        } catch (error) {
+          this.logDebug(`Error prefetching favicon for ${url}: ${error}`);
+        }
+      });
+      
+      await Promise.all(batchPromises);
+    }
+    
+    this.logInfo(`Prefetched ${results.size} favicons out of ${normalizedInput.length} URLs`);
+    return results;
+  }
+
   public async cleanup(): Promise<void> {
     const allTabs = Array.from(this.pool.keys());
     await Promise.all(allTabs.map(tabId => this.releaseView(tabId)));

@@ -35,7 +35,7 @@ export class ClassicBrowserNavigationService extends BaseService<ClassicBrowserN
     if (!view) {
       // Try to acquire the view if it doesn't exist
       try {
-        view = await this.deps.globalTabPool.acquireView(activeTabId);
+        view = await this.deps.globalTabPool.acquireView(activeTabId, windowId);
       } catch (error) {
         throw new Error(`WebContentsView for active tab ${activeTabId} not found and could not be acquired.`);
       }

@@ -8,6 +8,7 @@ import { ClassicBrowserStateService } from './ClassicBrowserStateService';
 import { ClassicBrowserNavigationService } from './ClassicBrowserNavigationService';
 import { ClassicBrowserTabService } from './ClassicBrowserTabService';
 import { ClassicBrowserSnapshotService } from './ClassicBrowserSnapshotService';
+import { GlobalTabPool } from './GlobalTabPool';
 import { EventEmitter } from 'events';
 
 export interface ClassicBrowserServiceDeps {
@@ -17,6 +18,7 @@ export interface ClassicBrowserServiceDeps {
   navigationService: ClassicBrowserNavigationService;
   tabService: ClassicBrowserTabService;
   snapshotService: ClassicBrowserSnapshotService;
+  globalTabPool: GlobalTabPool;
 }
 
 /**
@@ -58,12 +60,26 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
     });
 
     // Listen for tab:new events (from context menu "open in new tab")
-    eventBus.on('tab:new', ({ windowId, url }) => {
+    eventBus.on('tab:new', async ({ windowId, url }) => {
       this.logDebug(`Creating new background tab for window ${windowId}: ${url}`);
       try {
         // Always create as background tab (makeActive = false)
         const tabId = this.deps.tabService.createTab(windowId, url, false);
         this.logInfo(`Created background tab ${tabId} for URL: ${url}`);
+        
+        // Prefetch favicon for the background tab
+        if (url) {
+          this.logDebug(`Prefetching favicon for background tab ${tabId}`);
+          this.deps.globalTabPool.prefetchFavicon(url, { windowId, tabId })
+            .then(favicon => {
+              if (favicon) {
+                this.logDebug(`Favicon prefetched for tab ${tabId}: ${favicon}`);
+              }
+            })
+            .catch(err => {
+              this.logDebug(`Failed to prefetch favicon for tab ${tabId}: ${err.message}`);
+            });
+        }
       } catch (err) {
         this.logError(`Failed to create new tab from context menu:`, err);
       }
@@ -182,6 +198,20 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
         // Create the new tab with the appropriate active state
         const tabId = this.deps.tabService.createTab(windowId, details.url, makeActive);
         this.logDebug(`Created tab ${tabId} as ${makeActive ? 'active' : 'background'}`);
+        
+        // Prefetch favicon for background tabs
+        if (!makeActive && details.url) {
+          this.logDebug(`Prefetching favicon for background tab ${tabId}`);
+          this.deps.globalTabPool.prefetchFavicon(details.url, { windowId, tabId })
+            .then(favicon => {
+              if (favicon) {
+                this.logDebug(`Favicon prefetched for tab ${tabId}: ${favicon}`);
+              }
+            })
+            .catch(err => {
+              this.logDebug(`Failed to prefetch favicon for tab ${tabId}: ${err.message}`);
+            });
+        }
       } catch (err) {
         this.logError(`Failed to create new tab:`, err);
       }
@@ -329,9 +359,43 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
     await Promise.all(Array.from(allStates.keys()).map(windowId => this.destroyBrowserView(windowId)));
   }
 
-  public async prefetchFaviconsForWindows(windows: any[]): Promise<Map<string, string>> {
-    // Prefetch favicons for the specified windows
-    return new Map<string, string>();
+  /**
+   * Prefetch favicons for a list of windows/tabs.
+   * Used by NotebookCompositionService to get favicons for composed notebooks.
+   * @param windows Array of objects with windowId and url properties
+   * @returns Map of windowId/tabId to favicon URL
+   */
+  public async prefetchFaviconsForWindows(windows: { windowId: string; url: string }[]): Promise<Map<string, string>> {
+    this.logInfo(`Prefetching favicons for ${windows.length} windows/tabs`);
+    
+    // Build array with context info for GlobalTabPool
+    // Note: windowId here is actually tabId from NotebookCompositionService
+    const urlsWithContext = windows.map(({ windowId, url }) => ({
+      url,
+      tabId: windowId, // This is actually the tab ID
+      windowId: undefined // We don't have the actual window ID yet
+    }));
+    
+    try {
+      // Use GlobalTabPool to prefetch favicons with context
+      const urlToFavicon = await this.deps.globalTabPool.prefetchFavicons(urlsWithContext);
+      
+      // Map results back to the original IDs (which are tab IDs)
+      const results = new Map<string, string>();
+      for (const window of windows) {
+        const favicon = urlToFavicon.get(window.url);
+        if (favicon) {
+          results.set(window.windowId, favicon);
+          this.logDebug(`Mapped favicon for tab ${window.windowId}: ${favicon}`);
+        }
+      }
+      
+      this.logInfo(`Successfully prefetched ${results.size} favicons`);
+      return results;
+    } catch (error) {
+      this.logError('Error prefetching favicons:', error);
+      return new Map<string, string>();
+    }
   }
 
   public async transferTabToNotebook(sourceWindowId: string, tabId: string, targetNotebookId: string): Promise<void> {

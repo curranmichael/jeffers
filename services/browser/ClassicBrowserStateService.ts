@@ -16,9 +16,28 @@ export interface ClassicBrowserStateServiceDeps {
  */
 export class ClassicBrowserStateService extends BaseService<ClassicBrowserStateServiceDeps> {
   public states = new Map<string, ClassicBrowserPayload>();
+  private pendingStateEmissions = new Map<string, NodeJS.Timeout>();
 
   constructor(deps: ClassicBrowserStateServiceDeps) {
     super('ClassicBrowserStateService', deps);
+    this.setupEventListeners();
+  }
+
+  private setupEventListeners(): void {
+    // Listen for prefetched favicons for specific tabs
+    this.deps.eventBus.on('prefetch:tab-favicon-found', ({ windowId, tabId, faviconUrl }) => {
+      this.logDebug(`Received prefetched favicon for tab ${tabId} in window ${windowId}`);
+      this.updateTab(windowId, tabId, { faviconUrl });
+    });
+
+    // Listen for prefetched favicons for windows (active tab)
+    this.deps.eventBus.on('prefetch:favicon-found', ({ windowId, faviconUrl }) => {
+      this.logDebug(`Received prefetched favicon for window ${windowId}`);
+      const state = this.getState(windowId);
+      if (state && state.activeTabId) {
+        this.updateTab(windowId, state.activeTabId, { faviconUrl });
+      }
+    });
   }
 
   public getState(windowId: string): ClassicBrowserPayload | undefined {
@@ -80,10 +99,16 @@ export class ClassicBrowserStateService extends BaseService<ClassicBrowserStateS
     const newState = this.getState(windowId);
     if (!newState) return;
 
+    // Clear any pending emission for this window
+    const pending = this.pendingStateEmissions.get(windowId);
+    if (pending) {
+      clearTimeout(pending);
+    }
+
     // Determine if this is a navigation-relevant change
     const isNavigationRelevant = forceNavigationCheck || this.isNavigationRelevantChange(previousState, newState);
 
-    // Emit to other backend services (with navigation context)
+    // Emit to other backend services immediately (they may need to react right away)
     this.deps.eventBus.emit('state-changed', { 
       windowId, 
       newState, 
@@ -91,10 +116,20 @@ export class ClassicBrowserStateService extends BaseService<ClassicBrowserStateS
       isNavigationRelevant 
     });
 
-    // Send to renderer process
-    if (this.deps.mainWindow && !this.deps.mainWindow.isDestroyed()) {
-      this.deps.mainWindow.webContents.send(ON_CLASSIC_BROWSER_STATE, { windowId, update: newState });
-    }
+    // Debounce the renderer emission to prevent excessive re-renders
+    // Use a slightly longer delay (50ms) to better batch rapid state changes
+    const emitToRenderer = () => {
+      if (this.deps.mainWindow && !this.deps.mainWindow.isDestroyed()) {
+        const currentState = this.getState(windowId);
+        if (currentState) {
+          this.deps.mainWindow.webContents.send(ON_CLASSIC_BROWSER_STATE, { windowId, update: currentState });
+        }
+      }
+      this.pendingStateEmissions.delete(windowId);
+    };
+
+    const timeoutId = setTimeout(emitToRenderer, 50);
+    this.pendingStateEmissions.set(windowId, timeoutId);
   }
 
   /**
@@ -124,6 +159,17 @@ export class ClassicBrowserStateService extends BaseService<ClassicBrowserStateS
   }
 
   async cleanup(): Promise<void> {
+    // Clear any pending emissions
+    for (const timeoutId of this.pendingStateEmissions.values()) {
+      clearTimeout(timeoutId);
+    }
+    this.pendingStateEmissions.clear();
+    
+    // Remove event listeners
+    this.deps.eventBus.removeAllListeners('prefetch:tab-favicon-found');
+    this.deps.eventBus.removeAllListeners('prefetch:favicon-found');
+    
+    // Clear states
     this.states.clear();
   }
 

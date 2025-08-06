@@ -677,6 +677,16 @@ function NotebookWorkspace({ notebookId }: { notebookId: string }) {
             freezeState: currentPayload.freezeState || { type: 'ACTIVE' }
           };
 
+          // Check if the payload has actually changed
+          const hasTabsChanged = JSON.stringify(currentPayload.tabs) !== JSON.stringify(newPayload.tabs);
+          const hasActiveTabChanged = currentPayload.activeTabId !== newPayload.activeTabId;
+          const hasTabGroupTitleChanged = currentPayload.tabGroupTitle !== newPayload.tabGroupTitle;
+          
+          if (!hasTabsChanged && !hasActiveTabChanged && !hasTabGroupTitleChanged) {
+            console.log(`[NotebookWorkspace] Skipping redundant state update for window ${update.windowId} - no changes detected`);
+            return;
+          }
+
           // Get the window title - prefer tab group title, fallback to active tab title
           const activeTab = newPayload.tabs.find(t => t.id === newPayload.activeTabId);
           const newWindowTitle = newPayload.tabGroupTitle || activeTab?.title || currentWindow.title;
