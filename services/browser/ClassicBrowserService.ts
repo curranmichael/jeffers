@@ -57,6 +57,18 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
       this.handleWindowOpenRequest(windowId, details);
     });
 
+    // Listen for tab:new events (from context menu "open in new tab")
+    eventBus.on('tab:new', ({ windowId, url }) => {
+      this.logDebug(`Creating new background tab for window ${windowId}: ${url}`);
+      try {
+        // Always create as background tab (makeActive = false)
+        const tabId = this.deps.tabService.createTab(windowId, url, false);
+        this.logInfo(`Created background tab ${tabId} for URL: ${url}`);
+      } catch (err) {
+        this.logError(`Failed to create new tab from context menu:`, err);
+      }
+    });
+
     // Listen for context menu requests and show the overlay
     eventBus.on('view:context-menu-requested', async (eventData) => {
       const { windowId, params, viewBounds } = eventData;
@@ -116,6 +128,7 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
     eventBus.removeAllListeners('view:page-favicon-updated');
     eventBus.removeAllListeners('view:context-menu-requested');
     eventBus.removeAllListeners('view:window-open-request');
+    eventBus.removeAllListeners('tab:new');
     await super.cleanup();
   }
 
