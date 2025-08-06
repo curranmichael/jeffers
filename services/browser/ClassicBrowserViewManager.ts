@@ -173,7 +173,8 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
     }
   }
 
-  private setViewVisibility(view: WebContentsView, isVisible: boolean): void {
+  // Public method for IPC handlers to use
+  public setViewVisibility(view: WebContentsView, isVisible: boolean): void {
     if (!view) return;
     
     // Use the setVisible method to hide/show the view
@@ -181,6 +182,11 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
     
     // Log for debugging
     this.logDebug(`Set view visibility to ${isVisible} for view`);
+  }
+  
+  // Get a frozen view for a window
+  public getFrozenView(windowId: string): WebContentsView | undefined {
+    return this.frozenViews.get(windowId);
   }
 
   private findTabIdForView(view?: WebContentsView): string | undefined {

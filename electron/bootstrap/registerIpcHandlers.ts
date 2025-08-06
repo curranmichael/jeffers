@@ -40,6 +40,7 @@ import { registerWindowLifecycleHandler } from '../ipc/windowLifecycleHandler';
 import { registerClassicBrowserGetStateHandler } from '../ipc/classicBrowserGetState';
 import { registerFreezeBrowserViewHandler } from '../ipc/freezeBrowserView';
 import { registerUnfreezeBrowserViewHandler } from '../ipc/unfreezeBrowserView';
+import { registerSnapshotRenderedHandler } from '../ipc/snapshotRenderedHandler';
 import { registerClassicBrowserCreateTab } from '../ipc/classicBrowserCreateTab';
 import { registerClassicBrowserSwitchTab } from '../ipc/classicBrowserSwitchTab';
 import { registerClassicBrowserCloseTab } from '../ipc/classicBrowserCloseTab';
@@ -217,6 +218,7 @@ export function registerAllIpcHandlers(
     registerClassicBrowserGetStateHandler(serviceRegistry.classicBrowserStateService! as ClassicBrowserStateService);
     registerFreezeBrowserViewHandler(ipcMain, classicBrowserService);
     registerUnfreezeBrowserViewHandler(ipcMain, classicBrowserService);
+    registerSnapshotRenderedHandler(ipcMain, serviceRegistry.classicBrowserViewManager!);
     // Register tab management handlers
     registerClassicBrowserCreateTab(ipcMain, classicBrowserService);
     registerClassicBrowserSwitchTab(ipcMain, classicBrowserService);

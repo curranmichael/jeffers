@@ -180,6 +180,8 @@ export const CLASSIC_BROWSER_SET_BACKGROUND_COLOR = 'classic-browser:set-backgro
 export const BROWSER_FREEZE_VIEW = 'browser:freezeView';
 /** Renderer -> Main: Show browser view and remove snapshot. */
 export const BROWSER_UNFREEZE_VIEW = 'browser:unfreezeView';
+/** Renderer -> Main: Notify that snapshot has been rendered in DOM. */
+export const BROWSER_SNAPSHOT_RENDERED = 'browser:snapshot-rendered';
 
 // --- Electron Store Persistence Channels ---
 /** Renderer -> Main: Get a value from the persistent store. Expects key, returns string or null. */

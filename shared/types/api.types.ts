@@ -232,6 +232,9 @@ export interface IAppAPI {
   
   // @deprecated Use showAndFocusView instead
   unfreezeBrowserView: (windowId: string) => Promise<void>;
+  
+  // Confirm that a snapshot has been rendered in the DOM
+  confirmSnapshotRendered: (windowId: string) => Promise<{ success: boolean }>;
 
   // Tab management methods
   classicBrowserCreateTab: (windowId: string, url?: string) => Promise<{ success: boolean; tabId?: string; error?: string }>;

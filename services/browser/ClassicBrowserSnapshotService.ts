@@ -20,11 +20,12 @@ export class ClassicBrowserSnapshotService extends BaseService<ClassicBrowserSna
   }
 
   async initialize(): Promise<void> {
-    // Listen for tab eviction events to capture snapshots
     const eventBus = this.deps.stateService.getEventBus();
-    eventBus.on('tab:before-eviction', async ({ windowId, tabId }) => {
-      this.logDebug(`Capturing snapshot for tab ${tabId} before eviction`);
-      await this.captureSnapshotForEviction(windowId, tabId);
+    
+    // Direct snapshot storage from GlobalTabPool - no waiting, no async
+    eventBus.on('tab:snapshot-captured', ({ windowId, tabId, snapshot }) => {
+      this.storeSnapshotWithLRU(windowId, tabId, snapshot);
+      this.logDebug(`Stored snapshot for tab ${tabId} from eviction`);
     });
   }
 
@@ -159,7 +160,7 @@ export class ClassicBrowserSnapshotService extends BaseService<ClassicBrowserSna
   async cleanup(): Promise<void> {
     // Remove event listeners
     const eventBus = this.deps.stateService.getEventBus();
-    eventBus.removeAllListeners('tab:before-eviction');
+    eventBus.removeAllListeners('tab:snapshot-captured');
     
     this.clearAllSnapshots();
     await super.cleanup();
@@ -199,25 +200,4 @@ export class ClassicBrowserSnapshotService extends BaseService<ClassicBrowserSna
     }
   }
 
-  // Method to capture snapshot before tab eviction from pool
-  async captureSnapshotForEviction(windowId: string, tabId: string): Promise<void> {
-    const view = this.deps.viewManager.getView(tabId);
-    if (!view || view.webContents.isDestroyed()) {
-      return;
-    }
-
-    try {
-      const currentUrl = view.webContents.getURL();
-      if (isAuthenticationUrl(currentUrl)) {
-        return;
-      }
-
-      const image = await view.webContents.capturePage();
-      const snapshot = image.toDataURL();
-      this.storeSnapshotWithLRU(windowId, tabId, snapshot);
-      this.logDebug(`Captured snapshot for tab ${tabId} before eviction`);
-    } catch (error) {
-      this.logError(`Failed to capture eviction snapshot for tab ${tabId}:`, error);
-    }
-  }
 }

@@ -61,6 +61,7 @@ import {
     ON_CLASSIC_BROWSER_URL_CHANGE, // Import the new URL change channel
     BROWSER_FREEZE_VIEW, // Import freeze channel
     BROWSER_UNFREEZE_VIEW, // Import unfreeze channel
+    BROWSER_SNAPSHOT_RENDERED, // Import snapshot rendered channel
     // Tab management channels
     CLASSIC_BROWSER_CREATE_TAB,
     CLASSIC_BROWSER_SWITCH_TAB,
@@ -548,6 +549,12 @@ const api = {
   unfreezeBrowserView: (windowId: string): Promise<void> => {
     console.log(`[Preload Script] Invoking ${BROWSER_UNFREEZE_VIEW} for windowId: ${windowId} (deprecated, use showAndFocusView)`);
     return ipcRenderer.invoke(BROWSER_UNFREEZE_VIEW, windowId);
+  },
+
+  // Notify that snapshot has been rendered in DOM
+  confirmSnapshotRendered: (windowId: string): Promise<{ success: boolean }> => {
+    console.log(`[Preload Script] Invoking ${BROWSER_SNAPSHOT_RENDERED} for windowId: ${windowId}`);
+    return ipcRenderer.invoke(BROWSER_SNAPSHOT_RENDERED, { windowId });
   },
 
   // --- To-Do Operations ---

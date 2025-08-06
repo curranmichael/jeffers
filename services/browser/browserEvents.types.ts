@@ -75,6 +75,7 @@ export interface BrowserEventMap {
 
   // Tab pool events
   'tab:before-eviction': { windowId: string; tabId: string };
+  'tab:snapshot-captured': { windowId: string; tabId: string; snapshot: string };
 
   // Window lifecycle events for WebContentsView management
   'window:focus-changed': { windowId: string; isFocused: boolean; zIndex: number };
