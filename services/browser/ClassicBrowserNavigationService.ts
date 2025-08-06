@@ -24,21 +24,26 @@ export class ClassicBrowserNavigationService extends BaseService<ClassicBrowserN
   }
 
   async loadUrl(windowId: string, url: string): Promise<void> {
+    this.logInfo(`[LOAD URL] Window ${windowId} loading URL: ${url}`);
     const browserState = this.deps.stateService.getState(windowId);
     const activeTabId = browserState?.activeTabId;
     if (!activeTabId) {
       throw new Error(`No active tab found for windowId ${windowId} while trying to load URL: ${url}`);
     }
 
+    this.logInfo(`[LOAD URL] Active tab ${activeTabId} for window ${windowId}`);
     let view = this.deps.globalTabPool.getView(activeTabId);
     
     if (!view) {
       // Try to acquire the view if it doesn't exist
       try {
+        this.logInfo(`[LOAD URL] Acquiring view for tab ${activeTabId}`);
         view = await this.deps.globalTabPool.acquireView(activeTabId, windowId);
       } catch (error) {
         throw new Error(`WebContentsView for active tab ${activeTabId} not found and could not be acquired.`);
       }
+    } else {
+      this.logInfo(`[LOAD URL] View already exists for tab ${activeTabId}`);
     }
 
     let validUrl = url;

@@ -22,8 +22,8 @@ export interface BrowserEventMap {
   'view:did-stop-loading': { windowId: string; url: string; title: string; canGoBack: boolean; canGoForward: boolean };
   'view:did-navigate': { windowId: string; url: string; isMainFrame: boolean; title: string; canGoBack: boolean; canGoForward: boolean };
   'view:did-navigate-in-page': { windowId: string; url: string; isMainFrame: boolean; title: string; canGoBack: boolean; canGoForward: boolean };
-  'view:page-title-updated': { windowId: string; title: string };
-  'view:page-favicon-updated': { windowId: string; faviconUrl: string[] };
+  'view:page-title-updated': { windowId: string; title: string; tabId?: string };
+  'view:page-favicon-updated': { windowId: string; faviconUrl: string[]; tabId?: string };
   'view:did-fail-load': { 
     windowId: string; 
     errorCode: number; 

@@ -38,13 +38,19 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
    */
   public async acquireView(tabId: string, windowId?: string): Promise<WebContentsView> {
     return this.execute('acquireView', async () => {
+      this.logInfo(`[ACQUIRE] Tab ${tabId}, windowId: ${windowId || 'NONE'}`);
+      
       // Store the window mapping BEFORE creating the view
       // This ensures event handlers have access to the window ID
       if (windowId) {
         this.tabToWindowMapping.set(tabId, windowId);
+        this.logInfo(`[MAPPING] Set tab ${tabId} -> window ${windowId}`);
+      } else {
+        this.logWarn(`[MAPPING] No windowId provided for tab ${tabId}`);
       }
 
       if (this.pool.has(tabId)) {
+        this.logInfo(`[REUSE] Tab ${tabId} already in pool`);
         this.updateLRU(tabId);
         return this.pool.get(tabId)!;
       }
@@ -162,7 +168,10 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
     // Restore minimal state if it exists
     const state = this.preservedState.get(tabId);
     if (state?.url) {
+      this.logInfo(`[LOAD URL] Tab ${tabId} loading preserved URL: ${state.url}`);
       view.webContents.loadURL(state.url);
+    } else {
+      this.logWarn(`[NO URL] Tab ${tabId} created without URL to load`);
     }
 
     return view;
@@ -208,30 +217,38 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
 
     // Track title changes
     webContents.on('page-title-updated', (event, title) => {
-      this.logDebug(`Tab ${tabId} title updated: ${title}`);
+      const windowId = this.getWindowIdForTab(tabId);
+      this.logInfo(`[TITLE] Tab ${tabId} title updated to: "${title}" (windowId: ${windowId || 'NO_WINDOW'})`);
+      
       // Update preserved state with new title
       const currentState = this.preservedState.get(tabId) || {};
       this.preservedState.set(tabId, { ...currentState, title });
       
-      // Emit to event bus with window context
-      const windowId = this.getWindowIdForTab(tabId);
+      // Emit to event bus with window and tab context
       if (windowId) {
-        this.deps.eventBus.emit('view:page-title-updated', { windowId, title });
+        this.logInfo(`[TITLE] Emitting title update event for window ${windowId}, tab ${tabId}`);
+        this.deps.eventBus.emit('view:page-title-updated', { windowId, title, tabId });
+      } else {
+        this.logWarn(`[TITLE] Cannot emit title update - no window mapping for tab ${tabId}`);
       }
     });
 
     // Track favicon changes
     webContents.on('page-favicon-updated', (event, favicons) => {
-      this.logDebug(`Tab ${tabId} favicon updated: ${favicons.length} favicons`);
+      const windowId = this.getWindowIdForTab(tabId);
+      this.logInfo(`[FAVICON] Tab ${tabId} favicon updated: ${favicons.length} favicons (windowId: ${windowId || 'NO_WINDOW'})`);
+      
       // Update preserved state with new favicon
       const faviconUrl = favicons.length > 0 ? favicons[0] : null;
       const currentState = this.preservedState.get(tabId) || {};
       this.preservedState.set(tabId, { ...currentState, faviconUrl });
       
-      // Emit to event bus with window context
-      const windowId = this.getWindowIdForTab(tabId);
+      // Emit to event bus with window and tab context
       if (windowId) {
-        this.deps.eventBus.emit('view:page-favicon-updated', { windowId, faviconUrl: favicons });
+        this.logInfo(`[FAVICON] Emitting favicon update event for window ${windowId}, tab ${tabId} with URL: ${faviconUrl}`);
+        this.deps.eventBus.emit('view:page-favicon-updated', { windowId, faviconUrl: favicons, tabId });
+      } else {
+        this.logWarn(`[FAVICON] Cannot emit favicon update - no window mapping for tab ${tabId}`);
       }
     });
 

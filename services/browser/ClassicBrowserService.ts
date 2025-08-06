@@ -35,22 +35,44 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
     // Set up event listeners for tab metadata updates from WebContents
     const eventBus = this.deps.stateService.getEventBus();
     
-    // Listen for title updates and update the active tab
-    eventBus.on('view:page-title-updated', ({ windowId, title }) => {
-      this.logDebug(`Received title update for window ${windowId}: ${title}`);
-      const activeTabId = this.deps.stateService.getState(windowId)?.activeTabId;
-      if (activeTabId) {
-        this.deps.stateService.updateTab(windowId, activeTabId, { title });
+    // Listen for title updates and update the correct tab
+    eventBus.on('view:page-title-updated', ({ windowId, title, tabId }) => {
+      this.logInfo(`[TITLE RECEIVED] Window ${windowId}, tab ${tabId || 'UNSPECIFIED'}: "${title}"`);
+      
+      // Use the specific tabId if provided, otherwise use the active tab
+      let targetTabId = tabId;
+      if (!targetTabId) {
+        const state = this.deps.stateService.getState(windowId);
+        targetTabId = state?.activeTabId;
+        this.logInfo(`[TITLE PROCESSING] No tabId provided, using activeTabId: ${targetTabId || 'NONE'}`);
+      }
+      
+      if (targetTabId) {
+        this.logInfo(`[TITLE UPDATING] Updating tab ${targetTabId} title to: "${title}"`);
+        this.deps.stateService.updateTab(windowId, targetTabId, { title });
+      } else {
+        this.logWarn(`[TITLE SKIPPED] No target tab for window ${windowId}`);
       }
     });
 
-    // Listen for favicon updates and update the active tab
-    eventBus.on('view:page-favicon-updated', ({ windowId, faviconUrl }) => {
-      this.logDebug(`Received favicon update for window ${windowId}: ${faviconUrl.length} favicons`);
+    // Listen for favicon updates and update the correct tab
+    eventBus.on('view:page-favicon-updated', ({ windowId, faviconUrl, tabId }) => {
+      this.logInfo(`[FAVICON RECEIVED] Window ${windowId}, tab ${tabId || 'UNSPECIFIED'}: ${faviconUrl.length} favicons`);
       const favicon = faviconUrl.length > 0 ? faviconUrl[0] : null;
-      const activeTabId = this.deps.stateService.getState(windowId)?.activeTabId;
-      if (activeTabId) {
-        this.deps.stateService.updateTab(windowId, activeTabId, { faviconUrl: favicon });
+      
+      // Use the specific tabId if provided, otherwise use the active tab
+      let targetTabId = tabId;
+      if (!targetTabId) {
+        const state = this.deps.stateService.getState(windowId);
+        targetTabId = state?.activeTabId;
+        this.logInfo(`[FAVICON PROCESSING] No tabId provided, using activeTabId: ${targetTabId || 'NONE'}`);
+      }
+      
+      if (targetTabId) {
+        this.logInfo(`[FAVICON UPDATING] Updating tab ${targetTabId} favicon to: ${favicon}`);
+        this.deps.stateService.updateTab(windowId, targetTabId, { faviconUrl: favicon });
+      } else {
+        this.logWarn(`[FAVICON SKIPPED] No target tab for window ${windowId}`);
       }
     });
 
@@ -67,17 +89,22 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
         const tabId = this.deps.tabService.createTab(windowId, url, false);
         this.logInfo(`Created background tab ${tabId} for URL: ${url}`);
         
-        // Prefetch favicon for the background tab
+        // Immediately acquire view and load URL for background tabs
+        // This ensures title/favicon events fire from the actual WebContentsView
         if (url) {
-          this.logDebug(`Prefetching favicon for background tab ${tabId}`);
-          this.deps.globalTabPool.prefetchFavicon(url, { windowId, tabId })
-            .then(favicon => {
-              if (favicon) {
-                this.logDebug(`Favicon prefetched for tab ${tabId}: ${favicon}`);
+          this.logDebug(`Loading background tab ${tabId} with URL: ${url}`);
+          this.deps.globalTabPool.acquireView(tabId, windowId)
+            .then(async (view) => {
+              try {
+                // Load the URL in the background tab
+                await view.webContents.loadURL(url);
+                this.logDebug(`Background tab ${tabId} loaded successfully`);
+              } catch (loadErr) {
+                this.logDebug(`Failed to load URL in background tab ${tabId}: ${loadErr instanceof Error ? loadErr.message : String(loadErr)}`);
               }
             })
             .catch(err => {
-              this.logDebug(`Failed to prefetch favicon for tab ${tabId}: ${err.message}`);
+              this.logDebug(`Failed to acquire view for background tab ${tabId}: ${err.message}`);
             });
         }
       } catch (err) {
@@ -199,17 +226,22 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
         const tabId = this.deps.tabService.createTab(windowId, details.url, makeActive);
         this.logDebug(`Created tab ${tabId} as ${makeActive ? 'active' : 'background'}`);
         
-        // Prefetch favicon for background tabs
+        // For background tabs, immediately acquire view and load URL
+        // This ensures title/favicon events fire from the actual WebContentsView
         if (!makeActive && details.url) {
-          this.logDebug(`Prefetching favicon for background tab ${tabId}`);
-          this.deps.globalTabPool.prefetchFavicon(details.url, { windowId, tabId })
-            .then(favicon => {
-              if (favicon) {
-                this.logDebug(`Favicon prefetched for tab ${tabId}: ${favicon}`);
+          this.logDebug(`Loading background tab ${tabId} with URL: ${details.url}`);
+          this.deps.globalTabPool.acquireView(tabId, windowId)
+            .then(async (view) => {
+              try {
+                // Load the URL in the background tab
+                await view.webContents.loadURL(details.url);
+                this.logDebug(`Background tab ${tabId} loaded successfully`);
+              } catch (loadErr) {
+                this.logDebug(`Failed to load URL in background tab ${tabId}: ${loadErr instanceof Error ? loadErr.message : String(loadErr)}`);
               }
             })
             .catch(err => {
-              this.logDebug(`Failed to prefetch favicon for tab ${tabId}: ${err.message}`);
+              this.logDebug(`Failed to acquire view for background tab ${tabId}: ${err.message}`);
             });
         }
       } catch (err) {
