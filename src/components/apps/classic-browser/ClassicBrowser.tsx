@@ -678,7 +678,7 @@ const ClassicBrowserViewWrapperComponent: React.FC<ClassicBrowserContentProps> =
   return (
     <div
       className={cn(
-        'h-full w-full flex flex-col overflow-hidden shadow-lg rounded-lg',
+        'h-full w-full flex flex-col overflow-hidden shadow-lg rounded-sm',
         windowMeta.isFocused ? 'bg-step-4' : 'bg-step-3',
         windowMeta.isFocused ? 'border-step-4' : 'border-step-3'
       )}

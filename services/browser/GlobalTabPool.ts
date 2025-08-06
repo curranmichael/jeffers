@@ -147,7 +147,10 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
     };
 
     const view = new WebContentsView({ webPreferences: securePrefs });
-    view.setBackgroundColor('#FFFFFF'); // Default background
+    view.setBackgroundColor('#00000000'); // Transparent background
+    
+    // Apply border radius to the native view (6px to match 8px outer radius with 2px border)
+    (view as any).setBorderRadius(6);
 
     // Set up WebContents event handlers for proper navigation tracking
     this.setupWebContentsEventHandlers(view, tabId);
