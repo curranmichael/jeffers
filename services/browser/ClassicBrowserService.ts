@@ -174,7 +174,7 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
     return this.deps.snapshotService.captureSnapshotString(windowId);
   }
 
-  public async freezeWindow(windowId: string): Promise<void> {
+  public async freezeWindow(windowId: string): Promise<string | null> {
     return this.deps.snapshotService.freezeWindow(windowId);
   }
 

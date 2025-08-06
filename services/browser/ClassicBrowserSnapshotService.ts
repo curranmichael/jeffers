@@ -172,7 +172,7 @@ export class ClassicBrowserSnapshotService extends BaseService<ClassicBrowserSna
   }
 
   // Freeze/unfreeze methods for tab-pool architecture
-  async freezeWindow(windowId: string): Promise<void> {
+  async freezeWindow(windowId: string): Promise<string | null> {
     const result = await this.captureSnapshot(windowId);
     if (result) {
       // Update state to frozen with the snapshot
@@ -181,8 +181,10 @@ export class ClassicBrowserSnapshotService extends BaseService<ClassicBrowserSna
         freezeState: { type: 'FROZEN', snapshotUrl: result.snapshot }
       });
       this.logInfo(`Froze window ${windowId} with snapshot`);
+      return result.snapshot;
     } else {
       this.logWarn(`Failed to freeze window ${windowId} - no snapshot captured`);
+      return null;
     }
   }
 
