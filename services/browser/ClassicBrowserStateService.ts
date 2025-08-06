@@ -24,20 +24,7 @@ export class ClassicBrowserStateService extends BaseService<ClassicBrowserStateS
   }
 
   private setupEventListeners(): void {
-    // Listen for prefetched favicons for specific tabs
-    this.deps.eventBus.on('prefetch:tab-favicon-found', ({ windowId, tabId, faviconUrl }) => {
-      this.logDebug(`Received prefetched favicon for tab ${tabId} in window ${windowId}`);
-      this.updateTab(windowId, tabId, { faviconUrl });
-    });
-
-    // Listen for prefetched favicons for windows (active tab)
-    this.deps.eventBus.on('prefetch:favicon-found', ({ windowId, faviconUrl }) => {
-      this.logDebug(`Received prefetched favicon for window ${windowId}`);
-      const state = this.getState(windowId);
-      if (state && state.activeTabId) {
-        this.updateTab(windowId, state.activeTabId, { faviconUrl });
-      }
-    });
+    // Event listeners removed - favicon updates now come from actual tab loading
   }
 
   public getState(windowId: string): ClassicBrowserPayload | undefined {
@@ -164,10 +151,6 @@ export class ClassicBrowserStateService extends BaseService<ClassicBrowserStateS
       clearTimeout(timeoutId);
     }
     this.pendingStateEmissions.clear();
-    
-    // Remove event listeners
-    this.deps.eventBus.removeAllListeners('prefetch:tab-favicon-found');
-    this.deps.eventBus.removeAllListeners('prefetch:favicon-found');
     
     // Clear states
     this.states.clear();

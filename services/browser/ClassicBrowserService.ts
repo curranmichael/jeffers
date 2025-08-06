@@ -306,6 +306,43 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
     return this.eventEmitter.emit(event, ...args);
   }
 
+  /**
+   * Prefetch favicons for multiple windows - used by NotebookCompositionService
+   * Since we now load tabs immediately, this can return cached favicons from tab state
+   */
+  public async prefetchFaviconsForWindows(
+    windows: Array<{ windowId: string; url: string }>
+  ): Promise<Map<string, string | null>> {
+    this.logInfo(`Prefetching favicons for ${windows.length} windows`);
+    const faviconMap = new Map<string, string | null>();
+    
+    for (const { windowId, url } of windows) {
+      // windowId here is actually a tabId in the context of NotebookCompositionService
+      const tabId = windowId;
+      
+      // Try to get favicon from existing tab state first
+      let foundFavicon = false;
+      for (const [winId, state] of this.deps.stateService.states.entries()) {
+        const tab = state.tabs.find(t => t.id === tabId);
+        if (tab && tab.faviconUrl) {
+          faviconMap.set(tabId, tab.faviconUrl);
+          foundFavicon = true;
+          break;
+        }
+      }
+      
+      // If no favicon in state and we have a URL, we could trigger a load
+      // But since our new architecture loads tabs immediately, favicons should be available
+      if (!foundFavicon) {
+        this.logDebug(`No favicon found for tab ${tabId} with URL ${url}`);
+        faviconMap.set(tabId, null);
+      }
+    }
+    
+    this.logInfo(`Favicon prefetch completed. Got ${Array.from(faviconMap.values()).filter(v => v !== null).length} favicons`);
+    return faviconMap;
+  }
+
   // Missing methods that IPC handlers expect
   public setBackgroundColor(windowId: string, color: string): void {
     const activeTabId = this.deps.stateService.getState(windowId)?.activeTabId;
@@ -391,44 +428,6 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
     await Promise.all(Array.from(allStates.keys()).map(windowId => this.destroyBrowserView(windowId)));
   }
 
-  /**
-   * Prefetch favicons for a list of windows/tabs.
-   * Used by NotebookCompositionService to get favicons for composed notebooks.
-   * @param windows Array of objects with windowId and url properties
-   * @returns Map of windowId/tabId to favicon URL
-   */
-  public async prefetchFaviconsForWindows(windows: { windowId: string; url: string }[]): Promise<Map<string, string>> {
-    this.logInfo(`Prefetching favicons for ${windows.length} windows/tabs`);
-    
-    // Build array with context info for GlobalTabPool
-    // Note: windowId here is actually tabId from NotebookCompositionService
-    const urlsWithContext = windows.map(({ windowId, url }) => ({
-      url,
-      tabId: windowId, // This is actually the tab ID
-      windowId: undefined // We don't have the actual window ID yet
-    }));
-    
-    try {
-      // Use GlobalTabPool to prefetch favicons with context
-      const urlToFavicon = await this.deps.globalTabPool.prefetchFavicons(urlsWithContext);
-      
-      // Map results back to the original IDs (which are tab IDs)
-      const results = new Map<string, string>();
-      for (const window of windows) {
-        const favicon = urlToFavicon.get(window.url);
-        if (favicon) {
-          results.set(window.windowId, favicon);
-          this.logDebug(`Mapped favicon for tab ${window.windowId}: ${favicon}`);
-        }
-      }
-      
-      this.logInfo(`Successfully prefetched ${results.size} favicons`);
-      return results;
-    } catch (error) {
-      this.logError('Error prefetching favicons:', error);
-      return new Map<string, string>();
-    }
-  }
 
   public async transferTabToNotebook(sourceWindowId: string, tabId: string, targetNotebookId: string): Promise<void> {
     // TODO: Implement tab transfer to notebook functionality

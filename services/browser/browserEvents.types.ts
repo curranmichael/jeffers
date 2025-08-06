@@ -56,10 +56,6 @@ export interface BrowserEventMap {
   'overlay:show-context-menu': { data: BrowserContextMenuData };
   'overlay:hide-context-menu': { windowId: string };
 
-  // Prefetch events
-  'prefetch:tab-favicon-found': { windowId: string; tabId: string; faviconUrl: string };
-  'prefetch:favicon-found': { windowId: string; faviconUrl: string };
-
   // WOM (Working Memory) events
   'wom:refresh-needed': { objectId: string; url: string };
   'webpage:needs-refresh': { objectId: string; url: string; windowId: string; tabId: string };

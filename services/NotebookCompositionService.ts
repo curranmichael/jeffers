@@ -127,7 +127,7 @@ export class NotebookCompositionService extends BaseService<NotebookCompositionS
             const faviconMap = await this.deps.classicBrowserService!.prefetchFaviconsForWindows(windowsForPrefetch);
             
             this.logInfo(`Favicon prefetch completed. Got ${faviconMap.size} favicons`);
-            faviconMap.forEach((faviconUrl: string, tabId: string) => {
+            faviconMap.forEach((faviconUrl, tabId) => {
               this.logDebug(`Tab ${tabId} favicon: ${faviconUrl}`);
             });
           

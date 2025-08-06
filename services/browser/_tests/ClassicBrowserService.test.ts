@@ -150,8 +150,6 @@ describe('ClassicBrowserService', () => {
       getActiveViewWindowIds: vi.fn().mockReturnValue([]),
       destroyBrowserView: vi.fn().mockResolvedValue(undefined),
       destroyAllBrowserViews: vi.fn().mockResolvedValue(undefined),
-      prefetchFavicon: vi.fn().mockResolvedValue(null),
-      prefetchFaviconsForWindows: vi.fn().mockResolvedValue(new Map()),
       initialize: vi.fn().mockResolvedValue(undefined),
       cleanup: vi.fn().mockResolvedValue(undefined)
     };
