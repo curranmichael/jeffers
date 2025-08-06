@@ -21,6 +21,7 @@ export interface ClassicBrowserViewManagerDeps {
 export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewManagerDeps> {
   private activeViews: Map<string, WebContentsView> = new Map(); // windowId -> view
   private detachedViews: Map<string, WebContentsView> = new Map(); // windowId -> view (for minimized windows)
+  private frozenViews: Map<string, WebContentsView> = new Map(); // windowId -> view (for frozen windows)
   private viewToTabMapping: Map<WebContentsView, string> = new Map(); // view -> tabId
 
   constructor(deps: ClassicBrowserViewManagerDeps) {
@@ -45,10 +46,13 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
 
     // Check if window is frozen
     if (newState.freezeState?.type === 'FROZEN') {
-      // Detach any active view when frozen
+      // Hide the view but keep it attached for z-index management
       const currentView = this.activeViews.get(windowId);
       if (currentView) {
-        this.setViewState(currentView, false);
+        // Hide the view but keep it attached
+        this.setViewVisibility(currentView, false);
+        // Move from active to frozen
+        this.frozenViews.set(windowId, currentView);
         this.activeViews.delete(windowId);
       }
       return; // Skip normal tab handling when frozen
@@ -57,8 +61,28 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
     // Handle transition from frozen to active
     if (previousState?.freezeState?.type === 'FROZEN' &&
         newState.freezeState?.type === 'ACTIVE') {
-      // Re-acquire view for active tab
-      if (newState.activeTabId) {
+      // Check if we have a frozen view to restore
+      const frozenView = this.frozenViews.get(windowId);
+      if (frozenView) {
+        // Move from frozen back to active
+        this.frozenViews.delete(windowId);
+        this.activeViews.set(windowId, frozenView);
+        // Make the view visible again
+        this.setViewVisibility(frozenView, true);
+        // Update bounds if needed
+        if (newState.bounds) {
+          frozenView.setBounds(newState.bounds);
+        }
+        
+        // Ensure the view is navigated to the correct URL
+        if (newState.activeTabId) {
+          const activeTab = newState.tabs.find(tab => tab.id === newState.activeTabId);
+          if (activeTab) {
+            await this.ensureViewNavigatedToTab(frozenView, activeTab);
+          }
+        }
+      } else if (newState.activeTabId) {
+        // Fallback: Re-acquire view if we don't have a frozen one
         const view = await this.deps.globalTabPool.acquireView(newState.activeTabId, windowId);
         this.activeViews.set(windowId, view);
         this.viewToTabMapping.set(view, newState.activeTabId);
@@ -154,6 +178,16 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
     }
   }
 
+  private setViewVisibility(view: WebContentsView, isVisible: boolean): void {
+    if (!view) return;
+    
+    // Use the setVisible method to hide/show the view
+    view.setVisible(isVisible);
+    
+    // Log for debugging
+    this.logDebug(`Set view visibility to ${isVisible} for view`);
+  }
+
   private findTabIdForView(view?: WebContentsView): string | undefined {
     if (!view) {
       return undefined;
@@ -217,7 +251,8 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
       .sort((a, b) => a.zIndex - b.zIndex);
 
     for (const { windowId } of activeWindowsInOrder) {
-      const view = this.activeViews.get(windowId);
+      // Check both active and frozen views for z-index management
+      const view = this.activeViews.get(windowId) || this.frozenViews.get(windowId);
       if (view) {
         this.bringViewToTop(view);
       }
@@ -393,8 +428,10 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
     
     this.activeViews.forEach(view => this.setViewState(view, false));
     this.detachedViews.forEach(view => this.setViewState(view, false));
+    this.frozenViews.forEach(view => this.setViewState(view, false));
     this.activeViews.clear();
     this.detachedViews.clear();
+    this.frozenViews.clear();
     this.viewToTabMapping.clear();
   }
 
@@ -435,6 +472,14 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
     const detachedView = this.detachedViews.get(windowId);
     if (detachedView) {
       this.detachedViews.delete(windowId);
+      // Keep the view-to-tab mapping - the view might be reused by other windows
+    }
+    
+    // Remove any frozen view
+    const frozenView = this.frozenViews.get(windowId);
+    if (frozenView) {
+      this.setViewState(frozenView, false);
+      this.frozenViews.delete(windowId);
       // Keep the view-to-tab mapping - the view might be reused by other windows
     }
   }
