@@ -74,13 +74,8 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
           frozenView.setBounds(newState.bounds);
         }
         
-        // Ensure the view is navigated to the correct URL
-        if (newState.activeTabId) {
-          const activeTab = newState.tabs.find(tab => tab.id === newState.activeTabId);
-          if (activeTab) {
-            await this.ensureViewNavigatedToTab(frozenView, activeTab);
-          }
-        }
+        // Skip navigation check - the view was just hidden, not detached
+        // The content should still be intact
       } else if (newState.activeTabId) {
         // Fallback: Re-acquire view if we don't have a frozen one
         const view = await this.deps.globalTabPool.acquireView(newState.activeTabId, windowId);
@@ -262,10 +257,17 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
   private bringViewToTop(view: WebContentsView): void {
     if (!this.deps.mainWindow || this.deps.mainWindow.isDestroyed()) return;
     
-    // The only way to change z-order in Electron is to remove and re-add the view
-    if (this.deps.mainWindow.contentView.children.includes(view)) {
-      this.deps.mainWindow.contentView.removeChildView(view);
-      this.deps.mainWindow.contentView.addChildView(view);
+    const contentView = this.deps.mainWindow.contentView;
+    const children = contentView.children;
+    
+    // Only re-add if the view is not already the topmost child
+    if (children.includes(view)) {
+      const isAlreadyOnTop = children[children.length - 1] === view;
+      if (!isAlreadyOnTop) {
+        // The only way to change z-order in Electron is to remove and re-add the view
+        contentView.removeChildView(view);
+        contentView.addChildView(view);
+      }
     }
   }
 
