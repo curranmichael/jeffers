@@ -73,6 +73,9 @@ export interface BrowserEventMap {
   // Tab group events
   'tabgroup:title-updated': { windowId: string; title: string };
 
+  // Tab pool events
+  'tab:before-eviction': { windowId: string; tabId: string };
+
   // Window lifecycle events for WebContentsView management
   'window:focus-changed': { windowId: string; isFocused: boolean; zIndex: number };
   'window:minimized': { windowId: string };

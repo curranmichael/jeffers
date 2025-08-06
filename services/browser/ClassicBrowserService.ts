@@ -63,7 +63,12 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
   }
 
   public createBrowserView(windowId: string, bounds: Electron.Rectangle, payload: ClassicBrowserPayload): void {
-    const initialState = { ...payload, bounds };
+    const initialState = { 
+      ...payload, 
+      bounds,
+      // Ensure freezeState is always set, default to ACTIVE
+      freezeState: payload.freezeState || { type: 'ACTIVE' }
+    };
     this.deps.stateService.setState(windowId, initialState);
     
     // Ensure there's always at least one tab when creating a browser window
@@ -167,6 +172,14 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
 
   public async captureSnapshot(windowId: string): Promise<string> {
     return this.deps.snapshotService.captureSnapshotString(windowId);
+  }
+
+  public async freezeWindow(windowId: string): Promise<void> {
+    return this.deps.snapshotService.freezeWindow(windowId);
+  }
+
+  public async unfreezeWindow(windowId: string): Promise<void> {
+    return this.deps.snapshotService.unfreezeWindow(windowId);
   }
 
   public getBrowserState(windowId: string): ClassicBrowserPayload | undefined {

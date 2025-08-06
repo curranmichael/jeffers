@@ -43,6 +43,35 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
   }): Promise<void> {
     await this.cleanupRemovedTabs(newState, previousState);
 
+    // Check if window is frozen
+    if (newState.freezeState?.type === 'FROZEN') {
+      // Detach any active view when frozen
+      const currentView = this.activeViews.get(windowId);
+      if (currentView) {
+        this.setViewState(currentView, false);
+        this.activeViews.delete(windowId);
+      }
+      return; // Skip normal tab handling when frozen
+    }
+
+    // Handle transition from frozen to active
+    if (previousState?.freezeState?.type === 'FROZEN' &&
+        newState.freezeState?.type === 'ACTIVE') {
+      // Re-acquire view for active tab
+      if (newState.activeTabId) {
+        const view = await this.deps.globalTabPool.acquireView(newState.activeTabId, windowId);
+        this.activeViews.set(windowId, view);
+        this.viewToTabMapping.set(view, newState.activeTabId);
+        this.setViewState(view, true, newState.bounds);
+        
+        const activeTab = newState.tabs.find(tab => tab.id === newState.activeTabId);
+        if (activeTab) {
+          await this.ensureViewNavigatedToTab(view, activeTab);
+        }
+      }
+      return;
+    }
+
     const activeTabId = newState.activeTabId;
     const currentView = this.activeViews.get(windowId);
     const currentViewTabId = this.findTabIdForView(currentView);

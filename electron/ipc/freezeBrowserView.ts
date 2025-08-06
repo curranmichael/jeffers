@@ -18,14 +18,17 @@ export function registerFreezeBrowserViewHandler(
     try {
       logger.debug(`[FreezeBrowserView] Freezing view for windowId: ${windowId}`);
       
-      // Call the service method to capture the view
+      // Call the service method to freeze the window
+      await classicBrowserService.freezeWindow(windowId);
+      
+      // Get the snapshot for the response
       const snapshotResult = await classicBrowserService.captureSnapshot(windowId);
       
       if (snapshotResult) {
         logger.debug(`[FreezeBrowserView] Successfully froze view for windowId: ${windowId}`);
         return snapshotResult;
       } else {
-        logger.warn(`[FreezeBrowserView] Failed to capture snapshot for windowId: ${windowId}`);
+        logger.warn(`[FreezeBrowserView] Window frozen but no snapshot available for windowId: ${windowId}`);
         return null;
       }
     } catch (error) {

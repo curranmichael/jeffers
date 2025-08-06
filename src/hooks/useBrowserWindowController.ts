@@ -63,6 +63,12 @@ export function useBrowserWindowController(
         
         const payload = windowMeta.payload as ClassicBrowserPayload;
         
+        // Check if freezeState exists (might not be initialized yet)
+        if (!payload.freezeState) {
+          logger.debug(`[useBrowserWindowController] No freezeState yet for window ${windowId}`);
+          return;
+        }
+        
         if (!isFocused && !window?.isMinimized && payload.freezeState.type === 'ACTIVE') {
           // Window lost focus and is not minimized - start capture process
           logger.info(`[useBrowserWindowController] Window ${windowId} lost focus, starting capture`);

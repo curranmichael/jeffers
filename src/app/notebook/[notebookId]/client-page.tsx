@@ -573,10 +573,13 @@ function NotebookWorkspace({ notebookId }: { notebookId: string }) {
         const currentWindow = windows.find(w => w.id === update.windowId);
         if (currentWindow && currentWindow.type === 'classic-browser') {
           // Complete state replacement - use the tabs and activeTabId from the update
+          const currentPayload = currentWindow.payload as ClassicBrowserPayload;
           const newPayload: ClassicBrowserPayload = {
-            ...currentWindow.payload as ClassicBrowserPayload,
+            ...currentPayload,
             tabs: update.update.tabs || [],
-            activeTabId: update.update.activeTabId || ''
+            activeTabId: update.update.activeTabId || '',
+            // Preserve freezeState if it exists, otherwise default to ACTIVE
+            freezeState: currentPayload.freezeState || { type: 'ACTIVE' }
           };
 
           // Get the active tab for window title
