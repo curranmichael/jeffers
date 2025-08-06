@@ -268,6 +268,21 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
       }
     });
 
+    // Handle window open requests (CMD+click, middle-click, etc.)
+    webContents.setWindowOpenHandler((details) => {
+      this.logDebug(`Tab ${tabId} window open request:`, details);
+      
+      // Get the window ID for this tab
+      const windowId = this.getWindowIdForTab(tabId);
+      if (windowId) {
+        // Emit event for ClassicBrowserService to handle
+        this.deps.eventBus.emit('view:window-open-request', { windowId, details });
+      }
+      
+      // Always deny the default behavior - we handle it ourselves
+      return { action: 'deny' };
+    });
+
     // Store reference to cleanup listeners when view is destroyed
     // Note: WebContents doesn't have a destroy method, cleanup happens in destroyView
     (view as any)._tabId = tabId; // Store tabId for cleanup reference

@@ -1,5 +1,5 @@
 
-import { BrowserWindow } from 'electron';
+import { BrowserWindow, HandlerDetails } from 'electron';
 import { BaseService } from '../base/BaseService';
 import { ClassicBrowserPayload, TabState, BrowserActionData } from '../../shared/types';
 import { BrowserContextMenuData } from '../../shared/types/contextMenu.types';
@@ -50,6 +50,11 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
       if (activeTabId) {
         this.deps.stateService.updateTab(windowId, activeTabId, { faviconUrl: favicon });
       }
+    });
+
+    // Listen for window open requests (CMD+click, middle-click, etc.)
+    eventBus.on('view:window-open-request', ({ windowId, details }) => {
+      this.handleWindowOpenRequest(windowId, details);
     });
 
     // Listen for context menu requests and show the overlay
@@ -110,6 +115,7 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
     eventBus.removeAllListeners('view:page-title-updated');
     eventBus.removeAllListeners('view:page-favicon-updated');
     eventBus.removeAllListeners('view:context-menu-requested');
+    eventBus.removeAllListeners('view:window-open-request');
     await super.cleanup();
   }
 
@@ -142,6 +148,35 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
 
   public loadUrl(windowId: string, url: string): Promise<void> {
     return this.deps.navigationService.loadUrl(windowId, url);
+  }
+
+  /**
+   * Handles window open requests from webContents (CMD+click, middle-click, etc.)
+   * This is called when a link tries to open in a new window/tab
+   */
+  private handleWindowOpenRequest(windowId: string, details: HandlerDetails): void {
+    this.logDebug(`Window open request for window ${windowId}:`, details);
+    
+    // Check if this is a tab-related disposition
+    const isTabRequest = details.disposition === 'foreground-tab' || 
+                        details.disposition === 'background-tab';
+    
+    if (isTabRequest) {
+      const makeActive = details.disposition === 'foreground-tab';
+      this.logInfo(`Creating ${makeActive ? 'active' : 'background'} tab for ${details.url}`);
+      
+      try {
+        // Create the new tab with the appropriate active state
+        const tabId = this.deps.tabService.createTab(windowId, details.url, makeActive);
+        this.logDebug(`Created tab ${tabId} as ${makeActive ? 'active' : 'background'}`);
+      } catch (err) {
+        this.logError(`Failed to create new tab:`, err);
+      }
+    } else {
+      // For regular clicks, navigate in the same tab
+      this.logDebug(`Regular navigation to ${details.url} in same tab`);
+      this.deps.navigationService.loadUrl(windowId, details.url);
+    }
   }
 
   public navigate(windowId: string, action: 'back' | 'forward' | 'reload' | 'stop'): void {
