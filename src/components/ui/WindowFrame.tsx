@@ -225,6 +225,7 @@ const OriginalWindowFrame: React.FC<WindowFrameProps> = ({ windowMeta, activeSto
             isActuallyVisible={!isMinimized}
             isDragging={isDragging}
             isResizing={isResizing}
+            notebookId={notebookId}
           />
         </div>
       ) : (

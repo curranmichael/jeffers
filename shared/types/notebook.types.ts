@@ -6,6 +6,11 @@ export interface NotebookRecord {
   objectId: string; // Link to the corresponding JeffersObject
   createdAt: string; // ISO 8601 timestamp
   updatedAt: string; // ISO 8601 timestamp
+  // TSTP fields (aggregated from objects)
+  summary?: string | null;
+  tagsJson?: string | null;  // JSON string of string[]
+  propositionsJson?: string | null;  // JSON string of propositions
+  tstpGeneratedAt?: string | null;  // ISO timestamp
 }
 
 /** Extended notebook type with last accessed timestamp. */

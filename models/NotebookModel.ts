@@ -11,6 +11,11 @@ interface NotebookDbRecord {
   object_id: string | null;
   created_at: string;
   updated_at: string;
+  // TSTP fields
+  summary?: string | null;
+  tags_json?: string | null;
+  propositions_json?: string | null;
+  tstp_generated_at?: string | null;
 }
 
 // Helper to convert DB record (snake_case) to application object (camelCase)
@@ -22,6 +27,11 @@ function mapRecordToNotebook(record: NotebookDbRecord): NotebookRecord {
     objectId: record.object_id ?? "",  // Convert null to empty string for type compatibility
     createdAt: record.created_at,
     updatedAt: record.updated_at,
+    // TSTP fields
+    summary: record.summary,
+    tagsJson: record.tags_json,
+    propositionsJson: record.propositions_json,
+    tstpGeneratedAt: record.tstp_generated_at,
   };
 }
 
@@ -370,6 +380,51 @@ export class NotebookModel {
       return result.count;
     } catch (error: any) {
       logger.error(`[NotebookModel] Failed to get object count for notebook ${notebookId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Updates the TSTP (Tags, Summary, Propositions) fields for a notebook.
+   * @param notebookId - The UUID of the notebook to update.
+   * @param tstp - Object containing the TSTP data to save.
+   * @returns Promise resolving to the updated NotebookRecord or null if not found.
+   */
+  async updateTSTP(notebookId: string, tstp: {
+    summary: string;
+    tags: string[];
+    propositions: any[];
+  }): Promise<NotebookRecord | null> {
+    const now = new Date().toISOString();
+    const stmt = this.db.prepare(`
+      UPDATE notebooks
+      SET summary = @summary,
+          tags_json = @tagsJson,
+          propositions_json = @propositionsJson,
+          tstp_generated_at = @tstpGeneratedAt,
+          updated_at = @updatedAt
+      WHERE id = @id
+    `);
+
+    try {
+      const info = stmt.run({
+        id: notebookId,
+        summary: tstp.summary,
+        tagsJson: JSON.stringify(tstp.tags),
+        propositionsJson: JSON.stringify(tstp.propositions),
+        tstpGeneratedAt: now,
+        updatedAt: now,
+      });
+
+      if (info.changes > 0) {
+        logger.debug(`[NotebookModel] Updated TSTP for notebook ${notebookId}`);
+        return this.getById(notebookId);
+      } else {
+        logger.warn(`[NotebookModel] Failed to update TSTP for non-existent notebook ${notebookId}`);
+        return null;
+      }
+    } catch (error: any) {
+      logger.error(`[NotebookModel] Failed to update TSTP for notebook ${notebookId}:`, error);
       throw error;
     }
   }

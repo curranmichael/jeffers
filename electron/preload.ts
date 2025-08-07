@@ -36,6 +36,11 @@ import {
     NOTEBOOK_COMPOSE,
     NOTEBOOK_GET_RECENTLY_VIEWED,
     NOTEBOOK_GET_OR_CREATE_DAILY,
+    NOTEBOOK_GET_TSTP,
+    NOTEBOOK_GET_SUMMARY,
+    NOTEBOOK_GET_TAGS,
+    NOTEBOOK_GET_PROPOSITIONS,
+    NOTEBOOK_GENERATE_TSTP,
     CHAT_SESSION_CREATE_IN_NOTEBOOK,
     CHAT_SESSION_LIST_FOR_NOTEBOOK,
     CHAT_SESSION_TRANSFER_TO_NOTEBOOK,
@@ -82,6 +87,7 @@ import {
     PDF_INGEST_CANCEL,
     // Object channels
     OBJECT_GET_BY_ID,
+    OBJECT_UPDATE,
     OBJECT_DELETE,
     OBJECT_DELETE_BY_SOURCE_URI,
     // Note channels
@@ -409,6 +415,31 @@ const api = {
     console.log(`[Preload Script] Invoking ${NOTEBOOK_GET_OR_CREATE_DAILY}`);
     return ipcRenderer.invoke(NOTEBOOK_GET_OR_CREATE_DAILY);
   },
+  getNotebookTSTP: (notebookId: string): Promise<any> => {
+    console.log(`[Preload Script] Invoking ${NOTEBOOK_GET_TSTP} for notebook ID: ${notebookId}`);
+    return ipcRenderer.invoke(NOTEBOOK_GET_TSTP, notebookId);
+  },
+  getNotebookSummary: (notebookId: string): Promise<string | null> => {
+    console.log(`[Preload Script] Invoking ${NOTEBOOK_GET_SUMMARY} for notebook ID: ${notebookId}`);
+    return ipcRenderer.invoke(NOTEBOOK_GET_SUMMARY, notebookId);
+  },
+  getNotebookTags: (notebookId: string): Promise<string[]> => {
+    console.log(`[Preload Script] Invoking ${NOTEBOOK_GET_TAGS} for notebook ID: ${notebookId}`);
+    return ipcRenderer.invoke(NOTEBOOK_GET_TAGS, notebookId);
+  },
+  getNotebookPropositions: (notebookId: string): Promise<Array<{
+    objectId: string;
+    objectTitle: string;
+    type: 'main' | 'supporting' | 'action';
+    content: string;
+  }>> => {
+    console.log(`[Preload Script] Invoking ${NOTEBOOK_GET_PROPOSITIONS} for notebook ID: ${notebookId}`);
+    return ipcRenderer.invoke(NOTEBOOK_GET_PROPOSITIONS, notebookId);
+  },
+  generateNotebookTSTP: (notebookId: string): Promise<{ success: boolean; error?: string }> => {
+    console.log(`[Preload Script] Invoking ${NOTEBOOK_GENERATE_TSTP} for notebook ID: ${notebookId}`);
+    return ipcRenderer.invoke(NOTEBOOK_GENERATE_TSTP, notebookId);
+  },
 
   // --- Chat Session Functions (within Notebooks) ---
   createChatInNotebook: (params: { notebookId: string, chatTitle?: string | null }): Promise<IChatSession> => {
@@ -460,8 +491,8 @@ const api = {
   },
 
   // --- Classic Browser API --- 
-  classicBrowserCreate: (windowId: string, bounds: Electron.Rectangle, payload: ClassicBrowserPayload): Promise<{ success: boolean } | undefined> =>
-    ipcRenderer.invoke(CLASSIC_BROWSER_CREATE, windowId, bounds, payload),
+  classicBrowserCreate: (windowId: string, bounds: Electron.Rectangle, payload: ClassicBrowserPayload, notebookId?: string): Promise<{ success: boolean } | undefined> =>
+    ipcRenderer.invoke(CLASSIC_BROWSER_CREATE, windowId, bounds, payload, notebookId),
 
   classicBrowserLoadUrl: (windowId: string, url: string): Promise<void> =>
     ipcRenderer.invoke(CLASSIC_BROWSER_LOAD_URL, windowId, url),
@@ -622,6 +653,11 @@ const api = {
   getObjectById: (objectId: string): Promise<JeffersObject | null> => {
     console.log('[Preload Script] Getting object by ID via IPC');
     return ipcRenderer.invoke(OBJECT_GET_BY_ID, objectId);
+  },
+
+  updateObject: (objectId: string, updates: any): Promise<void> => {
+    console.log('[Preload Script] Updating object via IPC');
+    return ipcRenderer.invoke(OBJECT_UPDATE, objectId, updates);
   },
 
   deleteObjects: (objectIds: string[]): Promise<DeleteResult> => {

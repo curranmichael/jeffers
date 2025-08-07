@@ -50,6 +50,7 @@ import { registerAudioHandlers } from '../ipc/audioHandlers';
 import { registerUpdateHandlers } from '../ipc/updateHandlers';
 import { registerOverlayHandlers } from '../ipc/overlayHandlers';
 import { registerBrowserContextMenuRequestShowHandler } from '../ipc/browserContextMenuRequestShow';
+import { registerNotebookTSTPHandlers } from '../ipc/notebookTSTPHandlers';
 
 export function registerAllIpcHandlers(
   serviceRegistry: ServiceRegistry,
@@ -63,6 +64,7 @@ export function registerAllIpcHandlers(
     slice: sliceService,
     intent: intentService,
     notebook: notebookService,
+    notebookTSTP: notebookTSTPService,
     note: noteService,
     notebookComposition: notebookCompositionService,
     classicBrowser: classicBrowserService,
@@ -137,6 +139,14 @@ export function registerAllIpcHandlers(
     registerChatSessionIpcHandlers(notebookService);
   } else {
     logger.warn('[IPC] NotebookService not available, notebook handlers not registered.');
+  }
+  
+  // Register Notebook TSTP handlers
+  if (notebookTSTPService) {
+    registerNotebookTSTPHandlers(ipcMain, notebookTSTPService);
+    logger.info('[IPC] Notebook TSTP handlers registered.');
+  } else {
+    logger.warn('[IPC] NotebookTSTPService not available, notebook TSTP handlers not registered.');
   }
   
   // Register Notebook Composition Handler

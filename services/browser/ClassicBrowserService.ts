@@ -7,6 +7,7 @@ import { ClassicBrowserViewManager } from './ClassicBrowserViewManager';
 import { ClassicBrowserStateService } from './ClassicBrowserStateService';
 import { ClassicBrowserNavigationService } from './ClassicBrowserNavigationService';
 import { ClassicBrowserTabService } from './ClassicBrowserTabService';
+import { ClassicBrowserWOMService } from './ClassicBrowserWOMService';
 import { ClassicBrowserSnapshotService } from './ClassicBrowserSnapshotService';
 import { GlobalTabPool } from './GlobalTabPool';
 import { EventEmitter } from 'events';
@@ -17,6 +18,7 @@ export interface ClassicBrowserServiceDeps {
   stateService: ClassicBrowserStateService;
   navigationService: ClassicBrowserNavigationService;
   tabService: ClassicBrowserTabService;
+  womService: ClassicBrowserWOMService;
   snapshotService: ClassicBrowserSnapshotService;
   globalTabPool: GlobalTabPool;
 }
@@ -175,7 +177,7 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
     await super.cleanup();
   }
 
-  public createBrowserView(windowId: string, bounds: Electron.Rectangle, payload: ClassicBrowserPayload): void {
+  public createBrowserView(windowId: string, bounds: Electron.Rectangle, payload: ClassicBrowserPayload, notebookId?: string): void {
     const initialState = { 
       ...payload, 
       bounds,
@@ -183,6 +185,11 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
       freezeState: payload.freezeState || { type: 'ACTIVE' }
     };
     this.deps.stateService.setState(windowId, initialState);
+    
+    // Associate the browser window with a notebook if provided
+    if (notebookId) {
+      this.deps.womService.setWindowNotebook(windowId, notebookId);
+    }
     
     // Ensure there's always at least one tab when creating a browser window
     if (!initialState.tabs.length || !initialState.activeTabId) {

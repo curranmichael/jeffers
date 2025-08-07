@@ -39,6 +39,7 @@ export function bootstrapBrowserServices(mainWindow: BrowserWindow) {
     stateService,
     navigationService,
     tabService,
+    womService,
     snapshotService,
     globalTabPool,
   });

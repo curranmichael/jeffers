@@ -54,7 +54,8 @@ function NotebookContent({
   const { state: sidebarState, isHovered: isSidebarHovered } = useSidebar();
   const [isPillHovered, setIsPillHovered] = useState(false);
   const [isPillClicked, setIsPillClicked] = useState(false);
-  const intentLineRef = useRef<HTMLInputElement>(null);
+  const [isNotebookDropdownOpen, setIsNotebookDropdownOpen] = useState(false);
+  const intentLineRef = useRef<HTMLTextAreaElement>(null);
   
   // Focus intent line when it becomes visible
   useEffect(() => {
@@ -93,11 +94,14 @@ function NotebookContent({
       const isRecentlyRestored = activeWindow.restoredAt && 
         (Date.now() - activeWindow.restoredAt) < 1000;
       
-      if (isSidebarHovered && !isRecentlyRestored) {
-        // Sidebar is hovered - freeze the active browser window if it's not already frozen
+      if ((isSidebarHovered || isNotebookDropdownOpen || isIntentLineVisible) && !isRecentlyRestored) {
+        // Sidebar is hovered OR notebook dropdown is open OR intent line is visible - freeze the active browser window if it's not already frozen
         // and it wasn't just restored
         if (currentPayload.freezeState?.type === 'ACTIVE') {
-          console.log(`[NotebookContent] Sidebar hovered, freezing active browser window ${activeWindow.id}`);
+          const reason = isSidebarHovered ? 'Sidebar hovered' : 
+                        isNotebookDropdownOpen ? 'Notebook dropdown open' : 
+                        'Intent line visible';
+          console.log(`[NotebookContent] ${reason}, freezing active browser window ${activeWindow.id}`);
           activeStore.getState().updateWindowProps(activeWindow.id, {
             payload: {
               ...currentPayload,
@@ -106,9 +110,10 @@ function NotebookContent({
           });
         }
       } else {
-        // Sidebar is not hovered OR window was recently restored - unfreeze the active browser window if it's frozen
+        // None of the triggers are active OR window was recently restored - unfreeze the active browser window if it's frozen
         if (currentPayload.freezeState?.type !== 'ACTIVE') {
-          console.log(`[NotebookContent] Sidebar no longer hovered${isRecentlyRestored ? ' or window recently restored' : ''}, unfreezing active browser window ${activeWindow.id}`);
+          const reason = isRecentlyRestored ? 'Window recently restored' : 'All triggers inactive';
+          console.log(`[NotebookContent] ${reason}, unfreezing active browser window ${activeWindow.id}`);
           activeStore.getState().updateWindowProps(activeWindow.id, {
             payload: {
               ...currentPayload,
@@ -119,7 +124,7 @@ function NotebookContent({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSidebarHovered, activeStore]);
+  }, [isSidebarHovered, isNotebookDropdownOpen, isIntentLineVisible, activeStore]);
   
   console.log(`[NotebookContent] Rendering with ${windows.length} windows:`, {
     notebookId,
@@ -216,7 +221,7 @@ function NotebookContent({
       {/* Notebook info pill positioned at top left */}
       {notebookTitle && (
         <motion.div 
-          className="notebook-info-pill-container fixed top-4 left-4"
+          className="notebook-info-pill-container fixed top-1 left-1"
           initial={{ opacity: 0 }}
           animate={{ opacity: isReady ? 1 : 0 }}
           transition={{ duration: 0.4, ease: "easeOut" }}
@@ -232,6 +237,7 @@ function NotebookContent({
             title={notebookTitle} 
             onTitleChange={handleNotebookTitleChange}
             parentZIndex={isPillHovered || isPillClicked ? 10000 : 5}
+            onDropdownOpenChange={setIsNotebookDropdownOpen}
           />
         </motion.div>
       )}
@@ -240,29 +246,35 @@ function NotebookContent({
       {/* Intent line is outside the motion div to remain visible during transition */}
       {/* Homepage uses grid-cols-[2fr_1fr] with px-16 in left column, so intent line width is 2/3 - 128px */}
       <div 
-        className="fixed bottom-4 left-4 flex items-center"
+        className="fixed bottom-0 left-0 flex items-center"
         style={{ 
           zIndex: isIntentLineVisible ? 10000 : 5,
           transition: 'z-index 0.2s ease'
         }}
       >
-        <HumanComputerIcon 
-          onClick={() => setIsIntentLineVisible(!isIntentLineVisible)}
-          isActive={isIntentLineVisible}
-        />
         <div 
-          className={`overflow-hidden transition-all duration-300 ease-out ${
-            isIntentLineVisible ? 'w-[calc(66.666667vw-80px)] ml-3' : 'w-0 ml-0'
+          className="group p-4 cursor-pointer"
+          onClick={() => setIsIntentLineVisible(!isIntentLineVisible)}
+        >
+          <HumanComputerIcon 
+            onClick={() => {
+              setIsIntentLineVisible(!isIntentLineVisible);
+            }}
+            isActive={isIntentLineVisible}
+          />
+        </div>
+        <div 
+          className={`overflow-hidden transition-all duration-300 ease-out bg-step-1/70 backdrop-blur-lg rounded drop-shadow-sm ${
+            isIntentLineVisible ? 'w-[40vw]' : 'w-0'
           }`}
         >
           <IntentLine
             ref={intentLineRef}
-            type="text"
             value={notebookIntentText}
             onChange={(e) => setNotebookIntentText(e.target.value)}
             transcribeAudio={typeof window !== 'undefined' ? window.api.audio.transcribe : undefined}
             placeholder={`Ask or command within this notebook...`}
-            className="w-full text-lg md:text-lg text-step-12 bg-transparent border-0 border-b-[1.5px] border-step-12/30 focus:ring-0 focus:border-step-12/50 placeholder:text-step-12"
+            className="w-full text-base text-step-12 bg-transparent border-0 border-b-[1px] border-step-9 hover:border-step-11.5 focus:ring-0 focus:border-step-10 placeholder:text-step-12"
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -652,8 +664,24 @@ function NotebookWorkspace({ notebookId }: { notebookId: string }) {
       // No specific cleanup needed for onMainRequestFlush as it doesn't return a remover
       // and is intended as a global, app-lifecycle listener.
       console.log('[NotebookWorkspace] Cleanup: beforeunload listener removed. Main flush listener was global.');
+      
+      // Generate and save TSTP data when leaving the notebook
+      if (window.api?.generateNotebookTSTP) {
+        console.log(`[NotebookWorkspace] Generating TSTP for notebook ${notebookId} on unmount`);
+        window.api.generateNotebookTSTP(notebookId)
+          .then(result => {
+            if (result.success) {
+              console.log(`[NotebookWorkspace] Successfully generated TSTP for notebook ${notebookId}`);
+            } else {
+              console.warn(`[NotebookWorkspace] Failed to generate TSTP: ${result.error}`);
+            }
+          })
+          .catch(error => {
+            console.error(`[NotebookWorkspace] Error generating TSTP:`, error);
+          });
+      }
     };
-  }, []); // Empty dependency array: runs once on mount, cleans up on unmount
+  }, [notebookId]); // Add notebookId to dependencies to ensure we have the correct ID
 
   // NOTE: Removed onClassicBrowserViewFocused listener to prevent focus feedback loop.
   // With the new controller pattern, all focus changes originate from the frontend.
@@ -936,5 +964,5 @@ export default function NotebookView({ notebookId }: NotebookViewProps) {
     );
   }
 
-  return <NotebookWorkspace notebookId={resolvedNotebookId} />;
+  return <NotebookWorkspace key={resolvedNotebookId} notebookId={resolvedNotebookId} />;
 }

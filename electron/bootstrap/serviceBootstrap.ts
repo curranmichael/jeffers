@@ -45,6 +45,7 @@ import { SearchResultFormatter } from '../../services/SearchResultFormatter';
 import { NoteService } from '../../services/NoteService';
 import { ObjectService } from '../../services/ObjectService';
 import { NotebookCompositionService } from '../../services/NotebookCompositionService';
+import { NotebookTSTPService } from '../../services/NotebookTSTPService';
 import { StreamManager } from '../../services/StreamManager';
 import { WeatherService } from '../../services/WeatherService';
 import { AudioTranscriptionService } from '../../services/AudioTranscriptionService';
@@ -85,6 +86,7 @@ export interface ServiceRegistry {
   intent?: IntentService;
   notebook?: NotebookService;
   notebookComposition?: NotebookCompositionService;
+  notebookTSTP?: NotebookTSTPService;
   note?: NoteService;
   object?: ObjectService;
   profile?: ProfileService;
@@ -349,6 +351,16 @@ export async function initializeServices(
     }]);
     registry.notebook = notebookService;
     
+    // Initialize NotebookTSTPService (depends on object models, notebookModel, and LLM)
+    const notebookTSTPService = await createService('NotebookTSTPService', NotebookTSTPService, [{
+      db: deps.db,
+      objectModel: objectModelCore,
+      objectAssociationModel: objectAssociation,
+      notebookModel,
+      llm: ingestionAiService.llm
+    }]);
+    registry.notebookTSTP = notebookTSTPService;
+    
     // Initialize SliceService (depends on ChunkModel and ObjectModelCore)
     const sliceService = await createService('SliceService', SliceService, [{
       db: deps.db,
@@ -541,6 +553,27 @@ export async function initializeServices(
       }]);
       registry.classicBrowserTab = tabService;
       
+      // Initialize CompositeObjectEnrichmentService with browserEventBus
+      const compositeEnrichmentService = await createService('CompositeObjectEnrichmentService', CompositeObjectEnrichmentService, [{
+        db: deps.db,
+        objectModelCore: objectModelCore,
+        lanceVectorModel: vectorModel,
+        llm: ingestionAiService.llm,
+        browserEventBus: browserEventBus
+      }]);
+      registry.compositeEnrichment = compositeEnrichmentService;
+
+      // Initialize ClassicBrowserWOMService with all dependencies
+      const womService = await createService('ClassicBrowserWOMService', ClassicBrowserWOMService, [{
+        objectModelCore: objectModelCore,
+        objectAssociationModel: objectAssociation,
+        compositeEnrichmentService: compositeEnrichmentService,
+        eventBus: browserEventBus,
+        stateService,
+        womIngestionService: womIngestionService!
+      }]);
+      registry.classicBrowserWOM = womService;
+      
       // Initialize ClassicBrowserSnapshotService
       const snapshotService = await createService('ClassicBrowserSnapshotService', ClassicBrowserSnapshotService, [{
         viewManager,
@@ -556,6 +589,7 @@ export async function initializeServices(
         stateService,
         navigationService,
         tabService,
+        womService,
         snapshotService,
         globalTabPool
       }]);
@@ -584,6 +618,7 @@ export async function cleanupServices(registry: ServiceRegistry): Promise<void> 
     // Cleanup services in reverse order of dependency
     const servicesToCleanup = [
       registry.classicBrowser,
+      registry.classicBrowserWOM,
       registry.classicBrowserTab,
       registry.classicBrowserNavigation,
       registry.classicBrowserState,
