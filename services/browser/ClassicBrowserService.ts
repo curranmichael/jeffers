@@ -39,27 +39,27 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
     
     // Listen for title updates and update the correct tab
     eventBus.on('view:page-title-updated', ({ windowId, title, tabId }) => {
-      this.logInfo(`[TITLE RECEIVED] Window ${windowId}, tab ${tabId || 'UNSPECIFIED'}: "${title}"`);
+      // this.logInfo(`[TITLE RECEIVED] Window ${windowId}, tab ${tabId || 'UNSPECIFIED'}: "${title}"`);
       
       // Use the specific tabId if provided, otherwise use the active tab
       let targetTabId = tabId;
       if (!targetTabId) {
         const state = this.deps.stateService.getState(windowId);
         targetTabId = state?.activeTabId;
-        this.logInfo(`[TITLE PROCESSING] No tabId provided, using activeTabId: ${targetTabId || 'NONE'}`);
+        // this.logInfo(`[TITLE PROCESSING] No tabId provided, using activeTabId: ${targetTabId || 'NONE'}`);
       }
       
       if (targetTabId) {
-        this.logInfo(`[TITLE UPDATING] Updating tab ${targetTabId} title to: "${title}"`);
+        // this.logInfo(`[TITLE UPDATING] Updating tab ${targetTabId} title to: "${title}"`);
         this.deps.stateService.updateTab(windowId, targetTabId, { title });
       } else {
-        this.logWarn(`[TITLE SKIPPED] No target tab for window ${windowId}`);
+        // this.logWarn(`[TITLE SKIPPED] No target tab for window ${windowId}`);
       }
     });
 
     // Listen for favicon updates and update the correct tab
     eventBus.on('view:page-favicon-updated', ({ windowId, faviconUrl, tabId }) => {
-      this.logInfo(`[FAVICON RECEIVED] Window ${windowId}, tab ${tabId || 'UNSPECIFIED'}: ${faviconUrl.length} favicons`);
+      // this.logInfo(`[FAVICON RECEIVED] Window ${windowId}, tab ${tabId || 'UNSPECIFIED'}: ${faviconUrl.length} favicons`);
       const favicon = faviconUrl.length > 0 ? faviconUrl[0] : null;
       
       // Use the specific tabId if provided, otherwise use the active tab
@@ -67,14 +67,14 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
       if (!targetTabId) {
         const state = this.deps.stateService.getState(windowId);
         targetTabId = state?.activeTabId;
-        this.logInfo(`[FAVICON PROCESSING] No tabId provided, using activeTabId: ${targetTabId || 'NONE'}`);
+        // this.logInfo(`[FAVICON PROCESSING] No tabId provided, using activeTabId: ${targetTabId || 'NONE'}`);
       }
       
       if (targetTabId) {
-        this.logInfo(`[FAVICON UPDATING] Updating tab ${targetTabId} favicon to: ${favicon}`);
+        // this.logInfo(`[FAVICON UPDATING] Updating tab ${targetTabId} favicon to: ${favicon}`);
         this.deps.stateService.updateTab(windowId, targetTabId, { faviconUrl: favicon });
       } else {
-        this.logWarn(`[FAVICON SKIPPED] No target tab for window ${windowId}`);
+        // this.logWarn(`[FAVICON SKIPPED] No target tab for window ${windowId}`);
       }
     });
 

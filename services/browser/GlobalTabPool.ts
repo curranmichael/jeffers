@@ -218,7 +218,7 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
     // Track title changes
     webContents.on('page-title-updated', (event, title) => {
       const windowId = this.getWindowIdForTab(tabId);
-      this.logInfo(`[TITLE] Tab ${tabId} title updated to: "${title}" (windowId: ${windowId || 'NO_WINDOW'})`);
+      // this.logInfo(`[TITLE] Tab ${tabId} title updated to: "${title}" (windowId: ${windowId || 'NO_WINDOW'})`);
       
       // Update preserved state with new title
       const currentState = this.preservedState.get(tabId) || {};
@@ -226,17 +226,17 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
       
       // Emit to event bus with window and tab context
       if (windowId) {
-        this.logInfo(`[TITLE] Emitting title update event for window ${windowId}, tab ${tabId}`);
+        // this.logInfo(`[TITLE] Emitting title update event for window ${windowId}, tab ${tabId}`);
         this.deps.eventBus.emit('view:page-title-updated', { windowId, title, tabId });
       } else {
-        this.logWarn(`[TITLE] Cannot emit title update - no window mapping for tab ${tabId}`);
+        // this.logWarn(`[TITLE] Cannot emit title update - no window mapping for tab ${tabId}`);
       }
     });
 
     // Track favicon changes
     webContents.on('page-favicon-updated', (event, favicons) => {
       const windowId = this.getWindowIdForTab(tabId);
-      this.logInfo(`[FAVICON] Tab ${tabId} favicon updated: ${favicons.length} favicons (windowId: ${windowId || 'NO_WINDOW'})`);
+      // this.logInfo(`[FAVICON] Tab ${tabId} favicon updated: ${favicons.length} favicons (windowId: ${windowId || 'NO_WINDOW'})`);
       
       // Update preserved state with new favicon
       const faviconUrl = favicons.length > 0 ? favicons[0] : null;
@@ -245,10 +245,10 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
       
       // Emit to event bus with window and tab context
       if (windowId) {
-        this.logInfo(`[FAVICON] Emitting favicon update event for window ${windowId}, tab ${tabId} with URL: ${faviconUrl}`);
+        // this.logInfo(`[FAVICON] Emitting favicon update event for window ${windowId}, tab ${tabId} with URL: ${faviconUrl}`);
         this.deps.eventBus.emit('view:page-favicon-updated', { windowId, faviconUrl: favicons, tabId });
       } else {
-        this.logWarn(`[FAVICON] Cannot emit favicon update - no window mapping for tab ${tabId}`);
+        // this.logWarn(`[FAVICON] Cannot emit favicon update - no window mapping for tab ${tabId}`);
       }
     });
 
