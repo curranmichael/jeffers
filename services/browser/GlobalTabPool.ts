@@ -186,14 +186,18 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
     // Track loading state
     webContents.on('did-start-loading', () => {
       this.logDebug(`Tab ${tabId} started loading`);
-      // TODO: Emit to event bus when available
-      // this.eventBus?.emit('view:did-start-loading', { tabId, windowId });
+      const windowId = this.getWindowIdForTab(tabId);
+      if (windowId) {
+        this.deps.eventBus.emit('view:did-start-loading', { tabId, windowId });
+      }
     });
 
     webContents.on('did-stop-loading', () => {
       this.logDebug(`Tab ${tabId} stopped loading`);
-      // TODO: Emit to event bus when available
-      // this.eventBus?.emit('view:did-stop-loading', { tabId, windowId });
+      const windowId = this.getWindowIdForTab(tabId);
+      if (windowId) {
+        this.deps.eventBus.emit('view:did-stop-loading', { tabId, windowId });
+      }
     });
 
     // Track navigation events
@@ -202,8 +206,14 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
       // Update preserved state with new URL
       const currentState = this.preservedState.get(tabId) || {};
       this.preservedState.set(tabId, { ...currentState, url });
-      // TODO: Emit to event bus when available
-      // this.eventBus?.emit('view:did-navigate', { tabId, url, httpResponseCode, httpStatusText });
+      
+      // Emit navigation event with window context
+      const windowId = this.getWindowIdForTab(tabId);
+      if (windowId) {
+        // Extract title from current state or webContents
+        const title = webContents.getTitle() || currentState.title || 'Untitled';
+        this.deps.eventBus.emit('view:did-navigate', { windowId, url, title, tabId });
+      }
     });
 
     webContents.on('did-navigate-in-page', (event, url, isMainFrame) => {

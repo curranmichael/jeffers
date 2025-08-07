@@ -78,6 +78,15 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
       }
     });
 
+    // Listen for tab group title updates from enrichment service
+    eventBus.on('tabgroup:title-updated', ({ windowId, title }) => {
+      this.logInfo(`Tab group title updated for window ${windowId}: "${title}"`);
+      const state = this.deps.stateService.getState(windowId);
+      if (state) {
+        this.deps.stateService.setState(windowId, { ...state, tabGroupTitle: title });
+      }
+    });
+
     // Listen for window open requests (CMD+click, middle-click, etc.)
     eventBus.on('view:window-open-request', ({ windowId, details }) => {
       this.handleWindowOpenRequest(windowId, details);
