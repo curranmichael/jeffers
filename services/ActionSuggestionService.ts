@@ -66,8 +66,7 @@ export class ActionSuggestionService extends BaseService<ActionSuggestionService
 
       // Using gpt-5-mini for fast, cheap UI suggestions
       const model = createChatModel('gpt-5-mini', {
-        temperature: 0.7,
-        max_tokens: 500,
+        max_tokens: 1000,  // Increased to ensure complete JSON response
         response_format: { type: 'json_object' }
       });
       
