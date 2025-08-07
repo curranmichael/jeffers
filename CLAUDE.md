@@ -11,11 +11,11 @@ Enai is an Electron + Next.js desktop application with AI capabilities, using SQ
 - **Vector Store**: LanceDB (embedded vector database)
 - **AI**: LangChain with OpenAI integration (direct model instantiation via `utils/llm.ts`)
   - **Model Usage by Service**:
-    - `AgentService`: gpt-4.1 (general tasks), gpt-4o (reasoning/tools)
-    - `ProfileAgent`: gpt-4o (profile synthesis)
-    - `IngestionAIService`: gpt-4.1-nano (chunking/summarization)
+    - `AgentService`: gpt-5 (general tasks), gpt-5 (reasoning/tools)
+    - `ProfileAgent`: gpt-5 (profile synthesis)
+    - `IngestionAIService`: gpt-5-mini (chunking/summarization)
     - `ActionSuggestionService`: o1-mini (UI suggestions)
-    - `LangchainAgent`: gpt-4o-mini (rephrasing), gpt-4o (answers)
+    - `LangchainAgent`: gpt-5-mini (rephrasing), gpt-5 (answers)
     - `LanceVectorModel`: text-embedding-3-small (embeddings)
 - **State**: Zustand 5.0.4 with IPC persistence
 - **Testing**: Vitest 3.1.2 with React Testing Library
@@ -365,7 +365,7 @@ Core AI client that manages LLM interactions:
 - Handles conversation context and history
 - Integrates user profile for personalized responses
 - Supports streaming and non-streaming modes
-- Uses gpt-4o model
+- Uses gpt-5 model
 
 #### ObjectService
 Manages CRUD operations for all content objects:
@@ -604,7 +604,7 @@ Legacy services do not extend BaseService, store dependencies as private propert
 Services receive dependencies via constructor injection, not factory methods:
 ```typescript
 // WRONG - tests often mock this incorrectly
-const llm = getModel('gpt-4o');  
+const llm = getModel('gpt-5');  
 
 // RIGHT - service receives instance directly
 constructor(deps: { llm: BaseChatModel }) {

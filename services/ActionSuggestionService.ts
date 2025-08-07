@@ -28,7 +28,7 @@ interface ActionSuggestionServiceDeps extends BaseServiceDependencies {
 
 /**
  * Service responsible for generating contextual action suggestions based on user queries,
- * profile, and existing notebooks. Uses GPT-4.1-nano for fast, efficient suggestions.
+ * profile, and existing notebooks. Uses GPT-5-mini for fast, efficient suggestions.
  */
 export class ActionSuggestionService extends BaseService<ActionSuggestionServiceDeps> {
   constructor(deps: ActionSuggestionServiceDeps) {
@@ -64,8 +64,8 @@ export class ActionSuggestionService extends BaseService<ActionSuggestionService
         priority: 'balanced_throughput'
       };
 
-      // Using gpt-4.1-mini for fast, cheap UI suggestions
-      const model = createChatModel('gpt-4.1-mini', {
+      // Using gpt-5-mini for fast, cheap UI suggestions
+      const model = createChatModel('gpt-5-mini', {
         temperature: 0.7,
         max_tokens: 500,
         response_format: { type: 'json_object' }
