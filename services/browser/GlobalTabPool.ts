@@ -196,7 +196,21 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
       this.logDebug(`Tab ${tabId} stopped loading`);
       const windowId = this.getWindowIdForTab(tabId);
       if (windowId) {
-        this.deps.eventBus.emit('view:did-stop-loading', { tabId, windowId });
+        // Get current state to provide required properties
+        const currentState = this.preservedState.get(tabId) || {};
+        const url = webContents.getURL() || currentState.url || '';
+        const title = webContents.getTitle() || currentState.title || 'Untitled';
+        const canGoBack = webContents.canGoBack();
+        const canGoForward = webContents.canGoForward();
+        
+        this.deps.eventBus.emit('view:did-stop-loading', { 
+          windowId, 
+          url, 
+          title, 
+          canGoBack, 
+          canGoForward, 
+          tabId 
+        });
       }
     });
 

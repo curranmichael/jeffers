@@ -49,13 +49,16 @@ export class ClassicBrowserWOMService extends BaseService<ClassicBrowserWOMServi
 
   private setupEventListeners(): void {
     // Listen for navigation events to handle WOM integration
-    this.deps.eventBus.on('view:did-navigate', async ({ windowId, url, title }) => {
-      // Get tabId from state
-      const browserState = this.deps.stateService.states.get(windowId);
-      const activeTab = browserState?.tabs?.find(t => t.id === browserState.activeTabId);
-      const tabId = activeTab?.id;
+    this.deps.eventBus.on('view:did-navigate', async ({ windowId, url, title, tabId }) => {
+      // Use tabId from event if provided, otherwise fall back to active tab
+      let targetTabId = tabId;
+      if (!targetTabId) {
+        const browserState = this.deps.stateService.states.get(windowId);
+        const activeTab = browserState?.tabs?.find(t => t.id === browserState.activeTabId);
+        targetTabId = activeTab?.id;
+      }
       
-      await this.handleNavigation(windowId, url, title, tabId);
+      await this.handleNavigation(windowId, url, title, targetTabId);
     });
 
     // Listen for async ingestion completion

@@ -18,10 +18,10 @@ export interface BrowserEventMap {
   };
 
   // View lifecycle events
-  'view:did-start-loading': { windowId: string };
-  'view:did-stop-loading': { windowId: string; url: string; title: string; canGoBack: boolean; canGoForward: boolean };
-  'view:did-navigate': { windowId: string; url: string; isMainFrame: boolean; title: string; canGoBack: boolean; canGoForward: boolean };
-  'view:did-navigate-in-page': { windowId: string; url: string; isMainFrame: boolean; title: string; canGoBack: boolean; canGoForward: boolean };
+  'view:did-start-loading': { windowId: string; tabId?: string };
+  'view:did-stop-loading': { windowId: string; url: string; title: string; canGoBack: boolean; canGoForward: boolean; tabId?: string };
+  'view:did-navigate': { windowId: string; url: string; title: string; tabId?: string; isMainFrame?: boolean; canGoBack?: boolean; canGoForward?: boolean };
+  'view:did-navigate-in-page': { windowId: string; url: string; isMainFrame: boolean; title: string; canGoBack: boolean; canGoForward: boolean; tabId?: string };
   'view:page-title-updated': { windowId: string; title: string; tabId?: string };
   'view:page-favicon-updated': { windowId: string; faviconUrl: string[]; tabId?: string };
   'view:did-fail-load': { 
