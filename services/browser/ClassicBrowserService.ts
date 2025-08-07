@@ -89,6 +89,8 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
       try {
         // Always create as background tab (makeActive = false)
         const tabId = this.deps.tabService.createTab(windowId, url, false);
+        // Check if we need to create a tab group after initialization
+        await this.deps.womService.checkAndCreateTabGroup(windowId);
         this.logInfo(`Created background tab ${tabId} for URL: ${url}`);
         
         // Immediately acquire view and load URL for background tabs
@@ -194,11 +196,18 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
     // Ensure there's always at least one tab when creating a browser window
     if (!initialState.tabs.length || !initialState.activeTabId) {
       this.deps.tabService.createTab(windowId, 'https://www.are.na');
+      // Check if we need to create a tab group after initialization
+      this.deps.womService.checkAndCreateTabGroup(windowId).catch(err =>
+        this.logError(`Failed to check/create tab group during init: ${err}`, err)
+      );
     }
   }
 
-  public createTab(windowId: string, url?: string): string {
-    return this.deps.tabService.createTab(windowId, url);
+  public async createTab(windowId: string, url?: string): Promise<string> {
+    const tabId = this.deps.tabService.createTab(windowId, url);
+    // Check if we need to create a tab group (when 2+ tabs exist)
+    await this.deps.womService.checkAndCreateTabGroup(windowId);
+    return tabId;
   }
 
   public switchTab(windowId: string, tabId: string): void {
@@ -231,6 +240,10 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
       try {
         // Create the new tab with the appropriate active state
         const tabId = this.deps.tabService.createTab(windowId, details.url, makeActive);
+        // Check for tab group creation after adding new tab
+        this.deps.womService.checkAndCreateTabGroup(windowId).catch(err => 
+          this.logError(`Failed to check/create tab group: ${err}`, err)
+        );
         this.logDebug(`Created tab ${tabId} as ${makeActive ? 'active' : 'background'}`);
         
         // For background tabs, immediately acquire view and load URL

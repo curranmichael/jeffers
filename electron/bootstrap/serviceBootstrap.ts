@@ -598,6 +598,14 @@ export async function initializeServices(
       logger.warn('[ServiceBootstrap] Skipping browser services - no mainWindow provided');
     }
     
+    // Phase 7: Post-initialization (scheduling and event listeners)
+    logger.info('[ServiceBootstrap] Initializing Phase 7 post-initialization tasks...');
+    
+    // Set up event listeners between services
+    if (registry.classicBrowser && registry.womIngestion && deps.mainWindow) {
+      await setupWOMEventListeners(registry.classicBrowser, registry.womIngestion, deps.mainWindow);
+    }
+    
     const duration = Date.now() - startTime;
     logger.info(`[ServiceBootstrap] Service initialization completed in ${duration}ms`);
     

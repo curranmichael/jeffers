@@ -10,7 +10,7 @@ export function registerClassicBrowserCreateTab(
   ipcMain.handle(CLASSIC_BROWSER_CREATE_TAB, async (event, windowId: string, url?: string) => {
     try {
       logger.debug(`[registerClassicBrowserCreateTab] Creating new tab for window ${windowId} with URL: ${url || 'about:blank'}`);
-      const tabId = classicBrowserService.createTab(windowId, url);
+      const tabId = await classicBrowserService.createTab(windowId, url);
       return { success: true, tabId };
     } catch (error) {
       logger.error(`[registerClassicBrowserCreateTab] Error creating tab:`, error);

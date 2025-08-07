@@ -62,6 +62,14 @@ export class ClassicBrowserWOMService extends BaseService<ClassicBrowserWOMServi
     this.deps.eventBus.on('webpage:ingestion-complete', async ({ tabId, objectId }) => {
       this.tabToObjectMap.set(tabId, objectId);
       this.logDebug(`Linked tab ${tabId} to object ${objectId}`);
+      
+      // Find the window ID for this tab and trigger tab group update
+      for (const [windowId, state] of this.deps.stateService.states.entries()) {
+        if (state.tabs.some(t => t.id === tabId)) {
+          this.scheduleTabGroupUpdate(windowId);
+          break;
+        }
+      }
     });
 
     this.deps.eventBus.on('webpage:needs-refresh', async ({ objectId, url }) => {
