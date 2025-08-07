@@ -925,7 +925,7 @@ describe('ComponentName', () => {
 - `BROWSERBASE_PROJECT_ID` - Browserbase project ID
 
 ### Optional - Configuration
-- `ENAI_DB_PATH` - Path to SQLite database (default: /Users/currandwyer/Library/Application Support/src/enai.db)
+- `ENAI_DB_PATH` - Path to SQLite database (default: determined by environment - Production: ~/Library/Application Support/Enai/data/enai.db, Development: ~/Library/Application Support/Enai-Dev/data/enai.db)
 - `EXA_SEARCH_ENABLED` - Enable/disable Exa search (feature flag)
 - `EXA_RESULTS_LIMIT` - Maximum results from Exa search
 - `CONTENT_SYNTHESIS_INTERVAL_MS` - Profile content synthesis interval (default: 3600000)
