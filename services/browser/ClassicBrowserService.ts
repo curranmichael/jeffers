@@ -10,7 +10,6 @@ import { ClassicBrowserTabService } from './ClassicBrowserTabService';
 import { ClassicBrowserWOMService } from './ClassicBrowserWOMService';
 import { ClassicBrowserSnapshotService } from './ClassicBrowserSnapshotService';
 import { GlobalTabPool } from './GlobalTabPool';
-import { EventEmitter } from 'events';
 
 export interface ClassicBrowserServiceDeps {
   mainWindow: BrowserWindow;
@@ -28,8 +27,6 @@ export interface ClassicBrowserServiceDeps {
  * Delegates to other services to handle the actual logic.
  */
 export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps> {
-  private eventEmitter = new EventEmitter();
-  
   constructor(deps: ClassicBrowserServiceDeps) {
     super('ClassicBrowserService', deps);
   }
@@ -186,6 +183,7 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
     eventBus.removeAllListeners('view:context-menu-requested');
     eventBus.removeAllListeners('view:window-open-request');
     eventBus.removeAllListeners('tab:new');
+    eventBus.removeAllListeners('tabgroup:title-updated');
     await super.cleanup();
   }
 
@@ -326,16 +324,6 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
     }
   }
 
-  // Event emitter methods for WOM integration in serviceBootstrap
-  public on(event: string, listener: (...args: unknown[]) => void): this {
-    this.eventEmitter.on(event, listener);
-    return this;
-  }
-
-  public emit(event: string, ...args: unknown[]): boolean {
-    return this.eventEmitter.emit(event, ...args);
-  }
-
   /**
    * Prefetch favicons for multiple windows - used by NotebookCompositionService
    * Since we now load tabs immediately, this can return cached favicons from tab state
@@ -417,10 +405,10 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
   public updateTabBookmarkStatus(windowId: string, tabId: string, isBookmarked: boolean, jobId?: string, errorMessage?: string): void {
     const updates: Partial<TabState> = { isBookmarked };
     if (jobId !== undefined) {
-      (updates as any).jobId = jobId;
+      updates.processingJobId = jobId;
     }
     if (errorMessage !== undefined) {
-      (updates as any).errorMessage = errorMessage;
+      updates.bookmarkError = errorMessage;
     }
     this.deps.stateService.updateTab(windowId, tabId, updates);
   }

@@ -7,7 +7,7 @@ import { BrowserEventBus } from './BrowserEventBus';
 // Type definition for WebContentsView with custom properties
 interface ExtendedWebContentsView extends WebContentsView {
   _tabId?: string;
-  setBorderRadius?: (radius: number) => void;
+  setBorderRadius: (radius: number) => void;
 }
 
 export interface GlobalTabPoolDeps {

@@ -146,7 +146,7 @@ async function createService<T extends IService>(
  * Set up WOM event listeners between services
  */
 async function setupWOMEventListeners(
-  classicBrowser: ClassicBrowserService,
+  eventBus: BrowserEventBus,
   womIngestion: any,
   mainWindow: BrowserWindow
 ): Promise<void> {
@@ -156,8 +156,8 @@ async function setupWOMEventListeners(
   const { WOM_INGESTION_STARTED, WOM_INGESTION_COMPLETE } = await import('../../shared/ipcChannels');
   
   // Listen for webpage ingestion requests
-  classicBrowser.on('webpage:needs-ingestion', async (data: unknown) => {
-    const { url, title, windowId, tabId } = data as { url: string; title: string; windowId: string; tabId: string };
+  eventBus.on('webpage:needs-ingestion', async (data) => {
+    const { url, title, windowId, tabId } = data;
     try {
       // Notify renderer that ingestion is starting
       if (!mainWindow.isDestroyed()) {
@@ -165,7 +165,7 @@ async function setupWOMEventListeners(
       }
       
       const webpage = await womIngestion.ingestWebpage(url, title);
-      classicBrowser.emit('webpage:ingestion-complete', { tabId, objectId: webpage.id });
+      eventBus.emit('webpage:ingestion-complete', { tabId, objectId: webpage.id });
       
       // Notify renderer that ingestion is complete
       if (!mainWindow.isDestroyed()) {
@@ -182,8 +182,8 @@ async function setupWOMEventListeners(
   });
   
   // Listen for webpage refresh requests
-  classicBrowser.on('webpage:needs-refresh', async (data: unknown) => {
-    const { objectId, url } = data as { objectId: string; url: string };
+  eventBus.on('webpage:needs-refresh', async (data) => {
+    const { objectId, url } = data;
     try {
       await womIngestion.scheduleRefresh(objectId, url);
     } catch (error) {
@@ -602,8 +602,8 @@ export async function initializeServices(
     logger.info('[ServiceBootstrap] Initializing Phase 7 post-initialization tasks...');
     
     // Set up event listeners between services
-    if (registry.classicBrowser && registry.womIngestion && deps.mainWindow) {
-      await setupWOMEventListeners(registry.classicBrowser, registry.womIngestion, deps.mainWindow);
+    if (registry.browserEventBus && registry.womIngestion && deps.mainWindow) {
+      await setupWOMEventListeners(registry.browserEventBus, registry.womIngestion, deps.mainWindow);
     }
     
     const duration = Date.now() - startTime;
