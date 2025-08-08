@@ -266,9 +266,12 @@ export async function initializeServices(
       registry.update = await createService('UpdateService', UpdateService, [{
         mainWindow: deps.mainWindow
       }]);
+      // Configure GitHub releases as update source
+      registry.update.configureGitHubUpdates('enai-computer', 'enai', true); // Using prereleases for MVP
     } else {
       // Create without mainWindow - service will handle missing window gracefully
       registry.update = await createService('UpdateService', UpdateService, [{}]);
+      registry.update.configureGitHubUpdates('enai-computer', 'enai', true); // Using prereleases for MVP
     }
     
     // Phase 4: Initialize specialized services
