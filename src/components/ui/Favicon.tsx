@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 interface FaviconProps {
-  url: string;
+  url?: string;
   fallback: React.ReactNode;
   className?: string;
   alt?: string;
@@ -12,7 +12,8 @@ interface FaviconProps {
 export function Favicon({ url, fallback, className = "h-4 w-4 object-contain", alt = "" }: FaviconProps) {
   const [hasError, setHasError] = useState(false);
   
-  if (hasError) {
+  // If url is empty or has error, show fallback
+  if (!url || hasError) {
     return <>{fallback}</>;
   }
   

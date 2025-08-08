@@ -598,6 +598,14 @@ export async function initializeServices(
       logger.warn('[ServiceBootstrap] Skipping browser services - no mainWindow provided');
     }
     
+    // Initialize NotebookCompositionService (depends on NotebookService, ObjectModelCore, and optionally ClassicBrowserService)
+    const notebookCompositionService = await createService('NotebookCompositionService', NotebookCompositionService, [{
+      notebookService,
+      objectModelCore,
+      classicBrowserService: registry.classicBrowser
+    }]);
+    registry.notebookComposition = notebookCompositionService;
+    
     // Phase 7: Post-initialization (scheduling and event listeners)
     logger.info('[ServiceBootstrap] Initializing Phase 7 post-initialization tasks...');
     

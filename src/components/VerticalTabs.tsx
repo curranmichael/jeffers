@@ -115,7 +115,7 @@ export function VerticalTabs({ localWindow, activeStore }: VerticalTabsProps) {
               <div className="flex items-center gap-2">
                 {/* Tab favicon */}
                 <Favicon 
-                  url={tab.faviconUrl || ''} 
+                  url={tab.faviconUrl || undefined} 
                   fallback={<Globe className="h-4 w-4" />}
                   className="flex-shrink-0 h-4 w-4"
                 />

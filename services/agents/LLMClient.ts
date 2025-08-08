@@ -88,8 +88,8 @@ export class LLMClient extends BaseService<LLMClientDeps> {
       // Convert OpenAIMessage format to BaseMessage format
       const baseMessages = this.convertToBaseMessages(messages);
 
-      // Using gpt-5 for all core reasoning, tool use, and summarization
-      const llm = createChatModel('gpt-5', { temperature: OPENAI_CONFIG.temperature });
+      // Using gpt-5-mini for faster responses while maintaining quality
+      const llm = createChatModel('gpt-5-mini', { temperature: OPENAI_CONFIG.temperature });
 
       // Bind tools to the model
       const llmWithTools = llm.bind({
