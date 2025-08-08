@@ -88,8 +88,8 @@ export class LLMClient extends BaseService<LLMClientDeps> {
       // Convert OpenAIMessage format to BaseMessage format
       const baseMessages = this.convertToBaseMessages(messages);
 
-      // Using gpt-4.1 for all core reasoning, tool use, and summarization
-      const llm = createChatModel('gpt-4.1', { temperature: OPENAI_CONFIG.temperature });
+      // Using gpt-5 for all core reasoning, tool use, and summarization
+      const llm = createChatModel('gpt-5', { temperature: OPENAI_CONFIG.temperature });
 
       // Bind tools to the model
       const llmWithTools = llm.bind({
@@ -116,8 +116,8 @@ export class LLMClient extends BaseService<LLMClientDeps> {
       // Convert OpenAIMessage format to BaseMessage format
       const baseMessages = this.convertToBaseMessages(messages);
 
-      // Using gpt-4o for all core reasoning, tool use, and summarization
-      const llm = createChatModel('gpt-4o', { temperature: OPENAI_CONFIG.temperature });
+      // Using gpt-5-mini for faster streaming responses
+      const llm = createChatModel('gpt-5-mini', { temperature: OPENAI_CONFIG.temperature });
 
       // Bind tools to the model - for summary generation, we don't need tools
       const llmWithTools = llm.bind({

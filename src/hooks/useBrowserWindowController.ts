@@ -63,9 +63,9 @@ export function useBrowserWindowController(
         
         const payload = windowMeta.payload as ClassicBrowserPayload;
         
-        // Check if freezeState exists before accessing its properties
+        // Check if freezeState exists (might not be initialized yet)
         if (!payload.freezeState) {
-          logger.warn(`[useBrowserWindowController] No freezeState for window ${windowId}`);
+          logger.debug(`[useBrowserWindowController] No freezeState yet for window ${windowId}`);
           return;
         }
         
@@ -201,7 +201,7 @@ export function useBrowserWindowController(
     
     const payload = windowMeta.payload as ClassicBrowserPayload;
     
-    if (payload.freezeState && payload.freezeState.type === 'AWAITING_RENDER') {
+    if (payload.freezeState.type === 'AWAITING_RENDER') {
       logger.info(`[useBrowserWindowController] Snapshot rendered for ${windowId}, marking as frozen`);
       setBrowserFreezeState({ 
         type: 'FROZEN', 

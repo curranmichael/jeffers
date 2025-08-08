@@ -89,8 +89,7 @@ describe('IngestionAiService', () => {
       expect(result[0].propositions).toHaveLength(3);
       expect(result[1].chunkIdx).toBe(1);
       expect(result[1].content).toContain('The new chunking strategy aims for larger');
-      expect(llmModule.createChatModel).toHaveBeenCalledWith('gpt-4.1-nano', {
-        temperature: 0.6,
+      expect(llmModule.createChatModel).toHaveBeenCalledWith('gpt-5-mini', {
         response_format: { type: 'json_object' },
         max_tokens: 4000
       });
@@ -299,8 +298,7 @@ describe('IngestionAiService', () => {
         ]
       });
 
-      expect(llmModule.createChatModel).toHaveBeenCalledWith('gpt-4.1-nano', {
-        temperature: 0.2,
+      expect(llmModule.createChatModel).toHaveBeenCalledWith('gpt-5-mini', {
         response_format: { type: 'json_object' },
         max_tokens: 2000
       });

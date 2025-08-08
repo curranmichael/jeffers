@@ -37,11 +37,8 @@ class ContextMenuOverlay {
   private isShowingNewMenu: boolean = false;
 
   constructor() {
-    console.log('[ContextMenuOverlay] Initializing overlay');
-    
     // Get window ID from IPC - will be sent after page loads
     this.windowId = null;
-    console.log('[ContextMenuOverlay] Waiting for window ID via IPC...');
     
     this.root = document.getElementById('context-menu-root')!;
     this.setupStyles();
@@ -110,23 +107,14 @@ class ContextMenuOverlay {
   }
 
   private setupListeners(): void {
-    console.log('[ContextMenuOverlay] Setting up listeners');
-    console.log('[ContextMenuOverlay] window.api available?', !!window.api);
-    console.log('[ContextMenuOverlay] window.api.browserContextMenu available?', !!window.api?.browserContextMenu);
-    
     // Listen for context menu data from main process
     if (window.api?.browserContextMenu) {
       window.api.browserContextMenu.onShow((data: BrowserContextMenuData) => {
-        console.log('[ContextMenuOverlay] Received context menu data:', data);
         this.showContextMenu(data);
       });
-      console.log('[ContextMenuOverlay] Subscribed to onShow event');
 
       // Note: We don't listen for hide events from main process to avoid circular loops
       // The overlay manages its own hide behavior through click/escape handlers
-    } else {
-      console.error('[ContextMenuOverlay] window.api.browserContextMenu not available!');
-      console.error('[ContextMenuOverlay] window.api:', window.api);
     }
 
     // Handle clicks outside the menu
@@ -147,13 +135,11 @@ class ContextMenuOverlay {
   private notifyReady(): void {
     if (window.api?.browserContextMenu?.notifyReady) {
       window.api.browserContextMenu.notifyReady();
-      console.log('[Overlay] Notified main process that overlay is ready');
     }
   }
 
   public setWindowId(windowId: string): void {
     this.windowId = windowId;
-    console.log('[ContextMenuOverlay] Window ID set to:', windowId);
   }
 
   private showContextMenu(data: BrowserContextMenuData): void {
@@ -269,7 +255,7 @@ class ContextMenuOverlay {
     if (data.contextType === 'tab' && data.tabContext) {
       const tabCtx = data.tabContext;
       items.push(
-        { label: 'Close Tab', action: 'close', enabled: tabCtx.canClose }
+        { label: 'Close tab', action: 'close', enabled: tabCtx.canClose }
       );
       return items;
     }
@@ -284,10 +270,10 @@ class ContextMenuOverlay {
     // Link context menu
     if (ctx.linkURL) {
       items.push(
-        { label: 'Open Link in New Tab', action: 'openInNewTab', enabled: true },
-        { label: 'Open Link in Background', action: 'openInBackground', enabled: true },
+        { label: 'Open link in a new tab', action: 'openInNewTab', enabled: true },
+        { label: 'Open link in a new window', action: 'openInBackground', enabled: true },
         { type: 'separator' } as MenuItem,
-        { label: 'Copy Link', action: 'copyLink', enabled: true }
+        { label: 'Copy link', action: 'copyLink', enabled: true }
       );
     }
 
@@ -295,9 +281,9 @@ class ContextMenuOverlay {
     if (ctx.srcURL && ctx.mediaType === 'image') {
       if (items.length > 0) items.push({ type: 'separator' } as MenuItem);
       items.push(
-        { label: 'Open Image in New Tab', action: 'openImageInNewTab', enabled: true },
-        { label: 'Copy Image URL', action: 'copyImageURL', enabled: true },
-        { label: 'Save Image As...', action: 'saveImageAs', enabled: true }
+        { label: 'Open image in a new tab', action: 'openImageInNewTab', enabled: true },
+        { label: 'Copy image URL', action: 'copyImageURL', enabled: true },
+        { label: 'Save image as...', action: 'saveImageAs', enabled: true }
       );
     }
 
@@ -341,7 +327,7 @@ class ContextMenuOverlay {
         items.push({ label: 'Paste', action: 'paste', enabled: true });
       }
       if (ctx.editFlags.canSelectAll) {
-        items.push({ label: 'Select All', action: 'selectAll', enabled: true });
+        items.push({ label: 'Select all', action: 'selectAll', enabled: true });
       }
     }
 
@@ -352,15 +338,15 @@ class ContextMenuOverlay {
         { label: 'Forward', action: 'goForward', enabled: ctx.canGoForward ?? false },
         { label: 'Reload', action: 'reload', enabled: true },
         { type: 'separator' } as MenuItem,
-        { label: 'Copy Page URL', action: 'copyPageURL', enabled: true },
-        { label: 'View Page Source', action: 'viewSource', enabled: true }
+        { label: 'Copy page URL', action: 'copyPageURL', enabled: true },
+        { label: 'View page source', action: 'viewSource', enabled: true }
       );
     }
 
     // Always add inspect element at the end
     items.push(
       { type: 'separator' } as MenuItem,
-      { label: 'Inspect Element', action: 'inspect', enabled: true }
+      { label: 'Inspect element', action: 'inspect', enabled: true }
     );
 
     return items;

@@ -150,15 +150,22 @@ describe('ClassicBrowserService', () => {
       getActiveViewWindowIds: vi.fn().mockReturnValue([]),
       destroyBrowserView: vi.fn().mockResolvedValue(undefined),
       destroyAllBrowserViews: vi.fn().mockResolvedValue(undefined),
-      prefetchFavicon: vi.fn().mockResolvedValue(null),
-      prefetchFaviconsForWindows: vi.fn().mockResolvedValue(new Map()),
       initialize: vi.fn().mockResolvedValue(undefined),
       cleanup: vi.fn().mockResolvedValue(undefined)
     };
     
     stateService = {
       states: new Map(),
-      sendStateUpdate: vi.fn(),
+      getState: vi.fn().mockImplementation((windowId) => stateService.states.get(windowId)),
+      setState: vi.fn(),
+      addTab: vi.fn(),
+      removeTab: vi.fn(),
+      updateTab: vi.fn(),
+      setActiveTab: vi.fn(),
+      setBounds: vi.fn(),
+      removeState: vi.fn(),
+      getAllStates: vi.fn().mockReturnValue(new Map()),
+      getEventBus: vi.fn().mockReturnValue(eventBus),
       updateTabBookmarkStatus: vi.fn(),
       findTabState: vi.fn(),
       refreshTabState: vi.fn().mockResolvedValue(undefined),

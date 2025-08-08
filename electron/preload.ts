@@ -62,9 +62,11 @@ import {
     CLASSIC_BROWSER_GET_STATE, // Get browser state
     CLASSIC_BROWSER_VIEW_FOCUSED, // Import the new channel
     CLASSIC_BROWSER_REQUEST_FOCUS, // Import the new channel
+    WINDOW_LIFECYCLE_STATE_CHANGED,
     ON_CLASSIC_BROWSER_URL_CHANGE, // Import the new URL change channel
     BROWSER_FREEZE_VIEW, // Import freeze channel
     BROWSER_UNFREEZE_VIEW, // Import unfreeze channel
+    BROWSER_SNAPSHOT_RENDERED, // Import snapshot rendered channel
     // Tab management channels
     CLASSIC_BROWSER_CREATE_TAB,
     CLASSIC_BROWSER_SWITCH_TAB,
@@ -136,6 +138,7 @@ import {
   IChatSession,
   ClassicBrowserPayload,
   ClassicBrowserStateUpdate,
+  WindowMeta,
   UserProfile,
   UserProfileUpdatePayload,
   ActivityLogPayload,
@@ -530,6 +533,10 @@ const api = {
     console.log(`[Preload Script] Sending ${CLASSIC_BROWSER_REQUEST_FOCUS} for windowId: ${windowId}`);
     ipcRenderer.send(CLASSIC_BROWSER_REQUEST_FOCUS, windowId);
   },
+  
+  windowLifecycleStateChanged: (windows: WindowMeta[]): void => {
+    ipcRenderer.send(WINDOW_LIFECYCLE_STATE_CHANGED, windows);
+  },
 
   // New method to subscribe to URL change events
   onClassicBrowserUrlChange: (callback: (data: { windowId: string; url: string; title: string | null }) => void): (() => void) => {
@@ -573,6 +580,12 @@ const api = {
   unfreezeBrowserView: (windowId: string): Promise<void> => {
     console.log(`[Preload Script] Invoking ${BROWSER_UNFREEZE_VIEW} for windowId: ${windowId} (deprecated, use showAndFocusView)`);
     return ipcRenderer.invoke(BROWSER_UNFREEZE_VIEW, windowId);
+  },
+
+  // Notify that snapshot has been rendered in DOM
+  confirmSnapshotRendered: (windowId: string): Promise<{ success: boolean }> => {
+    console.log(`[Preload Script] Invoking ${BROWSER_SNAPSHOT_RENDERED} for windowId: ${windowId}`);
+    return ipcRenderer.invoke(BROWSER_SNAPSHOT_RENDERED, { windowId });
   },
 
   // --- To-Do Operations ---

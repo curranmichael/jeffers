@@ -87,7 +87,7 @@ export class NoteService extends BaseService<NoteServiceDeps> {
     return this.execute('injectAINote', async () => {
       const aiMetadata: NoteMetadata = {
         ...metadata,
-        aiModel: metadata?.aiModel || 'gpt-4o',
+        aiModel: metadata?.aiModel || 'gpt-5',
       };
       
       const note = await this.createNote(notebookId, content, 'ai_generated', aiMetadata);

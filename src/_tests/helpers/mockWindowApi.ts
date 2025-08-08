@@ -106,6 +106,8 @@ export function createMockWindowApi(): IAppAPI {
     onClassicBrowserState: vi.fn().mockReturnValue(() => {}),
     onClassicBrowserViewFocused: vi.fn().mockReturnValue(() => {}),
     classicBrowserRequestFocus: vi.fn(),
+    windowLifecycleStateChanged: vi.fn(),
+    confirmSnapshotRendered: vi.fn(),
     onClassicBrowserUrlChange: vi.fn().mockReturnValue(() => {}),
     captureSnapshot: vi.fn().mockResolvedValue(null),
     showAndFocusView: vi.fn().mockResolvedValue(undefined),

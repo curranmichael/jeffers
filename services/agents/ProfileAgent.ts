@@ -149,9 +149,8 @@ export class ProfileAgent extends BaseService<ProfileAgentDeps> {
       new SystemMessage(prompt)
     ];
     
-    // Using gpt-4.1 for the complex task of synthesizing a user profile
-    const model = createChatModel('gpt-4.1', {
-      temperature: 0.8,
+    // Using gpt-5 for the complex task of synthesizing a user profile
+    const model = createChatModel('gpt-5', {
       response_format: { type: 'json_object' }
     });
     

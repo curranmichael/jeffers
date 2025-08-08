@@ -121,6 +121,7 @@ export const CHAT_SESSION_CREATE_IN_NOTEBOOK = 'chatSession:createInNotebook';
 export const CHAT_SESSION_LIST_FOR_NOTEBOOK = 'chatSession:listForNotebook';
 /** Renderer -> Main: Transfer a chat session to a different notebook. */
 export const CHAT_SESSION_TRANSFER_TO_NOTEBOOK = 'chatSession:transferToNotebook';
+export const CLASSIC_BROWSER_TRANSFER_TAB_TO_NOTEBOOK = 'classicBrowser:transferTabToNotebook';
 
 // --- Zustand Store Persistence Channels ---
 /** Renderer -> Main: Get a value from the persistent store. Expects key, returns string or null. */
@@ -170,6 +171,9 @@ export const CLASSIC_BROWSER_VIEW_FOCUSED = 'classic-browser-view-focused';
 // Added for Renderer to request main process to focus a view
 export const CLASSIC_BROWSER_REQUEST_FOCUS = 'classic-browser-request-focus';
 
+// Window lifecycle management
+export const WINDOW_LIFECYCLE_STATE_CHANGED = 'window-lifecycle-state-changed';
+
 // Main -> Renderer: Notify when a classic browser window navigates to a new URL
 export const ON_CLASSIC_BROWSER_URL_CHANGE = 'on-classic-browser-url-change';
 
@@ -188,6 +192,8 @@ export const CLASSIC_BROWSER_SET_BACKGROUND_COLOR = 'classic-browser:set-backgro
 export const BROWSER_FREEZE_VIEW = 'browser:freezeView';
 /** Renderer -> Main: Show browser view and remove snapshot. */
 export const BROWSER_UNFREEZE_VIEW = 'browser:unfreezeView';
+/** Renderer -> Main: Notify that snapshot has been rendered in DOM. */
+export const BROWSER_SNAPSHOT_RENDERED = 'browser:snapshot-rendered';
 
 // --- Electron Store Persistence Channels ---
 /** Renderer -> Main: Get a value from the persistent store. Expects key, returns string or null. */

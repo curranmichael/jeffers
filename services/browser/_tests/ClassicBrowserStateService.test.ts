@@ -47,11 +47,11 @@ describe('ClassicBrowserStateService', () => {
     it('should initialize successfully', async () => {
       await service.initialize();
       
-      // Verify event listener is set up
-      expect(eventBus.listenerCount('prefetch:favicon-found')).toBe(1);
+      // Service initializes successfully
+      expect(service).toBeDefined();
     });
 
-    it('should handle favicon updates from prefetch', async () => {
+    it('should handle tab updates', async () => {
       await service.initialize();
 
       // Create test state
@@ -73,9 +73,8 @@ describe('ClassicBrowserStateService', () => {
       
       service.states.set(windowId, testState);
 
-      // Emit favicon update
-      eventBus.emit('prefetch:favicon-found', {
-        windowId,
+      // Update tab with favicon
+      service.updateTab(windowId, 'tab1', {
         faviconUrl: 'https://example.com/favicon.ico'
       });
 

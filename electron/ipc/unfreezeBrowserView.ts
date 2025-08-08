@@ -18,8 +18,8 @@ export function registerUnfreezeBrowserViewHandler(
     try {
       logger.debug(`[UnfreezeBrowserView] Unfreezing view for windowId: ${windowId}`);
       
-      // Call the service method to show and focus the view
-      await classicBrowserService.showAndFocusView(windowId);
+      // Call the service method to unfreeze the window
+      await classicBrowserService.unfreezeWindow(windowId);
       
       logger.debug(`[UnfreezeBrowserView] Successfully unfroze view for windowId: ${windowId}`);
       

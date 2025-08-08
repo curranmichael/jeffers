@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useHashRouter } from "@/hooks/useHashRouter";
+import { useWindowLifecycleSync } from "@/hooks/useWindowLifecycleSync";
 import type { StoreApi } from "zustand";
 import { useStore } from "zustand";
 import { motion } from "framer-motion";
@@ -304,6 +305,9 @@ function NotebookWorkspace({ notebookId }: { notebookId: string }) {
   // Hooks are called unconditionally here, and activeStore is guaranteed to be valid.
   const windows = useStore(activeStore, (state) => state.windows);
   const isHydrated = useStore(activeStore, (state) => state._hasHydrated);
+  
+  // Sync window state changes with main process for WebContentsView lifecycle management
+  useWindowLifecycleSync(activeStore);
   
   console.log(`[NotebookWorkspace] Notebook ${notebookId} state:`, {
     isHydrated,
@@ -691,12 +695,25 @@ function NotebookWorkspace({ notebookId }: { notebookId: string }) {
         const currentWindow = windows.find(w => w.id === update.windowId);
         if (currentWindow && currentWindow.type === 'classic-browser') {
           // Complete state replacement - use the tabs and activeTabId from the update
+          const currentPayload = currentWindow.payload as ClassicBrowserPayload;
           const newPayload: ClassicBrowserPayload = {
-            ...currentWindow.payload as ClassicBrowserPayload,
+            ...currentPayload,
             tabs: update.update.tabs || [],
             activeTabId: update.update.activeTabId || '',
-            tabGroupTitle: update.update.tabGroupTitle !== undefined ? update.update.tabGroupTitle : (currentWindow.payload as ClassicBrowserPayload).tabGroupTitle
+            tabGroupTitle: update.update.tabGroupTitle !== undefined ? update.update.tabGroupTitle : currentPayload.tabGroupTitle,
+            // Preserve freezeState if it exists, otherwise default to ACTIVE
+            freezeState: currentPayload.freezeState || { type: 'ACTIVE' }
           };
+
+          // Check if the payload has actually changed
+          const hasTabsChanged = JSON.stringify(currentPayload.tabs) !== JSON.stringify(newPayload.tabs);
+          const hasActiveTabChanged = currentPayload.activeTabId !== newPayload.activeTabId;
+          const hasTabGroupTitleChanged = currentPayload.tabGroupTitle !== newPayload.tabGroupTitle;
+          
+          if (!hasTabsChanged && !hasActiveTabChanged && !hasTabGroupTitleChanged) {
+            console.log(`[NotebookWorkspace] Skipping redundant state update for window ${update.windowId} - no changes detected`);
+            return;
+          }
 
           // Get the window title - prefer tab group title, fallback to active tab title
           const activeTab = newPayload.tabs.find(t => t.id === newPayload.activeTabId);

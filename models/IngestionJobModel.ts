@@ -106,7 +106,7 @@ export class IngestionJobModel {
         SELECT * FROM ingestion_jobs WHERE id = ?
       `);
 
-      const row = stmt.get(id) as any;
+      const row = stmt.get(id) as IngestionJobRow | undefined;
       if (!row) {
         return null;
       }
@@ -141,7 +141,7 @@ export class IngestionJobModel {
       params.push(limit);
 
       const stmt = this.db.prepare(query);
-      const rows = stmt.all(...params) as any[];
+      const rows = stmt.all(...params) as IngestionJobRow[];
 
       return rows.map(row => this.rowToJob(row));
     } catch (error) {
@@ -302,7 +302,7 @@ export class IngestionJobModel {
       }
 
       const stmt = this.db.prepare(query);
-      const rows = stmt.all(status) as any[];
+      const rows = stmt.all(status) as IngestionJobRow[];
 
       return rows.map(row => this.rowToJob(row));
     } catch (error) {
@@ -323,7 +323,7 @@ export class IngestionJobModel {
       `);
 
       const rows = stmt.all() as Array<{ status: JobStatus; count: number }>;
-      const stats: Record<JobStatus, number> = {} as any;
+      const stats: Record<JobStatus, number> = {} as Record<JobStatus, number>;
 
       rows.forEach(row => {
         stats[row.status] = row.count;
@@ -445,7 +445,7 @@ export class IngestionJobModel {
         WHERE status = 'failed'
         LIMIT 10
       `);
-      const failedJobs = checkStmt.all() as any[];
+      const failedJobs = checkStmt.all() as IngestionJobRow[];
       
       if (failedJobs.length > 0) {
         logger.info('[IngestionJobModel] Found failed jobs to delete:', {

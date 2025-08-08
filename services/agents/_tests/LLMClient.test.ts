@@ -188,7 +188,7 @@ describe('LLMClient', () => {
       
       const mockResponse = {
         content: 'Hello! How can I help you today?',
-        additional_kwargs: { model: 'gpt-4' },
+        additional_kwargs: { model: 'gpt-5' },
       };
       
       const mockLLM = {
