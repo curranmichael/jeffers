@@ -156,7 +156,16 @@ describe('ClassicBrowserService', () => {
     
     stateService = {
       states: new Map(),
-      sendStateUpdate: vi.fn(),
+      getState: vi.fn().mockImplementation((windowId) => stateService.states.get(windowId)),
+      setState: vi.fn(),
+      addTab: vi.fn(),
+      removeTab: vi.fn(),
+      updateTab: vi.fn(),
+      setActiveTab: vi.fn(),
+      setBounds: vi.fn(),
+      removeState: vi.fn(),
+      getAllStates: vi.fn().mockReturnValue(new Map()),
+      getEventBus: vi.fn().mockReturnValue(eventBus),
       updateTabBookmarkStatus: vi.fn(),
       findTabState: vi.fn(),
       refreshTabState: vi.fn().mockResolvedValue(undefined),

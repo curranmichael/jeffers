@@ -103,20 +103,7 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
         // Immediately acquire view and load URL for background tabs
         // This ensures title/favicon events fire from the actual WebContentsView
         if (url) {
-          this.logDebug(`Loading background tab ${tabId} with URL: ${url}`);
-          this.deps.globalTabPool.acquireView(tabId, windowId)
-            .then(async (view) => {
-              try {
-                // Load the URL in the background tab
-                await view.webContents.loadURL(url);
-                this.logDebug(`Background tab ${tabId} loaded successfully`);
-              } catch (loadErr) {
-                this.logDebug(`Failed to load URL in background tab ${tabId}: ${loadErr instanceof Error ? loadErr.message : String(loadErr)}`);
-              }
-            })
-            .catch(err => {
-              this.logDebug(`Failed to acquire view for background tab ${tabId}: ${err.message}`);
-            });
+          this.loadBackgroundTab(tabId, windowId, url);
         }
       } catch (err) {
         this.logError(`Failed to create new tab from context menu:`, err);
@@ -257,20 +244,7 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
         // For background tabs, immediately acquire view and load URL
         // This ensures title/favicon events fire from the actual WebContentsView
         if (!makeActive && details.url) {
-          this.logDebug(`Loading background tab ${tabId} with URL: ${details.url}`);
-          this.deps.globalTabPool.acquireView(tabId, windowId)
-            .then(async (view) => {
-              try {
-                // Load the URL in the background tab
-                await view.webContents.loadURL(details.url);
-                this.logDebug(`Background tab ${tabId} loaded successfully`);
-              } catch (loadErr) {
-                this.logDebug(`Failed to load URL in background tab ${tabId}: ${loadErr instanceof Error ? loadErr.message : String(loadErr)}`);
-              }
-            })
-            .catch(err => {
-              this.logDebug(`Failed to acquire view for background tab ${tabId}: ${err.message}`);
-            });
+          this.loadBackgroundTab(tabId, windowId, details.url);
         }
       } catch (err) {
         this.logError(`Failed to create new tab:`, err);
@@ -280,6 +254,27 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
       this.logDebug(`Regular navigation to ${details.url} in same tab`);
       this.deps.navigationService.loadUrl(windowId, details.url);
     }
+  }
+
+  /**
+   * Loads a URL in a background tab by acquiring a view from the tab pool
+   * This ensures title/favicon events fire from the actual WebContentsView
+   */
+  private loadBackgroundTab(tabId: string, windowId: string, url: string): void {
+    this.logDebug(`Loading background tab ${tabId} with URL: ${url}`);
+    this.deps.globalTabPool.acquireView(tabId, windowId)
+      .then(async (view) => {
+        try {
+          // Load the URL in the background tab
+          await view.webContents.loadURL(url);
+          this.logDebug(`Background tab ${tabId} loaded successfully`);
+        } catch (loadErr) {
+          this.logDebug(`Failed to load URL in background tab ${tabId}: ${loadErr instanceof Error ? loadErr.message : String(loadErr)}`);
+        }
+      })
+      .catch(err => {
+        this.logDebug(`Failed to acquire view for background tab ${tabId}: ${err.message}`);
+      });
   }
 
   public navigate(windowId: string, action: 'back' | 'forward' | 'reload' | 'stop'): void {
