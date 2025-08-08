@@ -243,10 +243,17 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
     const handlers = this.createEventHandlers(tabId, windowId);
     const webContents = view.webContents;
 
-    // Attach all handlers
-    Object.entries(handlers).forEach(([event, handler]) => {
-      webContents.on(event as any, handler);
-    });
+    // Attach all handlers - use type assertions for each event type
+    (webContents as any).on('did-start-loading', handlers['did-start-loading']);
+    (webContents as any).on('did-stop-loading', handlers['did-stop-loading']);
+    (webContents as any).on('did-navigate', handlers['did-navigate']);
+    (webContents as any).on('did-navigate-in-page', handlers['did-navigate-in-page']);
+    (webContents as any).on('page-title-updated', handlers['page-title-updated']);
+    (webContents as any).on('page-favicon-updated', handlers['page-favicon-updated']);
+    (webContents as any).on('did-fail-load', handlers['did-fail-load']);
+    (webContents as any).on('focus', handlers['focus']);
+    (webContents as any).on('blur', handlers['blur']);
+    (webContents as any).on('context-menu', handlers['context-menu']);
 
     // Handle window open requests (special case - uses setWindowOpenHandler)
     webContents.setWindowOpenHandler((details) => {
