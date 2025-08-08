@@ -10,6 +10,16 @@ import { GlobalTabPool } from './GlobalTabPool';
 import { ClassicBrowserStateService } from './ClassicBrowserStateService';
 import { isSecureUrl } from '../../utils/urlSecurity';
 
+// Type definition for WebContentsView with custom properties
+interface ExtendedWebContentsView extends WebContentsView {
+  _lastNavigationTime?: number;
+}
+
+// Type definition for errors with code property
+interface ErrorWithCode extends Error {
+  code?: string;
+}
+
 export interface ClassicBrowserViewManagerDeps {
   mainWindow: BrowserWindow;
   eventBus: BrowserEventBus;
@@ -322,7 +332,7 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
     }
     
     // 2. Skip if this is a recent navigation (within 1 second) to prevent reload loops
-    const lastNavigationTime = (view as any)._lastNavigationTime || 0;
+    const lastNavigationTime = (view as ExtendedWebContentsView)._lastNavigationTime || 0;
     const now = Date.now();
     const timeSinceLastNav = now - lastNavigationTime;
     if (timeSinceLastNav < 1000) {
@@ -332,11 +342,11 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
     // Validate URL security before navigation
     if (isSecureUrl(tab.url, { context: 'tab-restoration' })) {
       try {
-        (view as any)._lastNavigationTime = now;
+        (view as ExtendedWebContentsView)._lastNavigationTime = now;
         await view.webContents.loadURL(tab.url);
       } catch (error) {
         // Only log as error if it's not an abort (which might be expected)
-        if (error instanceof Error && (error as any).code === 'ERR_ABORTED') {
+        if (error instanceof Error && (error as ErrorWithCode).code === 'ERR_ABORTED') {
           this.logDebug(`Navigation aborted for ${tab.url} - likely handled by another service`);
         } else {
           this.logError(`Failed to navigate view to ${tab.url}:`, error);
@@ -705,10 +715,15 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
       wc.executeJavaScript(`
         if (window.overlayInstance) {
           window.overlayInstance.setWindowId('${windowId}');
+          true;
         } else {
-          console.error('[Overlay] overlayInstance not found on window');
+          false;
         }
-      `).catch((error) => {
+      `).then((result) => {
+        if (!result) {
+          this.logError('[Overlay] overlayInstance not found on window');
+        }
+      }).catch((error) => {
         this.logError(`[setupOverlayListeners] Failed to set windowId: ${error}`);
       });
     });

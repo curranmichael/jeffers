@@ -151,7 +151,6 @@ export class ProfileAgent extends BaseService<ProfileAgentDeps> {
     
     // Using gpt-5 for the complex task of synthesizing a user profile
     const model = createChatModel('gpt-5', {
-      temperature: 0.8,
       response_format: { type: 'json_object' }
     });
     

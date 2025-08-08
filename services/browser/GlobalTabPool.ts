@@ -4,6 +4,12 @@ import { BaseService } from '../base/BaseService';
 import { TabState } from '../../shared/types/window.types';
 import { BrowserEventBus } from './BrowserEventBus';
 
+// Type definition for WebContentsView with custom properties
+interface ExtendedWebContentsView extends WebContentsView {
+  _tabId?: string;
+  setBorderRadius?: (radius: number) => void;
+}
+
 export interface GlobalTabPoolDeps {
   eventBus: BrowserEventBus;
 }
@@ -16,7 +22,7 @@ export interface GlobalTabPoolDeps {
  * controlled by the ClassicBrowserViewManager.
  */
 export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
-  private pool: Map<string, WebContentsView> = new Map();
+  private pool: Map<string, ExtendedWebContentsView> = new Map();
   private lruOrder: string[] = []; // Tab IDs, most recent first
   private preservedState: Map<string, Partial<TabState>> = new Map();
   private tabToWindowMapping: Map<string, string> = new Map(); // tabId -> windowId
@@ -36,21 +42,19 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
    * @param windowId The window that owns this tab (for event context)
    * @returns The acquired WebContentsView.
    */
-  public async acquireView(tabId: string, windowId?: string): Promise<WebContentsView> {
+  public async acquireView(tabId: string, windowId?: string): Promise<ExtendedWebContentsView> {
     return this.execute('acquireView', async () => {
       this.logInfo(`[ACQUIRE] Tab ${tabId}, windowId: ${windowId || 'NONE'}`);
       
-      // Store the window mapping BEFORE creating the view
-      // This ensures event handlers have access to the window ID
-      if (windowId) {
-        this.tabToWindowMapping.set(tabId, windowId);
-        this.logInfo(`[MAPPING] Set tab ${tabId} -> window ${windowId}`);
-      } else {
-        this.logWarn(`[MAPPING] No windowId provided for tab ${tabId}`);
-      }
-
+      // Check if already in pool first
       if (this.pool.has(tabId)) {
         this.logInfo(`[REUSE] Tab ${tabId} already in pool`);
+        // Update mapping for existing view (in case window changed)
+        // Note: Map.set() REPLACES the existing value - no memory leak from multiple updates
+        if (windowId) {
+          this.tabToWindowMapping.set(tabId, windowId);
+          this.logInfo(`[MAPPING] Updated tab ${tabId} -> window ${windowId}`);
+        }
         this.updateLRU(tabId);
         return this.pool.get(tabId)!;
       }
@@ -59,12 +63,30 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
         await this.evictOldest();
       }
 
-      // Now create the view - event handlers will have access to window mapping
-      const view = this.createView(tabId, windowId);
-      this.pool.set(tabId, view);
-      this.updateLRU(tabId);
-
-      return view;
+      // Create the view first, THEN set mapping only if successful
+      try {
+        const view = this.createView(tabId, windowId);
+        
+        // Only set mapping after successful view creation
+        // Map maintains ONE entry per tabId - subsequent calls overwrite, not accumulate
+        if (windowId) {
+          this.tabToWindowMapping.set(tabId, windowId);
+          this.logInfo(`[MAPPING] Set tab ${tabId} -> window ${windowId}`);
+        } else {
+          this.logWarn(`[MAPPING] No windowId provided for tab ${tabId}`);
+        }
+        
+        this.pool.set(tabId, view);
+        this.updateLRU(tabId);
+        
+        return view;
+      } catch (error) {
+        // Clean up any partial state on failure
+        this.tabToWindowMapping.delete(tabId);
+        this.preservedState.delete(tabId);
+        this.logError(`[ACQUIRE] Failed to create view for tab ${tabId}`, error);
+        throw error;
+      }
     });
   }
 
@@ -91,7 +113,7 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
    * Retrieves a view from the pool if it exists.
    * Does not affect LRU order.
    */
-  public getView(tabId: string): WebContentsView | undefined {
+  public getView(tabId: string): ExtendedWebContentsView | undefined {
     return this.pool.get(tabId);
   }
 
@@ -146,7 +168,7 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
    * @param tabId The ID of the tab
    * @param windowId Optional window ID for immediate event context
    */
-  private createView(tabId: string, windowId?: string): WebContentsView {
+  private createView(tabId: string, windowId?: string): ExtendedWebContentsView {
     const securePrefs: Electron.WebPreferences = {
       nodeIntegration: false,
       contextIsolation: true,
@@ -156,11 +178,14 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
       plugins: true,
     };
 
-    const view = new WebContentsView({ webPreferences: securePrefs });
+    const view = new WebContentsView({ webPreferences: securePrefs }) as ExtendedWebContentsView;
     view.setBackgroundColor('#00000000'); // Transparent background
     
     // Apply border radius to the native view (6px to match 8px outer radius with 2px border)
-    (view as any).setBorderRadius(6);
+    // Note: setBorderRadius is a custom Electron method that may not be available in all builds
+    if (view.setBorderRadius) {
+      view.setBorderRadius(6);
+    }
 
     // Set up WebContents event handlers for proper navigation tracking
     this.setupWebContentsEventHandlers(view, tabId);
@@ -180,7 +205,7 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
   /**
    * Sets up event handlers for WebContents to track navigation state
    */
-  private setupWebContentsEventHandlers(view: WebContentsView, tabId: string): void {
+  private setupWebContentsEventHandlers(view: ExtendedWebContentsView, tabId: string): void {
     const webContents = view.webContents;
 
     // Track loading state
@@ -330,16 +355,16 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
 
     // Store reference to cleanup listeners when view is destroyed
     // Note: WebContents doesn't have a destroy method, cleanup happens in destroyView
-    (view as any)._tabId = tabId; // Store tabId for cleanup reference
+    view._tabId = tabId; // Store tabId for cleanup reference
   }
 
   /**
    * Destroys a WebContentsView and preserves its state.
    */
-  private async destroyView(view: WebContentsView): Promise<void> {
+  private async destroyView(view: ExtendedWebContentsView): Promise<void> {
     const wc = view.webContents;
     if (wc && !wc.isDestroyed()) {
-      const tabId = (view as any)._tabId;
+      const tabId = view._tabId;
       if (tabId) {
         // TODO: Enhance state preservation.
         // For now, we only preserve the URL. Later, we can add:

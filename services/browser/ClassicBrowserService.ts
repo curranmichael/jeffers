@@ -10,7 +10,6 @@ import { ClassicBrowserTabService } from './ClassicBrowserTabService';
 import { ClassicBrowserWOMService } from './ClassicBrowserWOMService';
 import { ClassicBrowserSnapshotService } from './ClassicBrowserSnapshotService';
 import { GlobalTabPool } from './GlobalTabPool';
-import { EventEmitter } from 'events';
 
 export interface ClassicBrowserServiceDeps {
   mainWindow: BrowserWindow;
@@ -28,7 +27,6 @@ export interface ClassicBrowserServiceDeps {
  * Delegates to other services to handle the actual logic.
  */
 export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps> {
-  private eventEmitter = new EventEmitter();
   constructor(deps: ClassicBrowserServiceDeps) {
     super('ClassicBrowserService', deps);
   }
@@ -325,15 +323,9 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
     }
   }
 
-  // Event emitter methods for backward compatibility
-  public on(event: string, listener: (...args: any[]) => void): this {
-    this.eventEmitter.on(event, listener);
-    return this;
-  }
-
-  public emit(event: string, ...args: any[]): boolean {
-    return this.eventEmitter.emit(event, ...args);
-  }
+  // Note: Event emitter methods were removed as they were not being used.
+  // If event emission is needed in the future, use the BrowserEventBus
+  // which is already available through deps.stateService.getEventBus()
 
   /**
    * Prefetch favicons for multiple windows - used by NotebookCompositionService

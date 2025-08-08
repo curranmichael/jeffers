@@ -155,7 +155,6 @@ export class IngestionAiService extends BaseService {
   get llm() {
     if (!this._llm) {
       this._llm = createChatModel('gpt-5-mini', {
-        temperature: 0.3,
         response_format: { type: 'json_object' }
       });
     }
@@ -191,7 +190,6 @@ export class IngestionAiService extends BaseService {
         this.logInfo(`Object ${objectId}: Chunking attempt ${attempt}...`);
         // Using gpt-5-mini for high-quality chunking
         const model = createChatModel('gpt-5-mini', {
-          temperature: 0.6,
           response_format: { type: 'json_object' },
           max_tokens: 16000
         });
@@ -353,7 +351,6 @@ export class IngestionAiService extends BaseService {
         this.logInfo(`Object ${objectId}: Object summary attempt ${attempt}...`);
         // Using gpt-5-mini for better instruction following
         const model = createChatModel('gpt-5-mini', {
-          temperature: 0.2,
           response_format: { type: 'json_object' },
           max_tokens: 2000
         });

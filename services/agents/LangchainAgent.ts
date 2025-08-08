@@ -192,7 +192,7 @@ class LangchainAgent extends BaseService<LangchainAgentDeps> {
                 },
                 rephraseQuestionPrompt,
                 // Using gpt-5-mini for the simple rephrasing task
-                createChatModel('gpt-5-mini', { temperature: 0 }),
+                createChatModel('gpt-5-mini'),
                 new StringOutputParser(),
             ]);
 
