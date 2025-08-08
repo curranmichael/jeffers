@@ -2,12 +2,14 @@ import { IpcMain } from 'electron';
 import { BROWSER_CONTEXT_MENU_REQUEST_SHOW } from '../../shared/ipcChannels';
 import { BrowserContextMenuData } from '../../shared/types/contextMenu.types';
 import { ClassicBrowserService } from '../../services/browser/ClassicBrowserService';
+import { ClassicBrowserViewManager } from '../../services/browser/ClassicBrowserViewManager';
 import { ClassicBrowserTabTransferService } from '../../services/browser/ClassicBrowserTabTransferService';
 import { logger } from '../../utils/logger';
 
 export function registerBrowserContextMenuRequestShowHandler(
   ipcMain: IpcMain,
   classicBrowserService: ClassicBrowserService,
+  viewManager: ClassicBrowserViewManager,
   tabTransferService?: ClassicBrowserTabTransferService
 ) {
   ipcMain.handle(BROWSER_CONTEXT_MENU_REQUEST_SHOW, async (event, data: BrowserContextMenuData) => {
@@ -41,7 +43,6 @@ export function registerBrowserContextMenuRequestShowHandler(
       });
       
       // Use the existing showContextMenuOverlay method from the ClassicBrowserService
-      const viewManager = classicBrowserService.getViewManager();
       await viewManager.showContextMenuOverlay(data.windowId, data);
       
       return { success: true };

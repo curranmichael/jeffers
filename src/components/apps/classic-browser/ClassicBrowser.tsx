@@ -44,6 +44,7 @@ interface ClassicBrowserContentProps {
   isDragging?: boolean; // Add prop for dragging state
   isResizing?: boolean; // Add prop for resizing state
   sidebarState?: "expanded" | "collapsed"; // Add optional prop for sidebar state
+  notebookId?: string; // Add notebook ID for associating tab groups
 }
 
 const ClassicBrowserViewWrapperComponent: React.FC<ClassicBrowserContentProps> = ({ // Renamed component for clarity if needed, sticking to existing for now
@@ -53,6 +54,7 @@ const ClassicBrowserViewWrapperComponent: React.FC<ClassicBrowserContentProps> =
   isActuallyVisible,
   isDragging = false,
   isResizing = false,
+  notebookId,
 }) => {
   const { id: windowId, payload } = windowMeta;
   // Ensure payload is of type ClassicBrowserPayload
@@ -206,7 +208,7 @@ const ClassicBrowserViewWrapperComponent: React.FC<ClassicBrowserContentProps> =
 
     try {
       // Pass the full, hydrated payload to the backend for the one-time seed
-      const result = await window.api.classicBrowserCreate(windowId, initialViewBounds, currentPayload);
+      const result = await window.api.classicBrowserCreate(windowId, initialViewBounds, currentPayload, notebookId);
       if (result && result.success) {
         console.log(`[ClassicBrowser ${windowId}] classicBrowserCreate successful.`);
       } else {
@@ -678,7 +680,7 @@ const ClassicBrowserViewWrapperComponent: React.FC<ClassicBrowserContentProps> =
   return (
     <div
       className={cn(
-        'h-full w-full flex flex-col overflow-hidden shadow-lg rounded-lg',
+        'h-full w-full flex flex-col overflow-hidden shadow-lg rounded-sm',
         windowMeta.isFocused ? 'bg-step-4' : 'bg-step-3',
         windowMeta.isFocused ? 'border-step-4' : 'border-step-3'
       )}

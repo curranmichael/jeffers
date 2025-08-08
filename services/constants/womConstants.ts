@@ -13,7 +13,7 @@ const baseConstants = {
   REFRESH_CHECK_INTERVAL_MS: 86400000, // 24 hours - balance between freshness and API costs
 
   // Composite enrichment
-  MIN_CHILDREN_FOR_AUTO_ENRICH: 3,
+  MIN_CHILDREN_FOR_AUTO_ENRICH: 2,
   MAX_CHILDREN_FOR_SYNC_ENRICH: 10,
 
   // Retention

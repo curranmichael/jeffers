@@ -1,19 +1,29 @@
 import type { RenderProcessGoneDetails, HandlerDetails, ContextMenuParams, Event } from 'electron';
 import { BrowserContextMenuData } from '../../shared/types/contextMenu.types';
 
+import { ClassicBrowserPayload } from '../../shared/types';
+
 /**
  * Browser Event Types
  * 
  * Defines all events that can be emitted through the BrowserEventBus
  */
 export interface BrowserEventMap {
+  // State events
+  'state-changed': { 
+    windowId: string; 
+    newState: ClassicBrowserPayload; 
+    previousState?: ClassicBrowserPayload;
+    isNavigationRelevant?: boolean;
+  };
+
   // View lifecycle events
-  'view:did-start-loading': { windowId: string };
-  'view:did-stop-loading': { windowId: string; url: string; title: string; canGoBack: boolean; canGoForward: boolean };
-  'view:did-navigate': { windowId: string; url: string; isMainFrame: boolean; title: string; canGoBack: boolean; canGoForward: boolean };
-  'view:did-navigate-in-page': { windowId: string; url: string; isMainFrame: boolean; title: string; canGoBack: boolean; canGoForward: boolean };
-  'view:page-title-updated': { windowId: string; title: string };
-  'view:page-favicon-updated': { windowId: string; faviconUrl: string[] };
+  'view:did-start-loading': { windowId: string; tabId?: string };
+  'view:did-stop-loading': { windowId: string; url: string; title: string; canGoBack: boolean; canGoForward: boolean; tabId?: string };
+  'view:did-navigate': { windowId: string; url: string; title: string; tabId?: string; isMainFrame?: boolean; canGoBack?: boolean; canGoForward?: boolean };
+  'view:did-navigate-in-page': { windowId: string; url: string; isMainFrame: boolean; title: string; canGoBack: boolean; canGoForward: boolean; tabId?: string };
+  'view:page-title-updated': { windowId: string; title: string; tabId?: string };
+  'view:page-favicon-updated': { windowId: string; faviconUrl: string[]; tabId?: string };
   'view:did-fail-load': { 
     windowId: string; 
     errorCode: number; 
@@ -46,10 +56,6 @@ export interface BrowserEventMap {
   'overlay:show-context-menu': { data: BrowserContextMenuData };
   'overlay:hide-context-menu': { windowId: string };
 
-  // Prefetch events
-  'prefetch:tab-favicon-found': { windowId: string; tabId: string; faviconUrl: string };
-  'prefetch:favicon-found': { windowId: string; faviconUrl: string };
-
   // WOM (Working Memory) events
   'wom:refresh-needed': { objectId: string; url: string };
   'webpage:needs-refresh': { objectId: string; url: string; windowId: string; tabId: string };
@@ -57,11 +63,21 @@ export interface BrowserEventMap {
   'webpage:ingestion-complete': { tabId: string; objectId: string };
 
   // Navigation events
-  'tab:new': { url: string; windowId?: string };
-  'search:enai': { query: string };
+  'tab:new': { url: string; windowId: string };
+  'search:jeffers': { query: string };
 
   // Tab group events
   'tabgroup:title-updated': { windowId: string; title: string };
+
+  // Tab pool events
+  'tab:before-eviction': { windowId: string; tabId: string };
+  'tab:snapshot-captured': { windowId: string; tabId: string; snapshot: string };
+
+  // Window lifecycle events for WebContentsView management
+  'window:focus-changed': { windowId: string; isFocused: boolean; zIndex: number };
+  'window:minimized': { windowId: string };
+  'window:restored': { windowId: string; zIndex: number };
+  'window:z-order-update': { orderedWindows: Array<{ windowId: string; zIndex: number; isFocused: boolean; isMinimized: boolean }> };
 }
 
 /**

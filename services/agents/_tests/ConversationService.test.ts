@@ -120,7 +120,7 @@ describe('ConversationService', () => {
     it('should save message with metadata', async () => {
       const senderId = 'test-sender';
       const sessionId = await conversationService.ensureSession(senderId);
-      const metadata = { tool_calls: [], model: 'gpt-4' };
+      const metadata = { tool_calls: [], model: 'gpt-5' };
       
       const messageId = await conversationService.saveMessage(
         sessionId,

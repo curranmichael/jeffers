@@ -12,8 +12,21 @@ export function createChatModel(modelName: string, options: any = {}) {
   
   if (options.temperature !== undefined) config.temperature = options.temperature;
   if (options.streaming !== undefined) config.streaming = options.streaming;
-  if (options.max_tokens !== undefined) config.maxTokens = options.max_tokens;
-  if (options.response_format !== undefined) config.modelKwargs = { response_format: options.response_format };
+  
+  // Handle max_tokens - GPT-5 models need it in modelKwargs as max_completion_tokens
+  if (options.max_tokens !== undefined) {
+    config.modelKwargs = { 
+      ...config.modelKwargs,
+      max_completion_tokens: options.max_tokens 
+    };
+  }
+  
+  if (options.response_format !== undefined) {
+    config.modelKwargs = { 
+      ...config.modelKwargs,
+      response_format: options.response_format 
+    };
+  }
   
   return new ChatOpenAI(config);
 }

@@ -102,6 +102,18 @@ export const NOTEBOOK_GET_OR_CREATE_DAILY = 'notebook:getOrCreateDaily';
 /** Renderer -> Main: Get recently viewed notebooks. */
 export const NOTEBOOK_GET_RECENTLY_VIEWED = 'notebook:get-recently-viewed';
 
+// --- Notebook TSTP Operations ---
+/** Renderer -> Main: Get full TSTP data for a notebook. */
+export const NOTEBOOK_GET_TSTP = 'notebook:getTSTP';
+/** Renderer -> Main: Get aggregated summary for a notebook. */
+export const NOTEBOOK_GET_SUMMARY = 'notebook:getSummary';
+/** Renderer -> Main: Get aggregated tags for a notebook. */
+export const NOTEBOOK_GET_TAGS = 'notebook:getTags';
+/** Renderer -> Main: Get all propositions from a notebook. */
+export const NOTEBOOK_GET_PROPOSITIONS = 'notebook:getPropositions';
+/** Renderer -> Main: Generate and save TSTP data for a notebook. */
+export const NOTEBOOK_GENERATE_TSTP = 'notebook:generateTSTP';
+
 // --- Chat Session Operations within Notebooks ---
 /** Renderer -> Main: Create a new chat session in a notebook. */
 export const CHAT_SESSION_CREATE_IN_NOTEBOOK = 'chatSession:createInNotebook';
@@ -109,6 +121,7 @@ export const CHAT_SESSION_CREATE_IN_NOTEBOOK = 'chatSession:createInNotebook';
 export const CHAT_SESSION_LIST_FOR_NOTEBOOK = 'chatSession:listForNotebook';
 /** Renderer -> Main: Transfer a chat session to a different notebook. */
 export const CHAT_SESSION_TRANSFER_TO_NOTEBOOK = 'chatSession:transferToNotebook';
+export const CLASSIC_BROWSER_TRANSFER_TAB_TO_NOTEBOOK = 'classicBrowser:transferTabToNotebook';
 
 // --- Zustand Store Persistence Channels ---
 /** Renderer -> Main: Get a value from the persistent store. Expects key, returns string or null. */
@@ -158,6 +171,9 @@ export const CLASSIC_BROWSER_VIEW_FOCUSED = 'classic-browser-view-focused';
 // Added for Renderer to request main process to focus a view
 export const CLASSIC_BROWSER_REQUEST_FOCUS = 'classic-browser-request-focus';
 
+// Window lifecycle management
+export const WINDOW_LIFECYCLE_STATE_CHANGED = 'window-lifecycle-state-changed';
+
 // Main -> Renderer: Notify when a classic browser window navigates to a new URL
 export const ON_CLASSIC_BROWSER_URL_CHANGE = 'on-classic-browser-url-change';
 
@@ -182,6 +198,8 @@ export const CLASSIC_BROWSER_GET_AVAILABLE_NOTEBOOKS = 'classic-browser:get-avai
 export const BROWSER_FREEZE_VIEW = 'browser:freezeView';
 /** Renderer -> Main: Show browser view and remove snapshot. */
 export const BROWSER_UNFREEZE_VIEW = 'browser:unfreezeView';
+/** Renderer -> Main: Notify that snapshot has been rendered in DOM. */
+export const BROWSER_SNAPSHOT_RENDERED = 'browser:snapshot-rendered';
 
 // --- Electron Store Persistence Channels ---
 /** Renderer -> Main: Get a value from the persistent store. Expects key, returns string or null. */
@@ -209,6 +227,8 @@ export const PDF_INGEST_CANCEL = 'pdf:ingest:cancel';
 // --- Object Operations ---
 /** Renderer -> Main: Get an object by its ID. */
 export const OBJECT_GET_BY_ID = 'object:getById';
+/** Renderer -> Main: Update an object by its ID. */
+export const OBJECT_UPDATE = 'object:update';
 /** Renderer -> Main: Delete objects by their IDs. */
 export const OBJECT_DELETE = 'object:delete';
 /** Renderer -> Main: Delete an object by its source URI. */

@@ -6,7 +6,7 @@ import { IChatSession, StructuredChatMessage, ChatMessageSourceMetadata } from '
 import { SliceDetail } from './search.types';
 import { UserProfile, UserProfileUpdatePayload, ActivityLogPayload } from './profile.types';
 import { SetIntentPayload, IntentResultPayload, SuggestedAction } from './intent.types';
-import { ClassicBrowserPayload, ClassicBrowserStateUpdate, TabState } from './window.types';
+import { ClassicBrowserPayload, ClassicBrowserStateUpdate, TabState, WindowMeta } from './window.types';
 import { ToDoItem, ToDoCreatePayload, ToDoUpdatePayload } from './todo.types';
 import { Note, CreateNotePayload, UpdateNotePayload } from './notes.types';
 import { BookmarksProgressEvent, PdfIngestProgressPayload, PdfIngestBatchCompletePayload } from './ingestion.types';
@@ -94,6 +94,7 @@ export interface IAppAPI {
   deleteNotebook: (id: string) => Promise<boolean>;
   getChunksForNotebook: (notebookId: string) => Promise<ObjectChunk[]>;
   getOrCreateDailyNotebook: () => Promise<NotebookRecord>;
+  generateNotebookTSTP: (notebookId: string) => Promise<{ success: boolean; error?: string }>;
 
   // --- Chat Functions ---
   createChatInNotebook: (params: { notebookId: string, chatTitle?: string | null }) => Promise<IChatSession>;
@@ -198,7 +199,7 @@ export interface IAppAPI {
   onMainRequestFlush: (callback: () => Promise<void>) => void;
 
   // --- Classic Browser API ---
-  classicBrowserCreate(windowId: string, bounds: Rectangle, payload: ClassicBrowserPayload): Promise<{ success: boolean } | undefined>;
+  classicBrowserCreate(windowId: string, bounds: Rectangle, payload: ClassicBrowserPayload, notebookId?: string): Promise<{ success: boolean } | undefined>;
   classicBrowserLoadUrl(windowId: string, url: string): Promise<void>;
   classicBrowserNavigate(windowId: string, action: 'back' | 'forward' | 'reload' | 'stop', url?: string): Promise<void>;
   classicBrowserSetBounds: (windowId: string, bounds: Rectangle) => void;
@@ -214,6 +215,9 @@ export interface IAppAPI {
 
   // Added for renderer to request focus
   classicBrowserRequestFocus: (windowId: string) => void; // Send-only, no return needed
+  
+  // Window lifecycle management
+  windowLifecycleStateChanged: (windows: WindowMeta[]) => void;
 
   // Listen for URL change events from classic browser windows
   onClassicBrowserUrlChange: (callback: (data: { windowId: string; url: string; title: string | null }) => void) => () => void;
@@ -229,6 +233,9 @@ export interface IAppAPI {
   
   // @deprecated Use showAndFocusView instead
   unfreezeBrowserView: (windowId: string) => Promise<void>;
+  
+  // Confirm that a snapshot has been rendered in the DOM
+  confirmSnapshotRendered: (windowId: string) => Promise<{ success: boolean }>;
 
   // Tab management methods
   classicBrowserCreateTab: (windowId: string, url?: string) => Promise<{ success: boolean; tabId?: string; error?: string }>;
@@ -287,6 +294,8 @@ export interface IAppAPI {
   // --- Object Operations ---
   /** Get an object by its ID */
   getObjectById: (objectId: string) => Promise<JeffersObject | null>;
+  /** Update an object by its ID */
+  updateObject: (objectId: string, updates: Partial<Omit<JeffersObject, 'id' | 'createdAt' | 'updatedAt'>>) => Promise<void>;
   /** Delete objects by their IDs */
   deleteObjects: (objectIds: string[]) => Promise<DeleteResult>;
   /** Delete an object by its source URI */

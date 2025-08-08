@@ -90,8 +90,8 @@ class LangchainAgent extends BaseService<LangchainAgentDeps> {
         
         // Check and fetch the API key HERE, inside the constructor
         const apiKey = process.env.OPENAI_API_KEY;
-        // Read the desired model name from env, fallback to "gpt-4o"
-        const modelName = process.env.OPENAI_DEFAULT_MODEL || "gpt-4.1"; 
+        // Read the desired model name from env, fallback to "gpt-5"
+        const modelName = process.env.OPENAI_DEFAULT_MODEL || "gpt-5"; 
 
         this.logInfo(`Checking for OpenAI API Key: ${apiKey ? 'Found' : 'MISSING!'}`);
         if (!apiKey) {
@@ -191,8 +191,8 @@ class LangchainAgent extends BaseService<LangchainAgentDeps> {
                     chat_history: (input: { question: string; chat_history: BaseMessage[] }) => input.chat_history,
                 },
                 rephraseQuestionPrompt,
-                // Using gpt-4o-mini for the simple rephrasing task
-                createChatModel('gpt-4o-mini', { temperature: 0 }),
+                // Using gpt-5-mini for the simple rephrasing task
+                createChatModel('gpt-5-mini'),
                 new StringOutputParser(),
             ]);
 
@@ -243,8 +243,8 @@ class LangchainAgent extends BaseService<LangchainAgentDeps> {
                     }),
                     // Step 4: Generate the final answer
                     answerPrompt,
-                    // Using gpt-4o for the main answer generation
-                    createChatModel('gpt-4o', { temperature: 1, streaming: true }),
+                    // Using gpt-5 for the main answer generation
+                    createChatModel('gpt-5', { temperature: 1, streaming: true }),
                     new StringOutputParser(),
                 ])
             );

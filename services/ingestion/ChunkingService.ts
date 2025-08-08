@@ -27,7 +27,7 @@ interface ChunkingServiceDeps extends BaseServiceDependencies {
  * Processes objects by:
  *   1. grabs multiple objects whose status === 'parsed' (up to concurrency limit)
  *   2. atomically flips them to 'embedding' (race‑safe)
- *   3. asks OpenAI‑GPT‑4.1‑nano to produce semantic chunks
+ *   3. asks OpenAI‑GPT‑5‑mini to produce semantic chunks
  *   4. bulk‑inserts the chunks into SQL
  *   5. adds chunk embeddings to Chroma via the injected IVectorStore
  *   6. marks objects 'embedded' or 'embedding_failed'
@@ -52,7 +52,7 @@ export class ChunkingService extends BaseService<ChunkingServiceDeps> {
    */
   constructor(
     deps: ChunkingServiceDeps,
-    private readonly concurrency = 60 // Increased for Tier 2 limits (5000 RPM GPT-4.1-nano, 5000 RPM embeddings)
+    private readonly concurrency = 60 // Increased for Tier 2 limits (5000 RPM GPT-5-mini, 5000 RPM embeddings)
   ) {
     super('ChunkingService', deps);
   }

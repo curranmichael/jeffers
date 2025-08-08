@@ -6,7 +6,7 @@
  * OpenAI API configuration
  */
 export const OPENAI_CONFIG = {
-  model: 'gpt-4.1',
+  model: 'gpt-5',
   temperature: 1.0,
   maxHistoryLength: 20,
 };

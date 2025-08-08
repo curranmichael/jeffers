@@ -60,6 +60,7 @@ export function createMockWindowApi(): IAppAPI {
       updatedAt: new Date().toISOString(),
     }),
     composeNotebook: vi.fn().mockResolvedValue({ notebookId: 'new-notebook-id' }),
+    generateNotebookTSTP: vi.fn().mockResolvedValue({ success: true }),
     
     // Chat operations
     createChatInNotebook: vi.fn().mockResolvedValue({
@@ -105,6 +106,8 @@ export function createMockWindowApi(): IAppAPI {
     onClassicBrowserState: vi.fn().mockReturnValue(() => {}),
     onClassicBrowserViewFocused: vi.fn().mockReturnValue(() => {}),
     classicBrowserRequestFocus: vi.fn(),
+    windowLifecycleStateChanged: vi.fn(),
+    confirmSnapshotRendered: vi.fn(),
     onClassicBrowserUrlChange: vi.fn().mockReturnValue(() => {}),
     captureSnapshot: vi.fn().mockResolvedValue(null),
     showAndFocusView: vi.fn().mockResolvedValue(undefined),
@@ -157,6 +160,7 @@ export function createMockWindowApi(): IAppAPI {
     
     // Object operations
     getObjectById: vi.fn().mockResolvedValue(null),
+    updateObject: vi.fn().mockResolvedValue(undefined),
     deleteObjects: vi.fn().mockResolvedValue({ deletedCount: 0, errors: [] }),
     deleteObjectBySourceUri: vi.fn().mockResolvedValue({ deletedCount: 0, errors: [] }),
     
