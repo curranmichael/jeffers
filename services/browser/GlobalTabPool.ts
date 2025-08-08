@@ -8,6 +8,9 @@ import { BrowserEventBus } from './BrowserEventBus';
 interface ExtendedWebContentsView extends WebContentsView {
   _tabId?: string;
   setBorderRadius: (radius: number) => void;
+  // destroy() is an undocumented internal method that exists at runtime
+  // but isn't in Electron's TypeScript definitions (see issue #42884)
+  destroy?: () => void;
 }
 
 export interface GlobalTabPoolDeps {
@@ -380,7 +383,7 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
       
       // Destroy the view itself (which will destroy the WebContents)
       try {
-        (view as any).destroy?.();
+        (view as ExtendedWebContentsView).destroy?.();
       } catch (error) {
         // View already destroyed or destroy method not available
       }

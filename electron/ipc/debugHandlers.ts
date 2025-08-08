@@ -4,6 +4,16 @@ import { ActivityLogService } from '../../services/ActivityLogService';
 import { ProfileAgent } from '../../services/agents/ProfileAgent';
 import { logger } from '../../utils/logger';
 
+// Extended profile type with raw database fields for debugging
+interface RawProfileDebug {
+  last_activity_synthesis?: string | null;
+  last_content_synthesis?: string | null;
+  inferred_goals_json?: string | null;
+  inferred_interests_json?: string | null;
+  inferred_expertise_areas_json?: string | null;
+  preferred_source_types_json?: string | null;
+}
+
 export function registerDebugHandlers(
   ipcMain: IpcMain,
   profileService: ProfileService,
@@ -16,7 +26,7 @@ export function registerDebugHandlers(
       logger.info('[DebugHandlers] Getting full profile for:', userId);
       const profile = await profileService.getProfile(userId);
       // Also get raw profile for synthesis fields
-      const rawProfile = profileService.profileModel.getProfile(userId) as any;
+      const rawProfile = profileService.profileModel.getProfile(userId) as RawProfileDebug | null;
       return {
         ...profile,
         // Add synthesis metadata fields
@@ -69,7 +79,7 @@ export function registerDebugHandlers(
   ipcMain.handle('debug:getSynthesisState', async () => {
     try {
       const profile = await profileService.getProfile('default_user');
-      const rawProfile = profileService.profileModel.getProfile('default_user') as any;
+      const rawProfile = profileService.profileModel.getProfile('default_user') as RawProfileDebug | null;
       return {
         lastActivitySynthesis: rawProfile?.last_activity_synthesis,
         lastContentSynthesis: rawProfile?.last_content_synthesis,
