@@ -149,7 +149,7 @@ ${JSON.stringify(childrenTSTP, null, 2)}
 
 Generate composite metadata in the following JSON format:
 {
-  "title": "A descriptive title capturing the key words (max 3 words)",
+  "title": "A descriptive title capturing the key words (max 3 words). Use specific topic words that uniquely identify this group's subject matter - avoid generic container terms like 'collection', 'resources', 'links', or 'pages'.",
   "summary": "A comprehensive one-paragraph summary that synthesizes the common themes and key insights from all pages",
   "tags": ["select the most relevant tags from children", "add 1-2 meta-tags that capture the group theme"],
   "propositions": [

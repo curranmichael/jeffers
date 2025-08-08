@@ -65,7 +65,7 @@ export function VerticalTabs({ localWindow, activeStore }: VerticalTabsProps) {
                     handleTitleEdit();
                   } else if (e.key === 'Escape') {
                     setIsEditingTitle(false);
-                    setEditedTitle(browserPayload.tabGroupTitle || 'Browser Window');
+                    setEditedTitle(browserPayload.tabGroupTitle || 'Thinking about a title...');
                   }
                 }}
                 className="w-full px-1 py-0.5 text-sm font-bold bg-transparent border border-step-6 rounded outline-none focus:border-step-8"
@@ -76,12 +76,12 @@ export function VerticalTabs({ localWindow, activeStore }: VerticalTabsProps) {
                 className="flex items-center justify-between group/title cursor-pointer"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setEditedTitle(browserPayload.tabGroupTitle || 'Browser Window');
+                  setEditedTitle(browserPayload.tabGroupTitle || 'Thinking about a title...');
                   setIsEditingTitle(true);
                 }}
               >
                 <span className="text-sm font-bold text-step-12">
-                  {browserPayload.tabGroupTitle || 'Browser Window'}
+                  {browserPayload.tabGroupTitle || 'Thinking about a title...'}
                 </span>
                 <Edit2 className="h-3 w-3 opacity-0 group-hover/title:opacity-50 transition-opacity" />
               </div>
