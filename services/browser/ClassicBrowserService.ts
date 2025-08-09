@@ -175,6 +175,13 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
   }
 
   public createBrowserView(windowId: string, bounds: Electron.Rectangle, payload: ClassicBrowserPayload, notebookId?: string): void {
+    // Idempotency check: Skip if browser view already exists for this window
+    const existingState = this.deps.stateService.getState(windowId);
+    if (existingState) {
+      this.logWarn(`[createBrowserView] Browser view already exists for window ${windowId}, skipping duplicate creation`);
+      return;
+    }
+
     const initialState = { 
       ...payload, 
       bounds,
@@ -421,7 +428,7 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
   }
 
   public syncViewStackingOrder(orderedWindows: Array<{ id: string; isFrozen: boolean; isMinimized: boolean }>): void {
-    this.deps.viewManager.handleZOrderUpdate({ orderedWindows: orderedWindows.map(w => ({ windowId: w.id, zIndex: 0, isFocused: false, isMinimized: w.isFrozen })) });
+    this.deps.viewManager.handleZOrderUpdate({ orderedWindows: orderedWindows.map(w => ({ windowId: w.id, zIndex: 0, isFocused: false, isMinimized: w.isMinimized })) });
   }
 
   public showAndFocusView(windowId: string): void {

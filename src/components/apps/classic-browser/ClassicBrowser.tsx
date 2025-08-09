@@ -867,8 +867,7 @@ const ClassicBrowserViewWrapperComponent: React.FC<ClassicBrowserContentProps> =
         <div 
           className="absolute inset-0 z-20 transition-opacity duration-200 ease-in-out rounded-t-lg overflow-hidden"
           style={{ 
-            opacity: 1,
-            pointerEvents: 'none' // Prevent interaction with the snapshot
+            opacity: 1
           }}
         >
           <img 
