@@ -43,12 +43,12 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
    * A new view is then created.
    *
    * @param tabId The ID of the tab to acquire a view for.
-   * @param windowId The window that owns this tab (for event context)
+   * @param windowId The window that owns this tab (required for event context)
    * @returns The acquired WebContentsView.
    */
-  public async acquireView(tabId: string, windowId?: string): Promise<ExtendedWebContentsView> {
+  public async acquireView(tabId: string, windowId: string): Promise<ExtendedWebContentsView> {
     return this.execute('acquireView', async () => {
-      this.logInfo(`[ACQUIRE] Tab ${tabId}, windowId: ${windowId || 'NONE'}`);
+      this.logInfo(`[ACQUIRE] Tab ${tabId}, windowId: ${windowId}`);
       
       // Check if already in pool first
       if (this.pool.has(tabId)) {
@@ -56,13 +56,9 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
         const view = this.pool.get(tabId)!;
         
         // CRITICAL: Re-attach event handlers with new window context
-        if (windowId) {
-          this.attachEventHandlers(view, tabId, windowId);
-          this.tabToWindowMapping.set(tabId, windowId);
-          this.logInfo(`[MAPPING] Updated tab ${tabId} -> window ${windowId} with new event handlers`);
-        } else {
-          this.logWarn(`[REUSE] Tab ${tabId} acquired without windowId - events may not fire correctly`);
-        }
+        this.attachEventHandlers(view, tabId, windowId);
+        this.tabToWindowMapping.set(tabId, windowId);
+        this.logInfo(`[MAPPING] Updated tab ${tabId} -> window ${windowId} with new event handlers`);
         
         this.updateLRU(tabId);
         return view;
@@ -78,12 +74,8 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
         
         // Only set mapping after successful view creation
         // Map maintains ONE entry per tabId - subsequent calls overwrite, not accumulate
-        if (windowId) {
-          this.tabToWindowMapping.set(tabId, windowId);
-          this.logInfo(`[MAPPING] Set tab ${tabId} -> window ${windowId}`);
-        } else {
-          this.logWarn(`[MAPPING] No windowId provided for tab ${tabId}`);
-        }
+        this.tabToWindowMapping.set(tabId, windowId);
+        this.logInfo(`[MAPPING] Set tab ${tabId} -> window ${windowId}`);
         
         this.pool.set(tabId, view);
         this.updateLRU(tabId);
@@ -180,9 +172,9 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
   /**
    * Creates a new WebContentsView instance.
    * @param tabId The ID of the tab
-   * @param windowId Optional window ID for immediate event context
+   * @param windowId Window ID for immediate event context
    */
-  private createView(tabId: string, windowId?: string): ExtendedWebContentsView {
+  private createView(tabId: string, windowId: string): ExtendedWebContentsView {
     const securePrefs: Electron.WebPreferences = {
       nodeIntegration: false,
       contextIsolation: true,
@@ -202,12 +194,7 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
     }
 
     // Set up WebContents event handlers with proper window context
-    if (windowId) {
-      this.attachEventHandlers(view, tabId, windowId);
-    } else {
-      // Log warning but don't attach handlers without context
-      this.logWarn(`Creating view for tab ${tabId} without windowId - events will not fire until window context is set`);
-    }
+    this.attachEventHandlers(view, tabId, windowId);
 
     // Restore minimal state if it exists
     const state = this.preservedState.get(tabId);
