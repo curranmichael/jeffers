@@ -2,7 +2,7 @@
 
 ## Overview
 
-The freeze/unfreeze architecture enables Enai to create the appearance of multiple overlapping browser windows while working within Electron's architectural constraints. Since WebContentsViews always render above HTML content regardless of z-index settings, this system uses a snapshot-based approach to simulate window layering.
+The freeze/unfreeze architecture enables Enai to create the appearance of multiple overlapping browser windows while working within Electron's architectural constraints. Since WebContentsViews always render above HTML content regardless of z-index settings, this system uses a snapshot-based approach to simulate window layering. The architecture is tab-aware, supporting multiple tabs per window with individual snapshot management.
 
 ## Core Problem
 
@@ -35,21 +35,30 @@ ACTIVE --[loses focus]--> CAPTURING --[snapshot taken]--> AWAITING_RENDER --[UI 
 
 ### 2. ClassicBrowserSnapshotService
 
-The snapshot service manages the capture and storage of browser view snapshots.
+The snapshot service manages the capture and storage of browser view snapshots with tab-aware functionality.
 
 #### Key Features
 
+- **Tab-Aware Storage**: Stores snapshots per tab using composite keys (`windowId:tabId`)
 - **Async Capture**: Uses `webContents.capturePage()` to capture the current page state
 - **LRU Cache**: Maintains up to 10 snapshots using a Least Recently Used eviction policy
 - **Data URL Conversion**: Converts captured images to data URLs for easy embedding in HTML
 - **Security**: Skips capturing authentication URLs to protect sensitive information
+- **Event-Driven Storage**: Listens for `tab:snapshot-captured` events from GlobalTabPool for automatic snapshot storage when tabs are evicted
+- **Cache Fallback**: Returns cached snapshots when browser view is not in the tab pool
 
 #### Public Methods
 
-- `captureSnapshot(windowId)`: Captures and stores a snapshot of the specified window
-- `showAndFocusView(windowId)`: Handles the display logic when showing a view
-- `clearSnapshot(windowId)`: Removes a specific snapshot from the cache
-- `getSnapshot(windowId)`: Retrieves a stored snapshot
+- `captureSnapshot(windowId)`: Captures and stores a snapshot of the active tab, returns `{ url: string; snapshot: string }` or `undefined`
+- `captureSnapshotString(windowId)`: Simplified method that returns just the snapshot string for backward compatibility
+- `freezeWindow(windowId)`: Captures snapshot and updates state to FROZEN
+- `unfreezeWindow(windowId)`: Updates state to ACTIVE
+- `showAndFocusView(windowId)`: Debug method for logging snapshot availability
+- `clearSnapshot(windowId)`: Removes all snapshots for a window
+- `clearTabSnapshot(windowId, tabId)`: Removes snapshot for a specific tab
+- `getSnapshot(windowId)`: Retrieves snapshot for the active tab (backward compatibility)
+- `getTabSnapshot(windowId, tabId)`: Retrieves snapshot for a specific tab
+- `getAllSnapshots()`: Returns all stored snapshots
 - `clearAllSnapshots()`: Removes all snapshots (used during cleanup)
 
 ### 3. Controller Hook (useBrowserWindowController)
@@ -88,38 +97,42 @@ The ClassicBrowser component renders based on the current freeze state:
 
 1. **Focus Loss Detection**: The controller detects when a browser window loses focus
 2. **State Transition**: Updates state from ACTIVE to CAPTURING
-3. **Snapshot Capture**: IPC call to `captureSnapshot` in the main process
+3. **Snapshot Capture**: IPC call to `captureSnapshot` in the main process (internally calls `freezeWindow`)
 4. **Image Processing**: The service captures the page and converts to data URL
-5. **State Update**: Transitions to AWAITING_RENDER with the snapshot URL
-6. **UI Rendering**: React component renders the snapshot image
-7. **Final State**: Component signals completion, state becomes FROZEN
+5. **State Management**: `freezeWindow` updates the state to FROZEN in ClassicBrowserStateService
+6. **State Update**: Transitions to AWAITING_RENDER with the snapshot URL in the UI
+7. **UI Rendering**: React component renders the snapshot image
+8. **Final State**: Component signals completion, state becomes FROZEN
 
 ### Unfreezing Process
 
 1. **Focus Gain Detection**: The controller detects when a browser window gains focus
 2. **State Transition**: Updates state directly to ACTIVE
-3. **View Display**: IPC call to `showAndFocusView` in the main process
-4. **UI Update**: React component hides snapshot and shows the live view
+3. **View Display**: IPC call to `showAndFocusView` in the main process (internally calls `unfreezeWindow`)
+4. **State Management**: `unfreezeWindow` updates the state to ACTIVE in ClassicBrowserStateService
+5. **UI Update**: React component hides snapshot and shows the live view
 
 ## IPC Architecture
 
 ### Channels
 
-- `BROWSER_FREEZE_VIEW`: Triggers snapshot capture
-- `BROWSER_UNFREEZE_VIEW`: Shows and focuses the browser view
+- `BROWSER_FREEZE_VIEW`: Triggers snapshot capture and state freeze
+- `BROWSER_UNFREEZE_VIEW`: Updates state to active
 
 ### Main Process Handlers
 
 ```typescript
 // freezeBrowserView.ts
 ipcMain.handle(BROWSER_FREEZE_VIEW, async (event, windowId) => {
-  const snapshotResult = await classicBrowserService.captureSnapshot(windowId);
-  return snapshotResult?.snapshot || null;
+  // Calls freezeWindow which captures snapshot and updates state
+  const snapshotResult = await classicBrowserService.freezeWindow(windowId);
+  return snapshotResult;
 });
 
 // unfreezeBrowserView.ts
 ipcMain.handle(BROWSER_UNFREEZE_VIEW, async (event, windowId) => {
-  await classicBrowserService.showAndFocusView(windowId);
+  // Calls unfreezeWindow which updates state to ACTIVE
+  await classicBrowserService.unfreezeWindow(windowId);
 });
 ```
 
@@ -127,25 +140,31 @@ ipcMain.handle(BROWSER_UNFREEZE_VIEW, async (event, windowId) => {
 
 ```typescript
 // Exposed through preload script
-window.api.captureSnapshot(windowId): Promise<string | null>
-window.api.showAndFocusView(windowId): Promise<void>
+window.api.captureSnapshot(windowId): Promise<string | null>  // Calls BROWSER_FREEZE_VIEW
+window.api.showAndFocusView(windowId): Promise<void>          // Calls BROWSER_UNFREEZE_VIEW
+
+// Deprecated aliases (still supported)
+window.api.freezeBrowserView(windowId): Promise<string | null>
+window.api.unfreezeBrowserView(windowId): Promise<void>
 ```
 
 ## Memory Management
 
 ### Snapshot Storage
 
-- Maximum of 10 snapshots stored at any time
+- Maximum of 10 snapshots stored at any time (across all windows and tabs)
 - LRU eviction when limit is reached
-- Snapshots stored as base64 data URLs in memory
+- Snapshots stored as base64 data URLs in memory with composite keys (`windowId:tabId`)
 - Automatic cleanup on service shutdown
+- Event-driven storage from GlobalTabPool when tabs are evicted from the pool
 
-### Single WebContentsView Strategy
+### Tab Pool Strategy
 
-By maintaining only one active WebContentsView at a time:
-- Memory usage remains constant regardless of window count
-- Avoids the 150-250MB per view overhead
-- Eliminates complex view lifecycle management
+The system integrates with GlobalTabPool for efficient memory management:
+- Limited number of WebContentsViews active at once (controlled by tab pool)
+- Automatic snapshot capture when tabs are evicted from the pool
+- Cached snapshots used when tabs are not in the active pool
+- Memory usage remains bounded regardless of total tab count
 
 ## Security Considerations
 
@@ -181,6 +200,13 @@ interface ClassicBrowserPayload {
 }
 ```
 
+### State Management Integration
+
+The freeze/unfreeze operations directly update the browser state through ClassicBrowserStateService:
+- `freezeWindow()` sets the freeze state to FROZEN with the snapshot URL
+- `unfreezeWindow()` sets the freeze state to ACTIVE
+- State changes are synchronized between main process and renderer
+
 ### Sidebar Hover Behavior
 
 The notebook view includes special handling for sidebar interactions:
@@ -190,4 +216,4 @@ The notebook view includes special handling for sidebar interactions:
 
 ## State Persistence
 
-The freeze state is intentionally not persisted across application restarts. All windows start in the ACTIVE state when the application launches, ensuring a clean initialization without stale snapshots.
+The freeze state is intentionally not persisted across application restarts. All windows start in the ACTIVE state when the application launches, ensuring a clean initialization without stale snapshots. However, snapshots may be temporarily cached in memory during a session for tabs that are evicted from the GlobalTabPool.
