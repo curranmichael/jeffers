@@ -1,6 +1,7 @@
 "use client";
 
 import { Home, MessageSquare, Globe, MonitorIcon, FileText, LucideIcon } from "lucide-react";
+import { v4 as uuidv4 } from 'uuid';
 import { NoteEditorPayload, WindowContentType } from "../../shared/types";
 import { VerticalTabs } from "@/components/VerticalTabs";
 import {
@@ -50,6 +51,7 @@ export function AppSidebar({ onAddChat, onAddBrowser, onGoHome, windows = [], ac
     if (!activeStore || !notebookId) return;
     
     const payload: NoteEditorPayload = {
+      noteId: uuidv4(),
       notebookId,
     };
     

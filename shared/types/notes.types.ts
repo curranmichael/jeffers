@@ -22,6 +22,7 @@ export interface Note {
 
 /** Payload for creating a note. */
 export interface CreateNotePayload {
+  id?: string;
   notebookId: string;
   content: string;
   type?: NoteType;

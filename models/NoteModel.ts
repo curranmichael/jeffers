@@ -41,13 +41,14 @@ export class NoteModel {
    * Creates a new note in the database.
    */
   create(params: {
+    id?: string;
     notebookId: string;
     content: string;
     type?: NoteType;
     metadata?: NoteMetadata | null;
     position?: number;
   }): Note {
-    const id = uuidv4();
+    const id = params.id || uuidv4();
     const now = new Date().toISOString();
     
     // If position is not provided, get the next position
