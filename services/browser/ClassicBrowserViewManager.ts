@@ -33,7 +33,7 @@ export interface ClassicBrowserViewManagerDeps {
  */
 export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewManagerDeps> {
   private activeViews: Map<string, WebContentsView> = new Map(); // windowId -> view
-  private detachedViews: Map<string, WebContentsView> = new Map(); // windowId -> view (for minimized windows)
+  private minimizedViews: Map<string, WebContentsView> = new Map(); // windowId -> view (for minimized windows)
   private frozenViews: Map<string, WebContentsView> = new Map(); // windowId -> view (for frozen windows)
   private viewToTabMapping: Map<WebContentsView, string> = new Map(); // view -> tabId
   
@@ -230,37 +230,31 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
   private async handleWindowMinimized({ windowId }: { windowId: string }): Promise<void> {
     const view = this.activeViews.get(windowId);
     if (view) {
-      // Detach the view from the main window and store it
-      this.setViewState(view, false);
-      this.detachedViews.set(windowId, view);
+      // Just hide the view, don't detach it
+      this.setViewVisibility(view, false);
+      this.minimizedViews.set(windowId, view);
       this.activeViews.delete(windowId);
       // Keep the view-to-tab mapping - it's still valid
     }
   }
 
   private async handleWindowRestored({ windowId, zIndex }: { windowId: string; zIndex: number }): Promise<void> {
-    const view = this.detachedViews.get(windowId);
+    const view = this.minimizedViews.get(windowId);
     if (view) {
       // Move view back to active views
-      this.detachedViews.delete(windowId);
+      this.minimizedViews.delete(windowId);
       this.activeViews.set(windowId, view);
       
-      // Get the current state for restoration
-      const state = this.deps.stateService.getState(windowId);
+      // Just show the view again
+      this.setViewVisibility(view, true);
       
-      // Re-attach the view - it will be positioned correctly by z-order update
+      // Update bounds if needed
       const bounds = this.getBoundsForWindow(windowId);
       if (bounds) {
-        this.setViewState(view, true, bounds);
+        view.setBounds(bounds);
       }
       
-      // Ensure the view navigates to the correct URL for the active tab
-      if (state && state.activeTabId) {
-        const activeTab = state.tabs.find(tab => tab.id === state.activeTabId);
-        if (activeTab) {
-          await this.ensureViewNavigatedToTab(view, activeTab);
-        }
-      }
+      // No need for ensureViewNavigatedToTab() - content is intact
     }
   }
 
@@ -470,10 +464,10 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
     }
     
     this.activeViews.forEach(view => this.setViewState(view, false));
-    this.detachedViews.forEach(view => this.setViewState(view, false));
+    this.minimizedViews.forEach(view => this.setViewState(view, false));
     this.frozenViews.forEach(view => this.setViewState(view, false));
     this.activeViews.clear();
-    this.detachedViews.clear();
+    this.minimizedViews.clear();
     this.frozenViews.clear();
     this.viewToTabMapping.clear();
     this.overlayViews.clear();
@@ -812,10 +806,11 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
       // Keep the view-to-tab mapping - the view might be reused by other windows
     }
     
-    // Remove any detached view
-    const detachedView = this.detachedViews.get(windowId);
-    if (detachedView) {
-      this.detachedViews.delete(windowId);
+    // Remove any minimized view
+    const minimizedView = this.minimizedViews.get(windowId);
+    if (minimizedView) {
+      this.setViewState(minimizedView, false);
+      this.minimizedViews.delete(windowId);
       // Keep the view-to-tab mapping - the view might be reused by other windows
     }
     
