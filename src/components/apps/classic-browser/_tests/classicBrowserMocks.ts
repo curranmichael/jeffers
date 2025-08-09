@@ -57,6 +57,10 @@ export function createMockWindowApi(): IAppAPI {
     unfreezeBrowserView: vi.fn().mockResolvedValue(undefined),
     confirmSnapshotRendered: vi.fn().mockResolvedValue(undefined),
     classicBrowserDestroy: vi.fn().mockResolvedValue(undefined),
+
+    // Tab transfer operations
+    classicBrowserTabTransfer: vi.fn().mockResolvedValue({ success: true }),
+    classicBrowserGetAvailableNotebooks: vi.fn().mockResolvedValue({ success: true, data: [] }),
     
     // Browser context menu
     browserContextMenu: {
