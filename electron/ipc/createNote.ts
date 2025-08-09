@@ -16,7 +16,8 @@ export function registerCreateNoteHandler(
         payload.notebookId,
         payload.content,
         payload.type || 'text',
-        payload.metadata
+        payload.metadata,
+        payload.id
       );
       
       return note;

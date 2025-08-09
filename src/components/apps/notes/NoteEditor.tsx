@@ -72,14 +72,14 @@ export function NoteEditor({ noteId, notebookId, windowId, activeStore, isSelect
   const [content, setContent] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [existingNote, setExistingNote] = useState<Note | null>(null);
-  const [createdNoteId, setCreatedNoteId] = useState<string | null>(null);
+  const [noteInitialized, setNoteInitialized] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
   
   // Ref to store the latest values for saving
   const saveStateRef = useRef({
     content: "",
     existingNote: null as Note | null,
-    createdNoteId: null as string | null,
+    noteId: noteId || null,
     notebookId: notebookId,
   });
   
@@ -88,10 +88,10 @@ export function NoteEditor({ noteId, notebookId, windowId, activeStore, isSelect
     saveStateRef.current = {
       content,
       existingNote,
-      createdNoteId,
+      noteId: noteId || null,
       notebookId,
     };
-  }, [content, existingNote, createdNoteId, notebookId]);
+  }, [content, existingNote, noteId, notebookId]);
 
   // Load note function
   const loadNote = useCallback(async () => {
@@ -124,12 +124,32 @@ export function NoteEditor({ noteId, notebookId, windowId, activeStore, isSelect
     }
   }, [noteId, notebookId]);
 
-  // Load existing note if noteId is provided
+  // Initialize note - load existing or create new empty note
   useEffect(() => {
-    if (noteId) {
-      loadNote();
+    if (noteId && !noteInitialized) {
+      loadNote().then(() => {
+        // After loading, check if the note exists
+        window.api.getNotesForNotebook(notebookId).then(notes => {
+          const note = notes.find(n => n.id === noteId);
+          if (!note) {
+            // Create empty note with the provided ID
+            window.api.createNote({
+              id: noteId,
+              notebookId,
+              content: "",
+              type: 'text' as NoteType,
+            }).then(() => {
+              setNoteInitialized(true);
+            }).catch(error => {
+              console.error('[NoteEditor] Failed to create empty note:', error);
+            });
+          } else {
+            setNoteInitialized(true);
+          }
+        });
+      });
     }
-  }, [noteId, loadNote]);
+  }, [noteId, noteInitialized, notebookId, loadNote]);
   
   // Focus editor when component mounts or becomes selected
   useEffect(() => {
@@ -150,42 +170,16 @@ export function NoteEditor({ noteId, notebookId, windowId, activeStore, isSelect
 
   // Stable save function that reads from ref
   const handleSave = useCallback(async () => {
-    const { content, existingNote, createdNoteId, notebookId } = saveStateRef.current;
+    const { content, noteId } = saveStateRef.current;
     
-    if (!content.trim()) return;
+    if (!content.trim() || !noteId) return;
     
     try {
-      if (existingNote || createdNoteId) {
-        // Update existing note
-        const idToUpdate = existingNote?.id || createdNoteId;
-        if (idToUpdate) {
-          await window.api.updateNote(idToUpdate, { content });
-        }
-      } else {
-        // Create new note
-        const newNote = await window.api.createNote({
-          notebookId,
-          content,
-          type: 'text' as NoteType,
-        });
-        // Store the created note ID for future updates
-        setCreatedNoteId(newNote.id);
-        
-        // Update the window payload to include the noteId
-        if (windowId && activeStore) {
-          const updatedPayload: NoteEditorPayload = {
-            noteId: newNote.id,
-            notebookId,
-          };
-          activeStore.getState().updateWindowProps(windowId, {
-            payload: updatedPayload,
-          });
-        }
-      }
+      await window.api.updateNote(noteId, { content });
     } catch (error) {
       console.error('[NoteEditor] Failed to save note:', error);
     }
-  }, [activeStore, windowId]);
+  }, []);
 
   // Auto-save on content change (debounced)
   useEffect(() => {
