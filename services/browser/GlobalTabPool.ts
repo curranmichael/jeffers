@@ -278,6 +278,8 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
     // Store cleanup function
     this.eventHandlerCleanups.set(tabId, () => {
       webContents.removeAllListeners();
+      // Clear the window open handler by setting it to null
+      webContents.setWindowOpenHandler(null);
     });
 
     // Store reference to cleanup listeners when view is destroyed
