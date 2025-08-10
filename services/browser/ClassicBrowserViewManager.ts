@@ -153,12 +153,16 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
   }
 
   private async handleTabSwitch(windowId: string, newState: ClassicBrowserPayload, activeTabId?: string, currentView?: WebContentsView): Promise<void> {
+    const previousTabId = this.findTabIdForView(currentView);
+    this.logInfo(`[TAB SWITCH] Window ${windowId} switching from Tab ${previousTabId || 'none'} to Tab ${activeTabId || 'none'}`);
+    
     if (currentView) {
       this.setViewState(currentView, false);
       this.activeViews.delete(windowId);
     }
 
     if (activeTabId) {
+      this.logInfo(`[TAB ACTIVATION] Activating Tab ${activeTabId} in Window ${windowId}`);
       const newView = await this.deps.globalTabPool.acquireView(activeTabId, windowId);
       this.activeViews.set(windowId, newView);
       this.viewToTabMapping.set(newView, activeTabId);
@@ -168,9 +172,14 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
       if (activeTab) {
         const viewUrl = newView.webContents.getURL();
         const isBlankView = !viewUrl || viewUrl === 'about:blank' || viewUrl === '';
+        
+        this.logInfo(`[TAB STATE] Tab ${activeTabId} - Current URL: ${viewUrl || 'blank'}, Target URL: ${activeTab.url || 'none'}`);
 
-        if (isBlankView) {
+        if (isBlankView && activeTab.url) {
+          this.logInfo(`[TAB NAVIGATION] Tab ${activeTabId} is blank, navigating to ${activeTab.url}`);
           await this.ensureViewNavigatedToTab(newView, activeTab);
+        } else if (!isBlankView) {
+          this.logInfo(`[TAB READY] Tab ${activeTabId} already has content: ${viewUrl}`);
         }
       }
     }
@@ -181,14 +190,24 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
 
     const contentView = this.deps.mainWindow.contentView;
     const isCurrentlyAttached = contentView.children.includes(view);
+    
+    // Find the tab ID for this view for better logging
+    const tabId = this.findTabIdForView(view) || 'unknown';
 
     if (isAttached && !isCurrentlyAttached) {
+      this.logInfo(`[VIEW ATTACH] Attaching view for Tab ${tabId} to main window`);
       if (bounds) {
         view.setBounds(bounds);
+        this.logInfo(`[VIEW BOUNDS] Tab ${tabId} bounds set to: ${JSON.stringify(bounds)}`);
       }
       contentView.addChildView(view);
+      this.logInfo(`[VIEW ATTACHED] Tab ${tabId} successfully attached to window`);
     } else if (!isAttached && isCurrentlyAttached) {
+      this.logInfo(`[VIEW DETACH] Detaching view for Tab ${tabId} from main window`);
       contentView.removeChildView(view);
+      this.logInfo(`[VIEW DETACHED] Tab ${tabId} successfully detached from window`);
+    } else {
+      this.logDebug(`[VIEW STATE] Tab ${tabId} already in desired state (attached: ${isAttached})`);
     }
   }
 
@@ -303,16 +322,20 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
 
   private async ensureViewNavigatedToTab(view: WebContentsView, tab: TabState): Promise<void> {
     if (!tab.url || tab.url === 'about:blank') {
+      this.logDebug(`[ENSURE NAV] Tab ${tab.id} has no URL to navigate to`);
       return; // No URL to navigate to
     }
 
     const currentUrl = view.webContents.getURL();
     const webContents = view.webContents;
     
+    this.logInfo(`[ENSURE NAV] Tab ${tab.id} - Comparing current: ${currentUrl || 'blank'} with target: ${tab.url}`);
+    
     // Improved URL comparison to handle dynamic sites like Google/Bing
     const urlsMatch = this.compareUrls(currentUrl, tab.url);
     
     if (urlsMatch) {
+      this.logInfo(`[ENSURE NAV] Tab ${tab.id} URLs match, skipping navigation`);
       return;
     }
     

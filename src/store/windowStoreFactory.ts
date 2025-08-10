@@ -315,6 +315,27 @@ export function createNotebookWindowStore(notebookId: string): StoreApi<WindowSt
             if (error) {
               console.error(`[Zustand Storage] Failed to rehydrate for ${notebookId}:`, error);
             }
+            
+            // Restore freezeState for classic-browser windows after rehydration
+            // All windows start as ACTIVE - the focus system will handle freezing with snapshots
+            if (state?.windows) {
+              state.windows = state.windows.map(window => {
+                if (window.type === 'classic-browser' && window.payload) {
+                  const payload = window.payload as ClassicBrowserPayload;
+                  if (!payload.freezeState) {
+                    return {
+                      ...window,
+                      payload: {
+                        ...payload,
+                        freezeState: { type: 'ACTIVE' }
+                      }
+                    };
+                  }
+                }
+                return window;
+              });
+            }
+            
             // Even on error, or if state is undefined (no persisted data), consider hydration attempt finished.
             console.log(`[Zustand Storage] Rehydration attempt finished for ${notebookId}. Persisted state found: ${!!state}`, {
               hasState: !!state,
