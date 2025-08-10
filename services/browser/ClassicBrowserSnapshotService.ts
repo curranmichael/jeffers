@@ -20,12 +20,7 @@ export class ClassicBrowserSnapshotService extends BaseService<ClassicBrowserSna
   }
 
   async initialize(): Promise<void> {
-    const eventBus = this.deps.stateService.getEventBus();
-    
-    // Listen for tabs about to be evicted and capture their snapshots
-    eventBus.on('tab:before-evict', async ({ windowId, tabId }) => {
-      await this.captureBeforeEviction(windowId, tabId);
-    });
+    // No event listeners needed - GlobalTabPool will call captureBeforeEviction directly
   }
 
   async captureSnapshot(windowId: string): Promise<{ url: string; snapshot: string } | undefined> {
@@ -152,10 +147,6 @@ export class ClassicBrowserSnapshotService extends BaseService<ClassicBrowserSna
   }
 
   async cleanup(): Promise<void> {
-    // Remove event listeners
-    const eventBus = this.deps.stateService.getEventBus();
-    eventBus.removeAllListeners('tab:before-evict');
-    
     this.clearAllSnapshots();
     await super.cleanup();
   }
@@ -214,16 +205,20 @@ export class ClassicBrowserSnapshotService extends BaseService<ClassicBrowserSna
 
   /**
    * Captures a snapshot before a tab is evicted from the pool.
-   * Called by GlobalTabPool via the 'tab:before-evict' event.
+   * Called directly by GlobalTabPool before releasing a view.
+   * @param windowId - The window ID the tab belongs to
+   * @param tabId - The tab ID being evicted
+   * @param view - Optional WebContentsView to capture from (avoids lookup if already available)
    */
-  private async captureBeforeEviction(windowId: string, tabId: string): Promise<void> {
-    const view = this.deps.viewManager.getView(tabId);
-    if (!view) {
+  public async captureBeforeEviction(windowId: string, tabId: string, view?: Electron.WebContentsView): Promise<void> {
+    // Use provided view or try to get it from viewManager
+    const targetView = view || this.deps.viewManager.getView(tabId);
+    if (!targetView) {
       this.logDebug(`No view found for tab ${tabId} during eviction`);
       return;
     }
     
-    const snapshot = await this.captureFromView(view);
+    const snapshot = await this.captureFromView(targetView);
     if (snapshot) {
       this.storeSnapshotWithLRU(windowId, tabId, snapshot);
       this.logDebug(`Captured and stored snapshot for tab ${tabId} before eviction`);

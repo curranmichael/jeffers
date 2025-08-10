@@ -70,7 +70,7 @@ export interface BrowserEventMap {
   'tabgroup:title-updated': { windowId: string; title: string };
 
   // Tab pool events
-  'tab:before-evict': { windowId: string; tabId: string };
+  // (Currently no tab pool events - snapshot capture is handled via direct service dependency)
 
   // Window lifecycle events for WebContentsView management
   'window:focus-changed': { windowId: string; isFocused: boolean; zIndex: number };

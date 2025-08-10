@@ -514,9 +514,10 @@ export async function initializeServices(
       const browserEventBus = await createService('BrowserEventBus', BrowserEventBus, []);
       registry.browserEventBus = browserEventBus;
       
-      // Initialize GlobalTabPool
+      // Initialize GlobalTabPool (snapshotService will be added later)
       const globalTabPool = await createService('GlobalTabPool', GlobalTabPool, [{
-        eventBus: browserEventBus
+        eventBus: browserEventBus,
+        snapshotService: null as any  // Will be set after SnapshotService is created
       }]);
       registry.globalTabPool = globalTabPool;
       
@@ -584,6 +585,9 @@ export async function initializeServices(
         navigationService
       }]);
       registry.classicBrowserSnapshot = snapshotService;
+      
+      // Now update GlobalTabPool with the real SnapshotService
+      (globalTabPool as any).deps.snapshotService = snapshotService;
       
       // Initialize ClassicBrowserService with all sub-services
       const classicBrowserService = await createService('ClassicBrowserService', ClassicBrowserService, [{

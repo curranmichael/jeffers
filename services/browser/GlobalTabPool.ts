@@ -3,6 +3,7 @@ import { WebContentsView } from 'electron';
 import { BaseService } from '../base/BaseService';
 import { TabState } from '../../shared/types/window.types';
 import { BrowserEventBus } from './BrowserEventBus';
+import type { ClassicBrowserSnapshotService } from './ClassicBrowserSnapshotService';
 
 // Type definition for WebContentsView with custom properties
 interface ExtendedWebContentsView extends WebContentsView {
@@ -15,6 +16,7 @@ interface ExtendedWebContentsView extends WebContentsView {
 
 export interface GlobalTabPoolDeps {
   eventBus: BrowserEventBus;
+  snapshotService: ClassicBrowserSnapshotService;
 }
 
 /**
@@ -154,15 +156,12 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
   private async evictOldest(): Promise<void> {
     const oldestTabId = this.lruOrder.pop();
     if (oldestTabId) {
+      const view = this.pool.get(oldestTabId);
       const windowId = this.getWindowIdForTab(oldestTabId);
       
-      // Notify interested services that this tab is about to be evicted
-      // This allows them to capture snapshots or perform other cleanup
-      if (windowId) {
-        this.deps.eventBus.emit('tab:before-evict', { 
-          windowId, 
-          tabId: oldestTabId 
-        });
+      // Capture snapshot before evicting the view, passing the view directly
+      if (windowId && view) {
+        await this.deps.snapshotService.captureBeforeEviction(windowId, oldestTabId, view);
       }
       
       await this.releaseView(oldestTabId);

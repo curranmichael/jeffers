@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { GlobalTabPool } from '../GlobalTabPool';
 import { BrowserEventBus } from '../BrowserEventBus';
+import type { ClassicBrowserSnapshotService } from '../ClassicBrowserSnapshotService';
 
 // Mock Electron
 vi.mock('electron', () => ({
@@ -27,10 +28,15 @@ vi.mock('electron', () => ({
 describe('GlobalTabPool', () => {
   let pool: GlobalTabPool;
   let eventBus: BrowserEventBus;
+  let snapshotService: ClassicBrowserSnapshotService;
 
   beforeEach(() => {
     eventBus = new BrowserEventBus();
-    pool = new GlobalTabPool({ eventBus });
+    // Mock the snapshot service
+    snapshotService = {
+      captureBeforeEviction: vi.fn().mockResolvedValue(undefined)
+    } as unknown as ClassicBrowserSnapshotService;
+    pool = new GlobalTabPool({ eventBus, snapshotService });
   });
 
   describe('cleanupWindowMappings', () => {
@@ -44,24 +50,20 @@ describe('GlobalTabPool', () => {
       pool.cleanupWindowMappings('window1');
 
       // Assert: window1 tabs should not have mappings anymore
-      // We can verify this indirectly by checking that eviction won't emit events for window1
-      const emitSpy = vi.spyOn(eventBus, 'emit');
+      // We can verify this indirectly by checking that snapshot capture won't be called for window1
+      const captureBeforeEvictionSpy = vi.spyOn(snapshotService, 'captureBeforeEviction');
       
       // Force eviction by filling the pool
       for (let i = 0; i < 10; i++) {
         await pool.acquireView(`new-tab-${i}`, 'window3');
       }
 
-      // Check that no events were emitted for window1 tabs during eviction
-      const evictionEvents = emitSpy.mock.calls.filter(
-        call => call[0] === 'tab:before-evict'
+      // Check that captureBeforeEviction was not called for window1 tabs
+      const window1Calls = captureBeforeEvictionSpy.mock.calls.filter(
+        call => call[0] === 'window1'
       );
       
-      const window1Events = evictionEvents.filter(
-        call => call[1]?.windowId === 'window1'
-      );
-      
-      expect(window1Events).toHaveLength(0);
+      expect(window1Calls).toHaveLength(0);
     });
 
     it('should handle cleanup for non-existent window gracefully', () => {
