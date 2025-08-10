@@ -278,8 +278,10 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
     // Store cleanup function
     this.eventHandlerCleanups.set(tabId, () => {
       webContents.removeAllListeners();
-      // Clear the window open handler by setting it to null
-      webContents.setWindowOpenHandler(null);
+      // Clear the window open handler by removing it
+      webContents.setWindowOpenHandler(() => {
+        return { action: 'deny' };
+      });
     });
 
     // Store reference to cleanup listeners when view is destroyed
@@ -389,24 +391,6 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
     };
   }
 
-  /**
-   * Sets up event handlers for WebContents to track navigation state
-   * @deprecated Use attachEventHandlers instead - this method relies on dynamic window lookups
-   */
-  private setupWebContentsEventHandlers(view: ExtendedWebContentsView, tabId: string): void {
-    // Log warning that this deprecated method is being used
-    this.logWarn(`Using deprecated setupWebContentsEventHandlers for tab ${tabId} - should use attachEventHandlers`);
-    
-    // Get current windowId if available, but warn that it might become stale
-    const windowId = this.getWindowIdForTab(tabId);
-    if (windowId) {
-      // Use the new attachEventHandlers method which properly captures windowId
-      this.attachEventHandlers(view, tabId, windowId);
-    } else {
-      // Without a windowId, we can't properly set up event handlers
-      this.logError(`Cannot set up event handlers for tab ${tabId} without windowId`);
-    }
-  }
 
   /**
    * Destroys a WebContentsView and preserves its state.

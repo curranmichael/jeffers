@@ -284,13 +284,6 @@ export class ActivityLogService extends BaseService<ActivityLogServiceDeps> {
     }
   }
 
-  /**
-   * Backward compatibility alias for cleanup().
-   * @deprecated Use cleanup() instead
-   */
-  async shutdown(): Promise<void> {
-    return this.cleanup();
-  }
 
   /**
    * Schedule a flush of the activity queue.
