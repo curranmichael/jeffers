@@ -33,7 +33,7 @@ export interface ClassicBrowserViewManagerDeps {
  */
 export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewManagerDeps> {
   private activeViews: Map<string, WebContentsView> = new Map(); // windowId -> view
-  private detachedViews: Map<string, WebContentsView> = new Map(); // windowId -> view (for minimized windows)
+  private minimizedViews: Map<string, WebContentsView> = new Map(); // windowId -> view (for minimized windows)
   private frozenViews: Map<string, WebContentsView> = new Map(); // windowId -> view (for frozen windows)
   private viewToTabMapping: Map<WebContentsView, string> = new Map(); // view -> tabId
   
@@ -153,12 +153,16 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
   }
 
   private async handleTabSwitch(windowId: string, newState: ClassicBrowserPayload, activeTabId?: string, currentView?: WebContentsView): Promise<void> {
+    const previousTabId = this.findTabIdForView(currentView);
+    this.logInfo(`[TAB SWITCH] Window ${windowId} switching from Tab ${previousTabId || 'none'} to Tab ${activeTabId || 'none'}`);
+    
     if (currentView) {
       this.setViewState(currentView, false);
       this.activeViews.delete(windowId);
     }
 
     if (activeTabId) {
+      this.logInfo(`[TAB ACTIVATION] Activating Tab ${activeTabId} in Window ${windowId}`);
       const newView = await this.deps.globalTabPool.acquireView(activeTabId, windowId);
       this.activeViews.set(windowId, newView);
       this.viewToTabMapping.set(newView, activeTabId);
@@ -168,9 +172,14 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
       if (activeTab) {
         const viewUrl = newView.webContents.getURL();
         const isBlankView = !viewUrl || viewUrl === 'about:blank' || viewUrl === '';
+        
+        this.logInfo(`[TAB STATE] Tab ${activeTabId} - Current URL: ${viewUrl || 'blank'}, Target URL: ${activeTab.url || 'none'}`);
 
-        if (isBlankView) {
+        if (isBlankView && activeTab.url) {
+          this.logInfo(`[TAB NAVIGATION] Tab ${activeTabId} is blank, navigating to ${activeTab.url}`);
           await this.ensureViewNavigatedToTab(newView, activeTab);
+        } else if (!isBlankView) {
+          this.logInfo(`[TAB READY] Tab ${activeTabId} already has content: ${viewUrl}`);
         }
       }
     }
@@ -181,14 +190,24 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
 
     const contentView = this.deps.mainWindow.contentView;
     const isCurrentlyAttached = contentView.children.includes(view);
+    
+    // Find the tab ID for this view for better logging
+    const tabId = this.findTabIdForView(view) || 'unknown';
 
     if (isAttached && !isCurrentlyAttached) {
+      this.logInfo(`[VIEW ATTACH] Attaching view for Tab ${tabId} to main window`);
       if (bounds) {
         view.setBounds(bounds);
+        this.logInfo(`[VIEW BOUNDS] Tab ${tabId} bounds set to: ${JSON.stringify(bounds)}`);
       }
       contentView.addChildView(view);
+      this.logInfo(`[VIEW ATTACHED] Tab ${tabId} successfully attached to window`);
     } else if (!isAttached && isCurrentlyAttached) {
+      this.logInfo(`[VIEW DETACH] Detaching view for Tab ${tabId} from main window`);
       contentView.removeChildView(view);
+      this.logInfo(`[VIEW DETACHED] Tab ${tabId} successfully detached from window`);
+    } else {
+      this.logDebug(`[VIEW STATE] Tab ${tabId} already in desired state (attached: ${isAttached})`);
     }
   }
 
@@ -230,37 +249,31 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
   private async handleWindowMinimized({ windowId }: { windowId: string }): Promise<void> {
     const view = this.activeViews.get(windowId);
     if (view) {
-      // Detach the view from the main window and store it
-      this.setViewState(view, false);
-      this.detachedViews.set(windowId, view);
+      // Just hide the view, don't detach it
+      this.setViewVisibility(view, false);
+      this.minimizedViews.set(windowId, view);
       this.activeViews.delete(windowId);
       // Keep the view-to-tab mapping - it's still valid
     }
   }
 
   private async handleWindowRestored({ windowId, zIndex }: { windowId: string; zIndex: number }): Promise<void> {
-    const view = this.detachedViews.get(windowId);
+    const view = this.minimizedViews.get(windowId);
     if (view) {
       // Move view back to active views
-      this.detachedViews.delete(windowId);
+      this.minimizedViews.delete(windowId);
       this.activeViews.set(windowId, view);
       
-      // Get the current state for restoration
-      const state = this.deps.stateService.getState(windowId);
+      // Just show the view again
+      this.setViewVisibility(view, true);
       
-      // Re-attach the view - it will be positioned correctly by z-order update
+      // Update bounds if needed
       const bounds = this.getBoundsForWindow(windowId);
       if (bounds) {
-        this.setViewState(view, true, bounds);
+        view.setBounds(bounds);
       }
       
-      // Ensure the view navigates to the correct URL for the active tab
-      if (state && state.activeTabId) {
-        const activeTab = state.tabs.find(tab => tab.id === state.activeTabId);
-        if (activeTab) {
-          await this.ensureViewNavigatedToTab(view, activeTab);
-        }
-      }
+      // No need for ensureViewNavigatedToTab() - content is intact
     }
   }
 
@@ -309,16 +322,20 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
 
   private async ensureViewNavigatedToTab(view: WebContentsView, tab: TabState): Promise<void> {
     if (!tab.url || tab.url === 'about:blank') {
+      this.logDebug(`[ENSURE NAV] Tab ${tab.id} has no URL to navigate to`);
       return; // No URL to navigate to
     }
 
     const currentUrl = view.webContents.getURL();
     const webContents = view.webContents;
     
+    this.logInfo(`[ENSURE NAV] Tab ${tab.id} - Comparing current: ${currentUrl || 'blank'} with target: ${tab.url}`);
+    
     // Improved URL comparison to handle dynamic sites like Google/Bing
     const urlsMatch = this.compareUrls(currentUrl, tab.url);
     
     if (urlsMatch) {
+      this.logInfo(`[ENSURE NAV] Tab ${tab.id} URLs match, skipping navigation`);
       return;
     }
     
@@ -470,10 +487,10 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
     }
     
     this.activeViews.forEach(view => this.setViewState(view, false));
-    this.detachedViews.forEach(view => this.setViewState(view, false));
+    this.minimizedViews.forEach(view => this.setViewState(view, false));
     this.frozenViews.forEach(view => this.setViewState(view, false));
     this.activeViews.clear();
-    this.detachedViews.clear();
+    this.minimizedViews.clear();
     this.frozenViews.clear();
     this.viewToTabMapping.clear();
     this.overlayViews.clear();
@@ -812,10 +829,11 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
       // Keep the view-to-tab mapping - the view might be reused by other windows
     }
     
-    // Remove any detached view
-    const detachedView = this.detachedViews.get(windowId);
-    if (detachedView) {
-      this.detachedViews.delete(windowId);
+    // Remove any minimized view
+    const minimizedView = this.minimizedViews.get(windowId);
+    if (minimizedView) {
+      this.setViewState(minimizedView, false);
+      this.minimizedViews.delete(windowId);
       // Keep the view-to-tab mapping - the view might be reused by other windows
     }
     

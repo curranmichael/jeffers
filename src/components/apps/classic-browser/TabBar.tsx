@@ -146,11 +146,11 @@ export const TabBar: React.FC<TabBarProps> = ({
 
   return (
     <div className={cn(
-      "overflow-hidden h-9",
+      "overflow-x-auto scrollbar-hide h-9",
       isFocused ? 'bg-step-4' : 'bg-step-3',
       isFocused ? 'opacity-100' : 'opacity-90'
     )}>
-      <div className="inline-flex items-start overflow-x-auto scrollbar-hide h-full">
+      <div className="inline-flex items-start h-full">
         {tabs.map((tab) => (
           <Tab
             key={tab.id}

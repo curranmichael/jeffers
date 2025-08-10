@@ -29,6 +29,7 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
   private lruOrder: string[] = []; // Tab IDs, most recent first
   private preservedState: Map<string, Partial<TabState>> = new Map();
   private tabToWindowMapping: Map<string, string> = new Map(); // tabId -> windowId
+  private eventHandlerCleanups: Map<string, () => void> = new Map(); // tabId -> cleanup function
   private readonly MAX_POOL_SIZE = 5;
 
   constructor(deps: GlobalTabPoolDeps) {
@@ -42,27 +43,38 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
    * A new view is then created.
    *
    * @param tabId The ID of the tab to acquire a view for.
-   * @param windowId The window that owns this tab (for event context)
+   * @param windowId The window that owns this tab (required for event context)
    * @returns The acquired WebContentsView.
    */
-  public async acquireView(tabId: string, windowId?: string): Promise<ExtendedWebContentsView> {
+  public async acquireView(tabId: string, windowId: string): Promise<ExtendedWebContentsView> {
     return this.execute('acquireView', async () => {
-      this.logInfo(`[ACQUIRE] Tab ${tabId}, windowId: ${windowId || 'NONE'}`);
+      this.logInfo(`[ACQUIRE VIEW] Starting acquisition for Tab ${tabId}, Window ${windowId}`);
       
       // Check if already in pool first
       if (this.pool.has(tabId)) {
-        this.logInfo(`[REUSE] Tab ${tabId} already in pool`);
-        // Update mapping for existing view (in case window changed)
-        // Note: Map.set() REPLACES the existing value - no memory leak from multiple updates
-        if (windowId) {
-          this.tabToWindowMapping.set(tabId, windowId);
-          this.logInfo(`[MAPPING] Updated tab ${tabId} -> window ${windowId}`);
+        const view = this.pool.get(tabId)!;
+        const currentUrl = view.webContents.getURL();
+        this.logInfo(`[REUSE VIEW] Tab ${tabId} already in pool with URL: ${currentUrl || 'blank'}`);
+        
+        // Check for window transfer
+        const previousWindowId = this.tabToWindowMapping.get(tabId);
+        if (previousWindowId && previousWindowId !== windowId) {
+          this.logInfo(`[TAB TRANSFER] Tab ${tabId} moving from window ${previousWindowId} to ${windowId}`);
         }
+        
+        // CRITICAL: Re-attach event handlers with new window context
+        this.attachEventHandlers(view, tabId, windowId);
+        this.tabToWindowMapping.set(tabId, windowId);
+        this.logInfo(`[TAB-WINDOW MAPPING] Updated: Tab ${tabId} -> Window ${windowId}`);
+        
         this.updateLRU(tabId);
-        return this.pool.get(tabId)!;
+        return view;
       }
 
+      this.logInfo(`[NEW VIEW NEEDED] Tab ${tabId} not in pool, creating new view`);
+      
       if (this.pool.size >= this.MAX_POOL_SIZE) {
+        this.logInfo(`[POOL FULL] Pool at capacity (${this.MAX_POOL_SIZE}), evicting oldest`);
         await this.evictOldest();
       }
 
@@ -72,22 +84,19 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
         
         // Only set mapping after successful view creation
         // Map maintains ONE entry per tabId - subsequent calls overwrite, not accumulate
-        if (windowId) {
-          this.tabToWindowMapping.set(tabId, windowId);
-          this.logInfo(`[MAPPING] Set tab ${tabId} -> window ${windowId}`);
-        } else {
-          this.logWarn(`[MAPPING] No windowId provided for tab ${tabId}`);
-        }
+        this.tabToWindowMapping.set(tabId, windowId);
+        this.logInfo(`[TAB-WINDOW MAPPING] Created: Tab ${tabId} -> Window ${windowId}`);
         
         this.pool.set(tabId, view);
         this.updateLRU(tabId);
         
+        this.logInfo(`[ACQUIRE COMPLETE] Tab ${tabId} view ready, pool size: ${this.pool.size}`);
         return view;
       } catch (error) {
         // Clean up any partial state on failure
         this.tabToWindowMapping.delete(tabId);
         this.preservedState.delete(tabId);
-        this.logError(`[ACQUIRE] Failed to create view for tab ${tabId}`, error);
+        this.logError(`[ACQUIRE ERROR] Failed to create view for tab ${tabId}:`, error);
         throw error;
       }
     });
@@ -103,10 +112,15 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
     return this.execute('releaseView', async () => {
       const view = this.pool.get(tabId);
       if (view) {
+        // Clean up event handlers BEFORE clearing mapping
+        this.cleanupEventHandlers(tabId);
+        
+        // Now safe to clear state
         this.pool.delete(tabId);
         this.lruOrder = this.lruOrder.filter(id => id !== tabId);
         this.preservedState.delete(tabId);
-        this.tabToWindowMapping.delete(tabId); // Clean up mapping
+        this.tabToWindowMapping.delete(tabId);
+        
         await this.destroyView(view);
       }
     });
@@ -169,9 +183,9 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
   /**
    * Creates a new WebContentsView instance.
    * @param tabId The ID of the tab
-   * @param windowId Optional window ID for immediate event context
+   * @param windowId Window ID for immediate event context
    */
-  private createView(tabId: string, windowId?: string): ExtendedWebContentsView {
+  private createView(tabId: string, windowId: string): ExtendedWebContentsView {
     const securePrefs: Electron.WebPreferences = {
       nodeIntegration: false,
       contextIsolation: true,
@@ -181,8 +195,12 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
       plugins: true,
     };
 
+    this.logInfo(`[CREATE VIEW] Creating WebContentsView for Tab ${tabId} in Window ${windowId}`);
+    
     const view = new WebContentsView({ webPreferences: securePrefs }) as ExtendedWebContentsView;
     view.setBackgroundColor('#00000000'); // Transparent background
+    
+    this.logInfo(`[VIEW CREATED] WebContentsView instance created for Tab ${tabId}`);
     
     // Apply border radius to the native view (6px to match 8px outer radius with 2px border)
     // Note: setBorderRadius is a custom Electron method that may not be available in all builds
@@ -190,176 +208,189 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
       view.setBorderRadius(6);
     }
 
-    // Set up WebContents event handlers for proper navigation tracking
-    this.setupWebContentsEventHandlers(view, tabId);
+    // Set up WebContents event handlers with proper window context
+    this.attachEventHandlers(view, tabId, windowId);
 
     // Restore minimal state if it exists
     const state = this.preservedState.get(tabId);
     if (state?.url) {
-      this.logInfo(`[LOAD URL] Tab ${tabId} loading preserved URL: ${state.url}`);
-      view.webContents.loadURL(state.url);
+      this.logInfo(`[URL ASSOCIATION] Tab ${tabId} <- URL: ${state.url}`);
+      this.logInfo(`[LOAD START] Tab ${tabId} beginning navigation to ${state.url}`);
+      
+      view.webContents.loadURL(state.url).then(() => {
+        this.logInfo(`[LOAD INITIATED] Tab ${tabId} loadURL() completed for ${state.url}`);
+      }).catch((error) => {
+        this.logError(`[LOAD ERROR] Tab ${tabId} failed to load ${state.url}:`, error);
+      });
     } else {
-      this.logWarn(`[NO URL] Tab ${tabId} created without URL to load`);
+      this.logWarn(`[NO URL] Tab ${tabId} created without URL - view is blank`);
     }
 
+    this.logInfo(`[CREATE COMPLETE] WebContentsView for Tab ${tabId} ready`);
     return view;
   }
 
   /**
-   * Sets up event handlers for WebContents to track navigation state
+   * Clean up event handlers for a specific tab
    */
-  private setupWebContentsEventHandlers(view: ExtendedWebContentsView, tabId: string): void {
+  private cleanupEventHandlers(tabId: string): void {
+    const cleanup = this.eventHandlerCleanups.get(tabId);
+    if (cleanup) {
+      cleanup();
+      this.eventHandlerCleanups.delete(tabId);
+    }
+  }
+
+  /**
+   * Attach event handlers to a view with the current window context
+   */
+  private attachEventHandlers(view: ExtendedWebContentsView, tabId: string, windowId: string): void {
+    // Clean up any existing handlers first
+    this.cleanupEventHandlers(tabId);
+
+    // Create handlers with windowId captured in closure
+    const handlers = this.createEventHandlers(tabId, windowId);
     const webContents = view.webContents;
 
-    // Track loading state
-    webContents.on('did-start-loading', () => {
-      this.logDebug(`Tab ${tabId} started loading`);
-      const windowId = this.getWindowIdForTab(tabId);
-      if (windowId) {
-        this.deps.eventBus.emit('view:did-start-loading', { tabId, windowId });
-      }
-    });
+    // Attach all handlers - use type assertions for each event type
+    (webContents as any).on('did-start-loading', handlers['did-start-loading']);
+    (webContents as any).on('did-stop-loading', handlers['did-stop-loading']);
+    (webContents as any).on('did-navigate', handlers['did-navigate']);
+    (webContents as any).on('did-navigate-in-page', handlers['did-navigate-in-page']);
+    (webContents as any).on('page-title-updated', handlers['page-title-updated']);
+    (webContents as any).on('page-favicon-updated', handlers['page-favicon-updated']);
+    (webContents as any).on('did-fail-load', handlers['did-fail-load']);
+    (webContents as any).on('focus', handlers['focus']);
+    (webContents as any).on('blur', handlers['blur']);
+    (webContents as any).on('context-menu', handlers['context-menu']);
 
-    webContents.on('did-stop-loading', () => {
-      this.logDebug(`Tab ${tabId} stopped loading`);
-      const windowId = this.getWindowIdForTab(tabId);
-      if (windowId) {
-        // Get current state to provide required properties
-        const currentState = this.preservedState.get(tabId) || {};
-        const url = webContents.getURL() || currentState.url || '';
-        const title = webContents.getTitle() || currentState.title || 'Untitled';
-        const canGoBack = webContents.canGoBack();
-        const canGoForward = webContents.canGoForward();
-        
-        this.deps.eventBus.emit('view:did-stop-loading', { 
-          windowId, 
-          url, 
-          title, 
-          canGoBack, 
-          canGoForward, 
-          tabId 
-        });
-      }
-    });
-
-    // Track navigation events
-    webContents.on('did-navigate', (event, url, httpResponseCode, httpStatusText) => {
-      this.logDebug(`Tab ${tabId} navigated to: ${url}`);
-      // Update preserved state with new URL
-      const currentState = this.preservedState.get(tabId) || {};
-      this.preservedState.set(tabId, { ...currentState, url });
-      
-      // Emit navigation event with window context
-      const windowId = this.getWindowIdForTab(tabId);
-      if (windowId) {
-        // Extract title from current state or webContents
-        const title = webContents.getTitle() || currentState.title || 'Untitled';
-        this.deps.eventBus.emit('view:did-navigate', { windowId, url, title, tabId });
-      }
-    });
-
-    webContents.on('did-navigate-in-page', (event, url, isMainFrame) => {
-      if (isMainFrame) {
-        this.logDebug(`Tab ${tabId} navigated in-page to: ${url}`);
-        // Update preserved state for in-page navigation too
-        const currentState = this.preservedState.get(tabId) || {};
-        this.preservedState.set(tabId, { ...currentState, url });
-      }
-    });
-
-    // Track title changes
-    webContents.on('page-title-updated', (event, title) => {
-      const windowId = this.getWindowIdForTab(tabId);
-      // this.logInfo(`[TITLE] Tab ${tabId} title updated to: "${title}" (windowId: ${windowId || 'NO_WINDOW'})`);
-      
-      // Update preserved state with new title
-      const currentState = this.preservedState.get(tabId) || {};
-      this.preservedState.set(tabId, { ...currentState, title });
-      
-      // Emit to event bus with window and tab context
-      if (windowId) {
-        // this.logInfo(`[TITLE] Emitting title update event for window ${windowId}, tab ${tabId}`);
-        this.deps.eventBus.emit('view:page-title-updated', { windowId, title, tabId });
-      } else {
-        // this.logWarn(`[TITLE] Cannot emit title update - no window mapping for tab ${tabId}`);
-      }
-    });
-
-    // Track favicon changes
-    webContents.on('page-favicon-updated', (event, favicons) => {
-      const windowId = this.getWindowIdForTab(tabId);
-      // this.logInfo(`[FAVICON] Tab ${tabId} favicon updated: ${favicons.length} favicons (windowId: ${windowId || 'NO_WINDOW'})`);
-      
-      // Update preserved state with new favicon
-      const faviconUrl = favicons.length > 0 ? favicons[0] : null;
-      const currentState = this.preservedState.get(tabId) || {};
-      this.preservedState.set(tabId, { ...currentState, faviconUrl });
-      
-      // Emit to event bus with window and tab context
-      if (windowId) {
-        // this.logInfo(`[FAVICON] Emitting favicon update event for window ${windowId}, tab ${tabId} with URL: ${faviconUrl}`);
-        this.deps.eventBus.emit('view:page-favicon-updated', { windowId, faviconUrl: favicons, tabId });
-      } else {
-        // this.logWarn(`[FAVICON] Cannot emit favicon update - no window mapping for tab ${tabId}`);
-      }
-    });
-
-    // Track errors
-    webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL, isMainFrame) => {
-      if (isMainFrame) {
-        this.logWarn(`Tab ${tabId} failed to load ${validatedURL}: ${errorDescription} (${errorCode})`);
-        // TODO: Emit to event bus when available
-        // this.eventBus?.emit('view:did-fail-load', { tabId, errorCode, errorDescription, validatedURL });
-      }
-    });
-
-    // Track focus events that might trigger reloads on certain sites
-    webContents.on('focus', () => {
-      this.logDebug(`Tab ${tabId} gained focus`);
-    });
-
-    webContents.on('blur', () => {
-      this.logDebug(`Tab ${tabId} lost focus`);
-    });
-
-    // Handle context menu (right-click) events
-    webContents.on('context-menu', (event, params) => {
-      this.logDebug(`Tab ${tabId} context menu requested at (${params.x}, ${params.y})`);
-      
-      // Get the window ID for this tab
-      const windowId = this.getWindowIdForTab(tabId);
-      if (windowId) {
-        // Get the view bounds for positioning
-        const viewBounds = view.getBounds();
-        
-        // Emit event through the event bus for ClassicBrowserService to handle
-        this.deps.eventBus.emit('view:context-menu-requested', {
-          windowId,
-          params,  // Pass the entire ContextMenuParams object
-          viewBounds
-        });
-      }
-    });
-
-    // Handle window open requests (CMD+click, middle-click, etc.)
+    // Handle window open requests (special case - uses setWindowOpenHandler)
     webContents.setWindowOpenHandler((details) => {
       this.logDebug(`Tab ${tabId} window open request:`, details);
       
-      // Get the window ID for this tab
-      const windowId = this.getWindowIdForTab(tabId);
-      if (windowId) {
-        // Emit event for ClassicBrowserService to handle
-        this.deps.eventBus.emit('view:window-open-request', { windowId, details });
-      }
+      // Use the windowId captured in closure
+      this.deps.eventBus.emit('view:window-open-request', { windowId, details });
       
       // Always deny the default behavior - we handle it ourselves
       return { action: 'deny' };
     });
 
+    // Store cleanup function
+    this.eventHandlerCleanups.set(tabId, () => {
+      webContents.removeAllListeners();
+      // Clear the window open handler by removing it
+      webContents.setWindowOpenHandler(() => {
+        return { action: 'deny' };
+      });
+    });
+
     // Store reference to cleanup listeners when view is destroyed
-    // Note: WebContents doesn't have a destroy method, cleanup happens in destroyView
     view._tabId = tabId; // Store tabId for cleanup reference
   }
+
+  /**
+   * Create event handlers with windowId captured in closure
+   */
+  private createEventHandlers(tabId: string, windowId: string) {
+    return {
+      'did-start-loading': () => {
+        this.logInfo(`[PAGE LOADING] Tab ${tabId} started loading`);
+        this.deps.eventBus.emit('view:did-start-loading', { tabId, windowId });
+      },
+      'did-stop-loading': () => {
+        const view = this.pool.get(tabId);
+        if (view && !view.webContents.isDestroyed()) {
+          const webContents = view.webContents;
+          const currentState = this.preservedState.get(tabId) || {};
+          const url = webContents.getURL() || currentState.url || '';
+          const title = webContents.getTitle() || currentState.title || 'Untitled';
+          const canGoBack = webContents.canGoBack();
+          const canGoForward = webContents.canGoForward();
+          
+          this.logInfo(`[PAGE LOADED] Tab ${tabId} finished loading: ${url} (${title})`);
+          
+          this.deps.eventBus.emit('view:did-stop-loading', { 
+            windowId, 
+            url, 
+            title, 
+            canGoBack, 
+            canGoForward, 
+            tabId 
+          });
+        } else {
+          this.logWarn(`[PAGE LOADED] Tab ${tabId} stopped loading but view not found`);
+        }
+      },
+      'did-navigate': (event: Event, url: string, httpResponseCode?: number, httpStatusText?: string) => {
+        this.logInfo(`[NAVIGATION] Tab ${tabId} navigated to: ${url} (HTTP ${httpResponseCode} ${httpStatusText || ''})`);
+        
+        // Update preserved state with new URL
+        const currentState = this.preservedState.get(tabId) || {};
+        this.preservedState.set(tabId, { ...currentState, url });
+        this.logInfo(`[URL UPDATED] Tab ${tabId} URL state updated to: ${url}`);
+        
+        // Get the view to access webContents for title
+        const view = this.pool.get(tabId);
+        if (view && !view.webContents.isDestroyed()) {
+          const title = view.webContents.getTitle() || currentState.title || 'Untitled';
+          this.deps.eventBus.emit('view:did-navigate', { windowId, url, title, tabId });
+        }
+      },
+      'did-navigate-in-page': (event: Event, url: string, isMainFrame: boolean) => {
+        if (isMainFrame) {
+          this.logInfo(`[IN-PAGE NAV] Tab ${tabId} navigated in-page to: ${url}`);
+          // Update preserved state for in-page navigation too
+          const currentState = this.preservedState.get(tabId) || {};
+          this.preservedState.set(tabId, { ...currentState, url });
+        }
+      },
+      'page-title-updated': (event: Event, title: string) => {
+        // Update preserved state with new title
+        const currentState = this.preservedState.get(tabId) || {};
+        this.preservedState.set(tabId, { ...currentState, title });
+        
+        // Emit with the windowId captured at handler creation time
+        this.deps.eventBus.emit('view:page-title-updated', { windowId, title, tabId });
+      },
+      'page-favicon-updated': (event: Event, favicons: string[]) => {
+        // Update preserved state with new favicon
+        const faviconUrl = favicons.length > 0 ? favicons[0] : null;
+        const currentState = this.preservedState.get(tabId) || {};
+        this.preservedState.set(tabId, { ...currentState, faviconUrl });
+        
+        // Emit with the windowId captured at handler creation time
+        this.deps.eventBus.emit('view:page-favicon-updated', { windowId, faviconUrl: favicons, tabId });
+      },
+      'did-fail-load': (event: Event, errorCode: number, errorDescription: string, validatedURL: string, isMainFrame: boolean) => {
+        if (isMainFrame) {
+          this.logError(`[LOAD FAILED] Tab ${tabId} failed to load ${validatedURL}: ${errorDescription} (Error Code: ${errorCode})`);
+        }
+      },
+      'focus': () => {
+        this.logDebug(`Tab ${tabId} gained focus`);
+      },
+      'blur': () => {
+        this.logDebug(`Tab ${tabId} lost focus`);
+      },
+      'context-menu': (event: Event, params: Electron.ContextMenuParams) => {
+        this.logDebug(`Tab ${tabId} context menu requested at (${params.x}, ${params.y})`);
+        
+        // Get the view for bounds
+        const view = this.pool.get(tabId);
+        if (view) {
+          const viewBounds = view.getBounds();
+          
+          // Emit event with windowId from closure
+          this.deps.eventBus.emit('view:context-menu-requested', {
+            windowId,
+            params,
+            viewBounds
+          });
+        }
+      }
+    };
+  }
+
 
   /**
    * Destroys a WebContentsView and preserves its state.
@@ -398,7 +429,24 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
     this.lruOrder.unshift(tabId); // Add to the front (most recent)
   }
 
-  
+  /**
+   * Migrate a tab to a different window without destroying the view.
+   * Re-attaches event handlers with the new window context.
+   * 
+   * @param tabId The ID of the tab to migrate
+   * @param newWindowId The ID of the window to migrate to
+   */
+  public migrateTabToWindow(tabId: string, newWindowId: string): void {
+    const view = this.pool.get(tabId);
+    if (view && newWindowId) {
+      // Re-attach handlers with new window context
+      this.attachEventHandlers(view, tabId, newWindowId);
+      this.tabToWindowMapping.set(tabId, newWindowId);
+      this.logInfo(`Migrated tab ${tabId} to window ${newWindowId}`);
+    } else {
+      this.logWarn(`Cannot migrate tab ${tabId} - view not found or no windowId provided`);
+    }
+  }
 
   /**
    * Remove all tab-to-window mappings for a specific window.
@@ -411,9 +459,15 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
         tabsToClean.push(tabId);
       }
     }
-    tabsToClean.forEach(tabId => this.tabToWindowMapping.delete(tabId));
+    
+    // Clean up event handlers for orphaned tabs
+    tabsToClean.forEach(tabId => {
+      this.cleanupEventHandlers(tabId);  // Remove event handlers
+      this.tabToWindowMapping.delete(tabId);
+    });
+    
     if (tabsToClean.length > 0) {
-      this.logDebug(`Cleaned up ${tabsToClean.length} tab mappings for window ${windowId}`);
+      this.logDebug(`Cleaned up ${tabsToClean.length} tab mappings and event handlers for window ${windowId}`);
     }
   }
 
@@ -428,5 +482,6 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
     this.lruOrder = [];
     this.preservedState.clear();
     this.tabToWindowMapping.clear();
+    this.eventHandlerCleanups.clear();
   }
 }

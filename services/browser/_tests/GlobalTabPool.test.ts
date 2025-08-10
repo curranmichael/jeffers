@@ -6,16 +6,21 @@ import { BrowserEventBus } from '../BrowserEventBus';
 vi.mock('electron', () => ({
   WebContentsView: vi.fn().mockImplementation(() => ({
     webContents: {
-      loadURL: vi.fn(),
+      loadURL: vi.fn().mockResolvedValue(undefined),
       getURL: vi.fn().mockReturnValue('https://example.com'),
       isDestroyed: vi.fn().mockReturnValue(false),
       on: vi.fn(),
       removeAllListeners: vi.fn(),
+      setWindowOpenHandler: vi.fn(), // Add missing method
       setAudioMuted: vi.fn(),
       stop: vi.fn(),
+      getTitle: vi.fn().mockReturnValue('Example Title'),
+      canGoBack: vi.fn().mockReturnValue(false),
+      canGoForward: vi.fn().mockReturnValue(false),
     },
     setBackgroundColor: vi.fn(),
     setBorderRadius: vi.fn(), // Add the missing method
+    getBounds: vi.fn().mockReturnValue({ x: 0, y: 0, width: 800, height: 600 }),
   })),
 }));
 

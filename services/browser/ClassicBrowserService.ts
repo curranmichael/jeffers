@@ -175,27 +175,48 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
   }
 
   public createBrowserView(windowId: string, bounds: Electron.Rectangle, payload: ClassicBrowserPayload, notebookId?: string): void {
+    this.logInfo(`[CREATE BROWSER] Creating browser view for Window ${windowId}`);
+    this.logInfo(`[CREATE BROWSER] Initial state: ${payload.tabs.length} tabs, active: ${payload.activeTabId}`);
+    
+    // Log tab details
+    payload.tabs.forEach(tab => {
+      this.logInfo(`[TAB INIT] Tab ${tab.id}: ${tab.url || 'no-url'} (${tab.title || 'untitled'})`);
+    });
+    
+    // Idempotency check: Skip if browser view already exists for this window
+    const existingState = this.deps.stateService.getState(windowId);
+    if (existingState) {
+      this.logDebug(`[CREATE BROWSER] Browser view already exists for window ${windowId}, skipping duplicate creation`);
+      return;
+    }
+
     const initialState = { 
       ...payload, 
       bounds,
       // Ensure freezeState is always set, default to ACTIVE
       freezeState: payload.freezeState || { type: 'ACTIVE' }
     };
+    
+    this.logInfo(`[STATE INIT] Setting initial state for Window ${windowId}`);
     this.deps.stateService.setState(windowId, initialState);
     
     // Associate the browser window with a notebook if provided
     if (notebookId) {
+      this.logInfo(`[NOTEBOOK ASSOC] Associating Window ${windowId} with Notebook ${notebookId}`);
       this.deps.womService.setWindowNotebook(windowId, notebookId);
     }
     
     // Ensure there's always at least one tab when creating a browser window
     if (!initialState.tabs.length || !initialState.activeTabId) {
+      this.logInfo(`[CREATE TAB] No tabs found, creating default tab`);
       this.deps.tabService.createTab(windowId, 'https://www.are.na');
       // Check if we need to create a tab group after initialization
       this.deps.womService.checkAndCreateTabGroup(windowId).catch(err =>
         this.logError(`Failed to check/create tab group during init: ${err}`, err)
       );
     }
+    
+    this.logInfo(`[CREATE BROWSER] Browser view creation complete for Window ${windowId}`);
   }
 
   public async createTab(windowId: string, url?: string): Promise<string> {
@@ -421,7 +442,7 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
   }
 
   public syncViewStackingOrder(orderedWindows: Array<{ id: string; isFrozen: boolean; isMinimized: boolean }>): void {
-    this.deps.viewManager.handleZOrderUpdate({ orderedWindows: orderedWindows.map(w => ({ windowId: w.id, zIndex: 0, isFocused: false, isMinimized: w.isFrozen })) });
+    this.deps.viewManager.handleZOrderUpdate({ orderedWindows: orderedWindows.map(w => ({ windowId: w.id, zIndex: 0, isFocused: false, isMinimized: w.isMinimized })) });
   }
 
   public showAndFocusView(windowId: string): void {
