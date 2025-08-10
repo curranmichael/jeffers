@@ -127,29 +127,36 @@ export function NoteEditor({ noteId, notebookId, windowId, activeStore, isSelect
   // Initialize note - load existing or create new empty note
   useEffect(() => {
     if (noteId && !noteInitialized) {
-      loadNote().then(() => {
-        // After loading, check if the note exists
-        window.api.getNotesForNotebook(notebookId).then(notes => {
-          const note = notes.find(n => n.id === noteId);
-          if (!note) {
-            // Create empty note with the provided ID
-            window.api.createNote({
-              id: noteId,
-              notebookId,
-              content: "",
-              type: 'text' as NoteType,
-            }).then(() => {
-              setNoteInitialized(true);
-            }).catch(error => {
-              console.error('[NoteEditor] Failed to create empty note:', error);
-            });
-          } else {
+      // First check if note already exists
+      window.api.getNotesForNotebook(notebookId).then(notes => {
+        const existingNote = notes.find(n => n.id === noteId);
+        if (existingNote) {
+          // Note exists, load it
+          setExistingNote(existingNote);
+          setContent(existingNote.content);
+          setNoteInitialized(true);
+        } else {
+          // Note doesn't exist, create it
+          window.api.createNote({
+            id: noteId,
+            notebookId,
+            content: "",
+            type: 'text' as NoteType,
+          }).then(() => {
             setNoteInitialized(true);
-          }
-        });
+          }).catch(error => {
+            console.error('[NoteEditor] Failed to create empty note:', error);
+            // If creation fails due to duplicate, just mark as initialized
+            if (error.message.includes('UNIQUE constraint failed')) {
+              setNoteInitialized(true);
+            }
+          });
+        }
+      }).catch(error => {
+        console.error('[NoteEditor] Failed to check existing notes:', error);
       });
     }
-  }, [noteId, noteInitialized, notebookId, loadNote]);
+  }, [noteId, noteInitialized, notebookId]);
   
   // Focus editor when component mounts or becomes selected
   useEffect(() => {
