@@ -22,10 +22,9 @@ export class ClassicBrowserSnapshotService extends BaseService<ClassicBrowserSna
   async initialize(): Promise<void> {
     const eventBus = this.deps.stateService.getEventBus();
     
-    // Direct snapshot storage from GlobalTabPool - no waiting, no async
-    eventBus.on('tab:snapshot-captured', ({ windowId, tabId, snapshot }) => {
-      this.storeSnapshotWithLRU(windowId, tabId, snapshot);
-      this.logDebug(`Stored snapshot for tab ${tabId} from eviction`);
+    // Listen for tabs about to be evicted and capture their snapshots
+    eventBus.on('tab:before-evict', async ({ windowId, tabId }) => {
+      await this.captureBeforeEviction(windowId, tabId);
     });
   }
 
@@ -59,17 +58,12 @@ export class ClassicBrowserSnapshotService extends BaseService<ClassicBrowserSna
         return undefined;
       }
 
-      try {
-        const image = await view.webContents.capturePage();
-        const snapshot = image.toDataURL();
-        
+      const snapshot = await this.captureFromView(view);
+      if (snapshot) {
         this.storeSnapshotWithLRU(windowId, tabId, snapshot);
-        
         return { url: currentUrl, snapshot };
-      } catch (error) {
-        this.logError(`Failed to capture snapshot for window ${windowId}, tab ${tabId}:`, error);
-        return undefined;
       }
+      return undefined;
     });
   }
 
@@ -160,7 +154,7 @@ export class ClassicBrowserSnapshotService extends BaseService<ClassicBrowserSna
   async cleanup(): Promise<void> {
     // Remove event listeners
     const eventBus = this.deps.stateService.getEventBus();
-    eventBus.removeAllListeners('tab:snapshot-captured');
+    eventBus.removeAllListeners('tab:before-evict');
     
     this.clearAllSnapshots();
     await super.cleanup();
@@ -197,6 +191,44 @@ export class ClassicBrowserSnapshotService extends BaseService<ClassicBrowserSna
         freezeState: { type: 'ACTIVE' }
       });
       this.logInfo(`Unfroze window ${windowId}`);
+    }
+  }
+
+  /**
+   * Captures a snapshot from a WebContentsView.
+   * Extracted common logic for reuse across different capture scenarios.
+   */
+  private async captureFromView(view: Electron.WebContentsView): Promise<string | undefined> {
+    if (!view || view.webContents.isDestroyed()) {
+      return undefined;
+    }
+    
+    try {
+      const image = await view.webContents.capturePage();
+      return image.toDataURL();
+    } catch (error) {
+      this.logError(`Failed to capture snapshot from view:`, error);
+      return undefined;
+    }
+  }
+
+  /**
+   * Captures a snapshot before a tab is evicted from the pool.
+   * Called by GlobalTabPool via the 'tab:before-evict' event.
+   */
+  private async captureBeforeEviction(windowId: string, tabId: string): Promise<void> {
+    const view = this.deps.viewManager.getView(tabId);
+    if (!view) {
+      this.logDebug(`No view found for tab ${tabId} during eviction`);
+      return;
+    }
+    
+    const snapshot = await this.captureFromView(view);
+    if (snapshot) {
+      this.storeSnapshotWithLRU(windowId, tabId, snapshot);
+      this.logDebug(`Captured and stored snapshot for tab ${tabId} before eviction`);
+    } else {
+      this.logDebug(`Failed to capture snapshot for tab ${tabId} before eviction`);
     }
   }
 

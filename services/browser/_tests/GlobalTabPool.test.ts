@@ -54,7 +54,7 @@ describe('GlobalTabPool', () => {
 
       // Check that no events were emitted for window1 tabs during eviction
       const evictionEvents = emitSpy.mock.calls.filter(
-        call => call[0] === 'tab:snapshot-captured'
+        call => call[0] === 'tab:before-evict'
       );
       
       const window1Events = evictionEvents.filter(

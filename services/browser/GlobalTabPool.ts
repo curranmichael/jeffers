@@ -156,24 +156,13 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
     if (oldestTabId) {
       const windowId = this.getWindowIdForTab(oldestTabId);
       
-      // Capture snapshot inline before eviction - no delay needed
+      // Notify interested services that this tab is about to be evicted
+      // This allows them to capture snapshots or perform other cleanup
       if (windowId) {
-        const view = this.pool.get(oldestTabId);
-        if (view && !view.webContents.isDestroyed()) {
-          try {
-            const image = await view.webContents.capturePage();
-            const snapshot = image.toDataURL();
-            // Emit event with captured snapshot
-            this.deps.eventBus.emit('tab:snapshot-captured', { 
-              windowId, 
-              tabId: oldestTabId, 
-              snapshot 
-            });
-          } catch (error) {
-            // Silent fail - just evict without snapshot
-            this.logDebug(`Failed to capture snapshot for tab ${oldestTabId}: ${error}`);
-          }
-        }
+        this.deps.eventBus.emit('tab:before-evict', { 
+          windowId, 
+          tabId: oldestTabId 
+        });
       }
       
       await this.releaseView(oldestTabId);
