@@ -58,12 +58,12 @@ export class NoteModel {
     }
     
     const stmt = this.db.prepare(`
-      INSERT INTO notes (id, notebook_id, content, type, metadata, position, created_at, updated_at)
+      INSERT OR IGNORE INTO notes (id, notebook_id, content, type, metadata, position, created_at, updated_at)
       VALUES ($id, $notebookId, $content, $type, $metadata, $position, $createdAt, $updatedAt)
     `);
 
     try {
-      stmt.run({
+      const result = stmt.run({
         id,
         notebookId: params.notebookId,
         content: params.content,
@@ -74,7 +74,11 @@ export class NoteModel {
         updatedAt: now,
       });
 
-      logger.info("[NoteModel] Created note", { id, notebookId: params.notebookId });
+      if (result.changes > 0) {
+        logger.info("[NoteModel] Created note", { id, notebookId: params.notebookId });
+      } else {
+        logger.debug("[NoteModel] Note already exists, using existing", { id, notebookId: params.notebookId });
+      }
       
       // Return the created note
       const created = this.getById(id);
