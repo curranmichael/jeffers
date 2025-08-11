@@ -3,6 +3,7 @@ import { WebContentsView } from 'electron';
 import { BaseService } from '../base/BaseService';
 import { TabState } from '../../shared/types/window.types';
 import { BrowserEventBus } from './BrowserEventBus';
+import type { ClassicBrowserSnapshotService } from './ClassicBrowserSnapshotService';
 
 // Type definition for WebContentsView with custom properties
 interface ExtendedWebContentsView extends WebContentsView {
@@ -15,6 +16,7 @@ interface ExtendedWebContentsView extends WebContentsView {
 
 export interface GlobalTabPoolDeps {
   eventBus: BrowserEventBus;
+  snapshotService: ClassicBrowserSnapshotService;
 }
 
 /**
@@ -154,26 +156,12 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
   private async evictOldest(): Promise<void> {
     const oldestTabId = this.lruOrder.pop();
     if (oldestTabId) {
+      const view = this.pool.get(oldestTabId);
       const windowId = this.getWindowIdForTab(oldestTabId);
       
-      // Capture snapshot inline before eviction - no delay needed
-      if (windowId) {
-        const view = this.pool.get(oldestTabId);
-        if (view && !view.webContents.isDestroyed()) {
-          try {
-            const image = await view.webContents.capturePage();
-            const snapshot = image.toDataURL();
-            // Emit event with captured snapshot
-            this.deps.eventBus.emit('tab:snapshot-captured', { 
-              windowId, 
-              tabId: oldestTabId, 
-              snapshot 
-            });
-          } catch (error) {
-            // Silent fail - just evict without snapshot
-            this.logDebug(`Failed to capture snapshot for tab ${oldestTabId}: ${error}`);
-          }
-        }
+      // Capture snapshot before evicting the view, passing the view directly
+      if (windowId && view) {
+        await this.deps.snapshotService.captureBeforeEviction(windowId, oldestTabId, view);
       }
       
       await this.releaseView(oldestTabId);

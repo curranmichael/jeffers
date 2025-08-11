@@ -118,10 +118,6 @@ const ClassicBrowserViewWrapperComponent: React.FC<ClassicBrowserContentProps> =
   const webContentsViewRef = useRef<HTMLDivElement>(null); // Renamed for clarity - this is the placeholder for the native view
   const boundsRAF = React.useRef<number>(0); // For throttling setBounds during rapid geometry changes
   
-  // Track last correction time to prevent loops
-  const [lastCorrectedTime, setLastCorrectedTime] = useState(0);
-  const previousActiveTabId = useRef<string | undefined>(activeTab?.id);
-  
   // Header-specific state
   // Initialize with fixed width to prevent expansion flash during tab switches
   const [inputWidthClass, setInputWidthClass] = useState('w-[350px]');
@@ -294,38 +290,6 @@ const ClassicBrowserViewWrapperComponent: React.FC<ClassicBrowserContentProps> =
       });
     }
   }, [windowMeta.isMinimized, windowId, windowMeta.isFocused, activeStore, classicPayload]);
-
-  // Ensure freeze state is ACTIVE when window is visible and not minimized
-  // This catches any edge cases where the freeze state becomes inconsistent
-  useEffect(() => {
-    if (!windowMeta.isMinimized && isActuallyVisible && activeTab) {
-      const now = Date.now();
-      const timeSinceLastCorrection = now - lastCorrectedTime;
-      
-      // Only correct if we haven't corrected recently (prevents loops)
-      if (timeSinceLastCorrection > 1000) {
-        const needsCorrection =
-          !isValidFreezeState(freezeState.type) ||
-          (freezeState.type === 'FROZEN' && activeTab.id !== previousActiveTabId.current);
-        
-        if (needsCorrection) {
-          console.warn(`[ClassicBrowser ${windowId}] Correcting freeze state: ${freezeState.type} -> ACTIVE`);
-          
-          const { updateWindowProps } = activeStore.getState();
-          updateWindowProps(windowId, {
-            payload: {
-              ...classicPayload,
-              freezeState: { type: 'ACTIVE' }
-            } as ClassicBrowserPayload
-          });
-          
-          setLastCorrectedTime(now);
-        }
-      }
-    }
-    
-    previousActiveTabId.current = activeTab?.id;
-  }, [windowMeta.isMinimized, isActuallyVisible, freezeState.type, activeTab?.id]);
 
   // Use the native resource lifecycle hook
   useNativeResource(

@@ -18,10 +18,7 @@ vi.mock('../../../services/ActivityLogService');
 
 export function bootstrapBrowserServices(mainWindow: BrowserWindow) {
   const eventBus = new BrowserEventBus();
-  const globalTabPool = new GlobalTabPool({ eventBus });
   const stateService = new ClassicBrowserStateService({ mainWindow, eventBus });
-  const viewManager = new ClassicBrowserViewManager({ mainWindow, eventBus, globalTabPool, stateService });
-  const navigationService = new ClassicBrowserNavigationService({ stateService, globalTabPool, eventBus });
   const tabService = new ClassicBrowserTabService({ stateService });
   const womService = new ClassicBrowserWOMService({
     objectModelCore: {} as any,
@@ -30,7 +27,24 @@ export function bootstrapBrowserServices(mainWindow: BrowserWindow) {
     stateService,
     womIngestionService: {} as any,
   });
-  const snapshotService = new ClassicBrowserSnapshotService({ viewManager, stateService, navigationService });
+  
+  // Create snapshotService first (before globalTabPool) since GlobalTabPool now depends on it
+  // We need a temporary viewManager stub since there's a circular dependency
+  const viewManagerStub = {} as any;
+  const navigationServiceStub = {} as any;
+  const snapshotService = new ClassicBrowserSnapshotService({ 
+    viewManager: viewManagerStub, 
+    stateService, 
+    navigationService: navigationServiceStub 
+  });
+  
+  const globalTabPool = new GlobalTabPool({ eventBus, snapshotService });
+  const viewManager = new ClassicBrowserViewManager({ mainWindow, eventBus, globalTabPool, stateService });
+  const navigationService = new ClassicBrowserNavigationService({ stateService, globalTabPool, eventBus });
+  
+  // Now update the stubs with real references
+  (snapshotService as any).deps.viewManager = viewManager;
+  (snapshotService as any).deps.navigationService = navigationService;
   const activityLogService = new ActivityLogService({} as any);
 
   const browserService = new ClassicBrowserService({

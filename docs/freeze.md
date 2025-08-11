@@ -44,7 +44,7 @@ The snapshot service manages the capture and storage of browser view snapshots w
 - **LRU Cache**: Maintains up to 10 snapshots using a Least Recently Used eviction policy
 - **Data URL Conversion**: Converts captured images to data URLs for easy embedding in HTML
 - **Security**: Skips capturing authentication URLs to protect sensitive information
-- **Event-Driven Storage**: Listens for `tab:snapshot-captured` events from GlobalTabPool for automatic snapshot storage when tabs are evicted
+- **Direct Integration**: Called directly by GlobalTabPool via `captureBeforeEviction()` to capture snapshots before tabs are evicted
 - **Cache Fallback**: Returns cached snapshots when browser view is not in the tab pool
 
 #### Public Methods
