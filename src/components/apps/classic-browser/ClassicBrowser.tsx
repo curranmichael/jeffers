@@ -23,7 +23,7 @@ export type { ClassicBrowserStateUpdate };
 import { cn } from '@/lib/utils';
 import { WindowControls } from '../../ui/WindowControls';
 import { useNativeResource } from '@/hooks/use-native-resource';
-import { useBrowserWindowController, isValidFreezeState } from '@/hooks/useBrowserWindowController';
+import { useBrowserWindowController } from '@/hooks/useBrowserWindowController';
 import { TabBar } from './TabBar';
 import { isLikelyUrl, formatUrlWithProtocol } from './urlDetection.helpers';
 
