@@ -208,17 +208,10 @@ export class ClassicBrowserSnapshotService extends BaseService<ClassicBrowserSna
    * Called directly by GlobalTabPool before releasing a view.
    * @param windowId - The window ID the tab belongs to
    * @param tabId - The tab ID being evicted
-   * @param view - Optional WebContentsView to capture from (avoids lookup if already available)
+   * @param view - The WebContentsView being evicted
    */
-  public async captureBeforeEviction(windowId: string, tabId: string, view?: Electron.WebContentsView): Promise<void> {
-    // Use provided view or try to get it from viewManager
-    const targetView = view || this.deps.viewManager.getView(tabId);
-    if (!targetView) {
-      this.logDebug(`No view found for tab ${tabId} during eviction`);
-      return;
-    }
-    
-    const snapshot = await this.captureFromView(targetView);
+  public async captureBeforeEviction(windowId: string, tabId: string, view: Electron.WebContentsView): Promise<void> {
+    const snapshot = await this.captureFromView(view);
     if (snapshot) {
       this.storeSnapshotWithLRU(windowId, tabId, snapshot);
       this.logDebug(`Captured and stored snapshot for tab ${tabId} before eviction`);

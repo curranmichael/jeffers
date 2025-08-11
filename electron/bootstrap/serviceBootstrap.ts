@@ -514,13 +514,6 @@ export async function initializeServices(
       const browserEventBus = await createService('BrowserEventBus', BrowserEventBus, []);
       registry.browserEventBus = browserEventBus;
       
-      // Initialize GlobalTabPool (snapshotService will be added later)
-      const globalTabPool = await createService('GlobalTabPool', GlobalTabPool, [{
-        eventBus: browserEventBus,
-        snapshotService: null as any  // Will be set after SnapshotService is created
-      }]);
-      registry.globalTabPool = globalTabPool;
-      
       // Initialize WindowLifecycleService
       const windowLifecycleService = await createService('WindowLifecycleService', WindowLifecycleService, [{
         eventBus: browserEventBus
@@ -534,19 +527,19 @@ export async function initializeServices(
       }]);
       registry.classicBrowserState = stateService;
       
-      // Initialize ClassicBrowserViewManager
+      // Initialize ClassicBrowserViewManager (globalTabPool will be set later)
       const viewManager = await createService('ClassicBrowserViewManager', ClassicBrowserViewManager, [{
         mainWindow: deps.mainWindow,
         eventBus: browserEventBus,
-        globalTabPool: globalTabPool,
+        globalTabPool: null as any,  // Will be set after GlobalTabPool is created
         stateService: stateService
       }]);
       registry.classicBrowserViewManager = viewManager;
       
-      // Initialize ClassicBrowserNavigationService
+      // Initialize ClassicBrowserNavigationService (globalTabPool will be set later)
       const navigationService = await createService('ClassicBrowserNavigationService', ClassicBrowserNavigationService, [{
         stateService,
-        globalTabPool,
+        globalTabPool: null as any,  // Will be set after GlobalTabPool is created
         eventBus: browserEventBus
       }]);
       registry.classicBrowserNavigation = navigationService;
@@ -586,8 +579,16 @@ export async function initializeServices(
       }]);
       registry.classicBrowserSnapshot = snapshotService;
       
-      // Now update GlobalTabPool with the real SnapshotService
-      (globalTabPool as any).deps.snapshotService = snapshotService;
+      // Initialize GlobalTabPool with clean dependency injection
+      const globalTabPool = await createService('GlobalTabPool', GlobalTabPool, [{
+        eventBus: browserEventBus,
+        snapshotService: snapshotService
+      }]);
+      registry.globalTabPool = globalTabPool;
+      
+      // Update ViewManager and NavigationService with GlobalTabPool
+      (viewManager as any).deps.globalTabPool = globalTabPool;
+      (navigationService as any).deps.globalTabPool = globalTabPool;
       
       // Initialize ClassicBrowserService with all sub-services
       const classicBrowserService = await createService('ClassicBrowserService', ClassicBrowserService, [{
