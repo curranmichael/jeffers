@@ -1,0 +1,121 @@
+name: Tests
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+env:
+  FORCE_COLOR: true
+  NODE_ENV: test
+  LOG_LEVEL: error
+
+jobs:
+  # Fast core tests - run on every PR
+  core-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup Python (for native modules)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Rebuild native modules
+        run: npm rebuild better-sqlite3
+
+      - name: Run core tests (models + core services)
+        run: |
+          npx vitest run \
+            models/ \
+            services/_tests/ChatService.test.ts \
+            services/_tests/NotebookService.test.ts \
+            services/_tests/ActivityLogService.test.ts \
+            services/_tests/ProfileService.test.ts \
+            services/_tests/ToDoService.test.ts \
+            services/_tests/StreamManager.test.ts \
+            services/base/_tests/ \
+            --reporter=verbose
+
+  # Extended tests - run on push to main or when tests change
+  extended-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.event_name == 'push' || contains(github.event.pull_request.changed_files, 'test')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup Python (for native modules)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Rebuild native modules
+        run: npm rebuild better-sqlite3
+
+      - name: Run service tests (excluding external APIs)
+        run: |
+          npx vitest run services/ \
+            --exclude="**/ExaService.test.ts" \
+            --exclude="**/IngestionAIService.test.ts" \
+            --exclude="**/AgentService.test.ts" \
+            --reporter=verbose
+
+      - name: Run IPC handler tests  
+        run: |
+          npx vitest run electron/ipc/_tests/ \
+            --reporter=verbose
+
+      - name: Run component tests
+        run: |
+          npx vitest run src/components/ \
+            --reporter=verbose
+
+  # Type checking - fast and important
+  typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run TypeScript checks
+        run: npm run typecheck
+
+      - name: Run ESLint
+        run: npm run lint
