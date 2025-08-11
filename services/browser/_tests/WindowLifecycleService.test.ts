@@ -1,3 +1,4 @@
+// LEGACY: Scheduled for deletion - redundant window lifecycle management
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { WindowLifecycleService } from '../WindowLifecycleService';
 import { BrowserEventBus } from '../BrowserEventBus';

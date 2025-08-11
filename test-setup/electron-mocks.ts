@@ -168,7 +168,7 @@ global.window.api = {
   // Shortcuts
   onShortcutMinimizeWindow: vi.fn(() => () => {}),
   onCloseActiveRequested: vi.fn(() => () => {}),
-  syncWindowStackOrder: vi.fn().mockResolvedValue({ success: true }),
+  syncWindowStackOrder: vi.fn().mockResolvedValue({ success: true }), // LEGACY
   
   // To-Do
   createToDo: vi.fn().mockResolvedValue({ id: 'todo-1' }),

@@ -1,3 +1,4 @@
+// LEGACY: Scheduled for deletion - redundant window lifecycle management
 import { ipcMain } from 'electron';
 import { ClassicBrowserService } from '../../services/browser/ClassicBrowserService';
 import { logger } from '../../utils/logger';

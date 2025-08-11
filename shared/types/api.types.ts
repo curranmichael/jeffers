@@ -216,7 +216,7 @@ export interface IAppAPI {
   // Added for renderer to request focus
   classicBrowserRequestFocus: (windowId: string) => void; // Send-only, no return needed
   
-  // Window lifecycle management
+  // LEGACY: Window lifecycle management to be removed
   windowLifecycleStateChanged: (windows: WindowMeta[]) => void;
 
   // Listen for URL change events from classic browser windows
@@ -258,7 +258,7 @@ export interface IAppAPI {
    */
   onCloseActiveRequested: (callback: () => void) => () => void;
   
-  // --- Window Stack Synchronization ---
+  // LEGACY: Window Stack Synchronization to be removed
   /**
    * Synchronize the stacking order of WebContentsViews to match window z-indices.
    * @param windowIdsInOrder Array of window IDs ordered by z-index (lowest to highest)

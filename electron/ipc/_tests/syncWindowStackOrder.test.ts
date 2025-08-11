@@ -1,3 +1,4 @@
+// LEGACY: Scheduled for deletion - redundant window lifecycle management
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ipcMain } from 'electron';
 import { registerSyncWindowStackOrderHandler } from '../syncWindowStackOrder';

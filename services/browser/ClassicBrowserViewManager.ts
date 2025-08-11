@@ -49,6 +49,7 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
 
   async initialize(): Promise<void> {
     this.deps.eventBus.on('state-changed', this.handleStateChange.bind(this));
+    // LEGACY: These individual event handlers will be consolidated into single state sync
     this.deps.eventBus.on('window:focus-changed', this.handleWindowFocusChanged.bind(this));
     this.deps.eventBus.on('window:minimized', this.handleWindowMinimized.bind(this));
     this.deps.eventBus.on('window:restored', this.handleWindowRestored.bind(this));
@@ -277,6 +278,7 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
     }
   }
 
+  // LEGACY: This will be merged into unified state handler
   public async handleZOrderUpdate({ orderedWindows }: { orderedWindows: Array<{ windowId:string; zIndex: number; isFocused: boolean; isMinimized: boolean }> }): Promise<void> {
     // Re-attach all non-minimized views in correct z-order (lowest to highest)
     const activeWindowsInOrder = orderedWindows

@@ -161,7 +161,7 @@ export class ClassicBrowserSnapshotService extends BaseService<ClassicBrowserSna
   async freezeWindow(windowId: string): Promise<string | null> {
     const result = await this.captureSnapshot(windowId);
     if (result) {
-      // Update state to frozen with the snapshot
+      // LEGACY: State mutation to be removed - state should only be set by renderer
       this.deps.stateService.setState(windowId, {
         ...this.deps.stateService.getState(windowId)!,
         freezeState: { type: 'FROZEN', snapshotUrl: result.snapshot }
@@ -177,6 +177,7 @@ export class ClassicBrowserSnapshotService extends BaseService<ClassicBrowserSna
   async unfreezeWindow(windowId: string): Promise<void> {
     const state = this.deps.stateService.getState(windowId);
     if (state) {
+      // LEGACY: State mutation to be removed - state should only be set by renderer
       this.deps.stateService.setState(windowId, {
         ...state,
         freezeState: { type: 'ACTIVE' }

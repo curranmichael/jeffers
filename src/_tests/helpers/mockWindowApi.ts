@@ -131,7 +131,7 @@ export function createMockWindowApi(): IAppAPI {
     // Window management
     onShortcutMinimizeWindow: vi.fn().mockReturnValue(() => {}),
     onCloseActiveRequested: vi.fn().mockReturnValue(() => {}),
-    syncWindowStackOrder: vi.fn().mockResolvedValue({ success: true }),
+    syncWindowStackOrder: vi.fn().mockResolvedValue({ success: true }), // LEGACY
     
     // Todo operations
     createToDo: vi.fn().mockResolvedValue({

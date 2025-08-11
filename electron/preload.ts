@@ -534,6 +534,7 @@ const api = {
     ipcRenderer.send(CLASSIC_BROWSER_REQUEST_FOCUS, windowId);
   },
   
+  // LEGACY: windowLifecycleStateChanged to be removed
   windowLifecycleStateChanged: (windows: WindowMeta[]): void => {
     ipcRenderer.send(WINDOW_LIFECYCLE_STATE_CHANGED, windows);
   },
@@ -717,7 +718,7 @@ const api = {
     return () => ipcRenderer.removeListener(SHORTCUT_CLOSE_ACTIVE, listener);
   },
   
-  // --- Window Stack Synchronization ---
+  // LEGACY: Window Stack Synchronization to be removed
   syncWindowStackOrder: (windowsInOrder: Array<{ id: string; isFrozen: boolean; isMinimized: boolean }>): Promise<{ success: boolean }> => {
     console.log('[Preload Script] Syncing window stack order via IPC:', windowsInOrder.length, 'windows');
     return ipcRenderer.invoke(SYNC_WINDOW_STACK_ORDER, windowsInOrder);

@@ -86,6 +86,7 @@ export function useBrowserWindowController(
     return unsubscribe;
   }, [windowId, activeStore, getWindowMeta, setBrowserFreezeState]);
 
+  // LEGACY - START: Complex state machine to be simplified
   // Watch for state changes and trigger side effects
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
@@ -193,6 +194,7 @@ export function useBrowserWindowController(
       if (unsubscribe) unsubscribe();
     };
   }, [windowId, activeStore, setBrowserFreezeState]);
+  // LEGACY - END
 
   // Callback for when the snapshot has been rendered
   const handleSnapshotLoaded = useCallback(() => {

@@ -1,3 +1,4 @@
+// LEGACY: Scheduled for deletion - redundant window lifecycle management
 import { ipcMain, IpcMainEvent } from 'electron';
 import { WINDOW_LIFECYCLE_STATE_CHANGED } from '../../shared/ipcChannels';
 import { WindowLifecycleService } from '../../services/browser/WindowLifecycleService';

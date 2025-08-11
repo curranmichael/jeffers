@@ -171,7 +171,7 @@ export const CLASSIC_BROWSER_VIEW_FOCUSED = 'classic-browser-view-focused';
 // Added for Renderer to request main process to focus a view
 export const CLASSIC_BROWSER_REQUEST_FOCUS = 'classic-browser-request-focus';
 
-// Window lifecycle management
+// LEGACY: Window lifecycle management to be removed
 export const WINDOW_LIFECYCLE_STATE_CHANGED = 'window-lifecycle-state-changed';
 
 // Main -> Renderer: Notify when a classic browser window navigates to a new URL
@@ -246,7 +246,7 @@ export const ON_MAIN_REQUEST_FLUSH = 'main:request-flush';
 export const SHORTCUT_MINIMIZE_WINDOW = 'shortcut:minimize-window';
 export const SHORTCUT_CLOSE_ACTIVE = 'shortcut:close-active';
 
-// Window Stack Synchronization
+// LEGACY: Window Stack Synchronization to be removed
 /** Renderer -> Main: Sync the stacking order of WebContentsViews to match window z-indices */
 export const SYNC_WINDOW_STACK_ORDER = 'window:sync-stack-order';
 

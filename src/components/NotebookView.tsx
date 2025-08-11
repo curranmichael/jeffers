@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useHashRouter } from "@/hooks/useHashRouter";
-import { useWindowLifecycleSync } from "@/hooks/useWindowLifecycleSync";
+import { useWindowLifecycleSync } from "@/hooks/useWindowLifecycleSync"; // LEGACY
 import type { StoreApi } from "zustand";
 import { useStore } from "zustand";
 import { motion } from "framer-motion";
@@ -306,7 +306,7 @@ function NotebookWorkspace({ notebookId }: { notebookId: string }) {
   const windows = useStore(activeStore, (state) => state.windows);
   const isHydrated = useStore(activeStore, (state) => state._hasHydrated);
   
-  // Sync window state changes with main process for WebContentsView lifecycle management
+  // LEGACY: Sync window state changes with main process for WebContentsView lifecycle management
   useWindowLifecycleSync(activeStore);
   
   console.log(`[NotebookWorkspace] Notebook ${notebookId} state:`, {
@@ -441,6 +441,7 @@ function NotebookWorkspace({ notebookId }: { notebookId: string }) {
       .join('|');
   }, [windows]);
   
+  // LEGACY - START: Manual window sync to be replaced
   // Synchronize window stacking order with native WebContentsViews
   useEffect(() => {
     if (!window.api?.syncWindowStackOrder) return;
@@ -491,6 +492,7 @@ function NotebookWorkspace({ notebookId }: { notebookId: string }) {
     return () => clearTimeout(timeoutId);
    
   }, [windowOrderKey, activeStore]); // Only depend on windowOrderKey and activeStore - we get fresh windows via getState()
+  // LEGACY - END
 
   // Global shortcut handler for minimizing window
   useEffect(() => {

@@ -148,7 +148,7 @@ export function createMockWindowApi(): IAppAPI {
     // Shortcuts
     onShortcutMinimizeWindow: vi.fn().mockReturnValue(() => {}),
     onCloseActiveRequested: vi.fn().mockReturnValue(() => {}),
-    syncWindowStackOrder: vi.fn().mockResolvedValue({ success: true }),
+    syncWindowStackOrder: vi.fn().mockResolvedValue({ success: true }), // LEGACY
     
     // To-Do
     createToDo: vi.fn().mockResolvedValue({ id: 'todo-1', title: '', description: null, is_completed: false, user_id: 'user-1', created_at: new Date().toISOString(), updated_at: new Date().toISOString() }),

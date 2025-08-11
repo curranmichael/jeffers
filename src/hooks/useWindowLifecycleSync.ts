@@ -1,3 +1,4 @@
+// LEGACY: Scheduled for deletion - redundant window lifecycle management
 import { useEffect } from 'react';
 import type { StoreApi } from 'zustand';
 import type { WindowStoreState } from '../store/windowStoreFactory';

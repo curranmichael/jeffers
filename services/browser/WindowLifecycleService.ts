@@ -1,3 +1,4 @@
+// LEGACY: Scheduled for deletion - redundant window lifecycle management
 import { BaseService } from '../base/BaseService';
 import { BrowserEventBus } from './BrowserEventBus';
 import type { WindowMeta } from '../../shared/types/window.types';

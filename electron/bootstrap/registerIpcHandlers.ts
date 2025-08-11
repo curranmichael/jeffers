@@ -36,7 +36,7 @@ import { registerClassicBrowserSetBoundsHandler } from '../ipc/classicBrowserSet
 import { registerClassicBrowserSetVisibilityHandler } from '../ipc/classicBrowserSetVisibility';
 import { registerClassicBrowserDestroyHandler } from '../ipc/classicBrowserDestroy';
 import { registerClassicBrowserRequestFocusHandler } from '../ipc/classicBrowserRequestFocus';
-import { registerWindowLifecycleHandler } from '../ipc/windowLifecycleHandler';
+import { registerWindowLifecycleHandler } from '../ipc/windowLifecycleHandler'; // LEGACY
 import { registerClassicBrowserGetStateHandler } from '../ipc/classicBrowserGetState';
 import { registerFreezeBrowserViewHandler } from '../ipc/freezeBrowserView';
 import { registerUnfreezeBrowserViewHandler } from '../ipc/unfreezeBrowserView';
@@ -45,7 +45,7 @@ import { registerClassicBrowserCreateTab } from '../ipc/classicBrowserCreateTab'
 import { registerClassicBrowserSwitchTab } from '../ipc/classicBrowserSwitchTab';
 import { registerClassicBrowserCloseTab } from '../ipc/classicBrowserCloseTab';
 import { registerClassicBrowserSetBackgroundColorHandler } from '../ipc/classicBrowserSetBackgroundColor';
-import { registerSyncWindowStackOrderHandler } from '../ipc/syncWindowStackOrder';
+import { registerSyncWindowStackOrderHandler } from '../ipc/syncWindowStackOrder'; // LEGACY
 import { registerAudioHandlers } from '../ipc/audioHandlers';
 import { registerUpdateHandlers } from '../ipc/updateHandlers';
 import { registerOverlayHandlers } from '../ipc/overlayHandlers';
@@ -224,7 +224,9 @@ export function registerAllIpcHandlers(
     registerClassicBrowserSetVisibilityHandler(classicBrowserService);
     registerClassicBrowserDestroyHandler(classicBrowserService);
     registerClassicBrowserRequestFocusHandler(serviceRegistry.classicBrowserViewManager!, serviceRegistry.classicBrowserStateService! as ClassicBrowserStateService);
+    // LEGACY - START: WindowLifecycleService registration to be removed
     registerWindowLifecycleHandler(serviceRegistry.windowLifecycleService!);
+    // LEGACY - END
     registerClassicBrowserGetStateHandler(serviceRegistry.classicBrowserStateService! as ClassicBrowserStateService);
     registerFreezeBrowserViewHandler(ipcMain, classicBrowserService);
     registerUnfreezeBrowserViewHandler(ipcMain, classicBrowserService);
@@ -234,7 +236,7 @@ export function registerAllIpcHandlers(
     registerClassicBrowserSwitchTab(ipcMain, classicBrowserService);
     registerClassicBrowserCloseTab(ipcMain, classicBrowserService);
     registerClassicBrowserSetBackgroundColorHandler(classicBrowserService);
-    // Register window stack synchronization handler
+    // LEGACY: Register window stack synchronization handler
     registerSyncWindowStackOrderHandler(classicBrowserService);
     // Register overlay handlers for context menus
     registerOverlayHandlers(ipcMain, classicBrowserService, serviceRegistry.classicBrowserViewManager!);
