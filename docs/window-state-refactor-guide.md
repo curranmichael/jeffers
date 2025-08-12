@@ -28,7 +28,7 @@ Renderer WindowStore → Single IPC (WINDOW_STATE_UPDATE) → Main Handler → B
 
 All window state changes (focus, minimize/restore, z-index, freeze/unfreeze) will propagate through this single pipeline.
 
-## Phase 1: Delete Redundant Systems
+## Redundant systems to delete
 
 **Goal:** Remove the old WindowLifecycle sync and window stack order logic entirely.
 
@@ -95,11 +95,9 @@ All window state changes (focus, minimize/restore, z-index, freeze/unfreeze) wil
   - Remove any `window.api.syncWindowStackOrder` assignments
   - Remove any `window.api.windowLifecycleStateChanged` assignments
 
-## Phase 2: Create Single Direct IPC Handler
+## New IPC Channel Setup
 
 **Goal:** Establish a unified IPC bridge replacing both old channels.
-
-### New IPC Channel Setup
 
 #### Add to `shared/ipcChannels.ts`
 ```typescript
@@ -291,7 +289,7 @@ useWindowStateSync(activeStore);
 ### Update Test Mocks
 Add `updateWindowState: vi.fn()` to all test mock files where API is mocked.
 
-## Phase 3: Simplify Freeze State Management
+## Freeze State Management
 
 **Goal:** Main process manages freeze/unfreeze actions, renderer only updates state.
 
@@ -478,13 +476,6 @@ The `captureSnapshot` and `showAndFocusView` APIs can remain but become:
 - Consider debouncing `updateWindowState` if needed (unlikely with modest window counts)
 - Clear snapshot cache on unfreeze to free memory
 - Use single view map to reduce lookup overhead
-
-### Migration Strategy
-
-1. Implement on feature branch
-2. Complete Phase 1 & 2 together (to avoid broken state)
-3. Test thoroughly between phases
-4. Deploy with monitoring for any race conditions
 
 ## Success Metrics
 
