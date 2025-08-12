@@ -216,8 +216,6 @@ export interface IAppAPI {
   // Added for renderer to request focus
   classicBrowserRequestFocus: (windowId: string) => void; // Send-only, no return needed
   
-  // LEGACY: Window lifecycle management to be removed
-  windowLifecycleStateChanged: (windows: WindowMeta[]) => void;
 
   // Listen for URL change events from classic browser windows
   onClassicBrowserUrlChange: (callback: (data: { windowId: string; url: string; title: string | null }) => void) => () => void;
@@ -258,12 +256,6 @@ export interface IAppAPI {
    */
   onCloseActiveRequested: (callback: () => void) => () => void;
   
-  // LEGACY: Window Stack Synchronization to be removed
-  /**
-   * Synchronize the stacking order of WebContentsViews to match window z-indices.
-   * @param windowIdsInOrder Array of window IDs ordered by z-index (lowest to highest)
-   */
-  syncWindowStackOrder: (windowsInOrder: Array<{ id: string; isFrozen: boolean; isMinimized: boolean }>) => Promise<{ success: boolean }>;
 
   // --- To-Do Operations ---
   createToDo: (payload: ToDoCreatePayload) => Promise<ToDoItem>;
@@ -362,6 +354,10 @@ export interface IAppAPI {
     /** Notify that the overlay menu has closed */
     notifyClosed: (windowId: string | null) => void;
   };
+
+  // --- Window State Management ---
+  /** Update window state for all windows (replaces lifecycle and stack sync) */
+  updateWindowState: (windows: WindowMeta[]) => void;
 }
 
 declare global {

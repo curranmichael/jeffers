@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useHashRouter } from "@/hooks/useHashRouter";
-import { useWindowLifecycleSync } from "@/hooks/useWindowLifecycleSync"; // LEGACY
+import { useWindowStateSync } from "@/hooks/useWindowStateSync";
 import type { StoreApi } from "zustand";
 import { useStore } from "zustand";
 import { motion } from "framer-motion";
@@ -306,8 +306,8 @@ function NotebookWorkspace({ notebookId }: { notebookId: string }) {
   const windows = useStore(activeStore, (state) => state.windows);
   const isHydrated = useStore(activeStore, (state) => state._hasHydrated);
   
-  // LEGACY: Sync window state changes with main process for WebContentsView lifecycle management
-  useWindowLifecycleSync(activeStore);
+  // Sync window state to main process (replaces old lifecycle and stack sync)
+  useWindowStateSync(activeStore);
   
   console.log(`[NotebookWorkspace] Notebook ${notebookId} state:`, {
     isHydrated,
@@ -328,10 +328,6 @@ function NotebookWorkspace({ notebookId }: { notebookId: string }) {
   // State for notebook data
   const [notebookTitle, setNotebookTitle] = useState<string>("");
   
-  // Track previous window order to detect changes
-  const prevWindowOrderRef = useRef<Array<{ id: string; isFrozen: boolean; isMinimized: boolean }>>([]);
-  // Track if we've already synced window order to avoid duplicate calls
-  const hasSyncedWindowOrderRef = useRef(false);
   
   // Fetch notebook details to trigger activity logging
   useEffect(() => {
@@ -441,58 +437,6 @@ function NotebookWorkspace({ notebookId }: { notebookId: string }) {
       .join('|');
   }, [windows]);
   
-  // LEGACY - START: Manual window sync to be replaced
-  // Synchronize window stacking order with native WebContentsViews
-  useEffect(() => {
-    if (!window.api?.syncWindowStackOrder) return;
-    
-    // Get fresh windows data from store without depending on it
-    const currentWindows = activeStore.getState().windows;
-    if (currentWindows.length === 0) return;
-    
-    // Sort windows by z-index to get the correct stacking order
-    const sortedWindows = [...currentWindows]
-      .sort((a, b) => a.zIndex - b.zIndex)
-      .map(w => {
-        // Derive isFrozen from the state machine for classic-browser windows
-        let isFrozen = false;
-        if (w.type === 'classic-browser') {
-          const payload = w.payload as ClassicBrowserPayload;
-          if (payload.freezeState) {
-            // Window should be frozen (hidden) when not in ACTIVE state
-            isFrozen = payload.freezeState.type !== 'ACTIVE';
-          }
-        }
-        
-        return {
-          id: w.id,
-          isFrozen,
-          isMinimized: w.isMinimized || false
-        };
-      });
-    
-    console.log('[NotebookWorkspace] Window order changed, syncing with native views:', sortedWindows);
-    
-    // For initial load, sync immediately; for subsequent changes, debounce
-    const isInitialLoad = prevWindowOrderRef.current.length === 0 && sortedWindows.length > 0;
-    const syncDelay = isInitialLoad ? 0 : 100;
-    
-    const timeoutId = setTimeout(() => {
-      window.api.syncWindowStackOrder(sortedWindows)
-        .then(() => {
-          console.log('[NotebookWorkspace] Successfully synced window stack order');
-          prevWindowOrderRef.current = sortedWindows;
-          hasSyncedWindowOrderRef.current = true;
-        })
-        .catch((error) => {
-          console.error('[NotebookWorkspace] Failed to sync window stack order:', error);
-        });
-    }, syncDelay);
-    
-    return () => clearTimeout(timeoutId);
-   
-  }, [windowOrderKey, activeStore]); // Only depend on windowOrderKey and activeStore - we get fresh windows via getState()
-  // LEGACY - END
 
   // Global shortcut handler for minimizing window
   useEffect(() => {
@@ -579,37 +523,6 @@ function NotebookWorkspace({ notebookId }: { notebookId: string }) {
         setIsReady(true);
         console.log(`[NotebookWorkspace] Transition ready, starting fade-in`);
         
-        // Force a sync of window stack order after hydration completes
-        // This ensures WebContentsViews are properly ordered on initial load
-        if (windows.length > 0 && window.api?.syncWindowStackOrder) {
-          const sortedWindows = [...windows]
-            .sort((a, b) => a.zIndex - b.zIndex)
-            .map(w => {
-              let isFrozen = false;
-              if (w.type === 'classic-browser') {
-                const payload = w.payload as ClassicBrowserPayload;
-                if (payload.freezeState) {
-                  // Window should be frozen (hidden) when not in ACTIVE state
-                  isFrozen = payload.freezeState.type !== 'ACTIVE';
-                }
-              }
-              return {
-                id: w.id,
-                isFrozen,
-                isMinimized: w.isMinimized || false
-              };
-            });
-          
-          // Only sync if we haven't already synced in the main effect
-          if (!hasSyncedWindowOrderRef.current) {
-            console.log('[NotebookWorkspace] Post-hydration sync of window stack order');
-            window.api.syncWindowStackOrder(sortedWindows).catch((error) => {
-              console.error('[NotebookWorkspace] Failed to sync window stack order after hydration:', error);
-            });
-          } else {
-            console.log('[NotebookWorkspace] Skipping post-hydration sync - already synced in main effect');
-          }
-        }
       }, remainingTime);
       
       return () => {

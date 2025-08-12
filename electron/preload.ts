@@ -62,7 +62,6 @@ import {
     CLASSIC_BROWSER_GET_STATE, // Get browser state
     CLASSIC_BROWSER_VIEW_FOCUSED, // Import the new channel
     CLASSIC_BROWSER_REQUEST_FOCUS, // Import the new channel
-    WINDOW_LIFECYCLE_STATE_CHANGED,
     ON_CLASSIC_BROWSER_URL_CHANGE, // Import the new URL change channel
     BROWSER_FREEZE_VIEW, // Import freeze channel
     BROWSER_UNFREEZE_VIEW, // Import unfreeze channel
@@ -97,7 +96,6 @@ import {
     NOTE_DELETE,
     SHORTCUT_MINIMIZE_WINDOW,
     SHORTCUT_CLOSE_ACTIVE,
-    SYNC_WINDOW_STACK_ORDER,
     AUDIO_TRANSCRIBE,
     // WOM channels
     WOM_INGESTION_STARTED,
@@ -120,6 +118,7 @@ import {
     UPDATE_ERROR,
     UPDATE_DOWNLOAD_PROGRESS,
     UPDATE_DOWNLOADED,
+    WINDOW_STATE_UPDATE,
 } from '../shared/ipcChannels';
 // Import IChatMessage along with other types
 import {
@@ -534,10 +533,6 @@ const api = {
     ipcRenderer.send(CLASSIC_BROWSER_REQUEST_FOCUS, windowId);
   },
   
-  // LEGACY: windowLifecycleStateChanged to be removed
-  windowLifecycleStateChanged: (windows: WindowMeta[]): void => {
-    ipcRenderer.send(WINDOW_LIFECYCLE_STATE_CHANGED, windows);
-  },
 
   // New method to subscribe to URL change events
   onClassicBrowserUrlChange: (callback: (data: { windowId: string; url: string; title: string | null }) => void): (() => void) => {
@@ -718,11 +713,6 @@ const api = {
     return () => ipcRenderer.removeListener(SHORTCUT_CLOSE_ACTIVE, listener);
   },
   
-  // LEGACY: Window Stack Synchronization to be removed
-  syncWindowStackOrder: (windowsInOrder: Array<{ id: string; isFrozen: boolean; isMinimized: boolean }>): Promise<{ success: boolean }> => {
-    console.log('[Preload Script] Syncing window stack order via IPC:', windowsInOrder.length, 'windows');
-    return ipcRenderer.invoke(SYNC_WINDOW_STACK_ORDER, windowsInOrder);
-  },
 
   // --- Browser Context Menu Operations ---
   browserContextMenu: {
@@ -816,6 +806,12 @@ const api = {
       ipcRenderer.on(UPDATE_DOWNLOADED, listener);
       return () => ipcRenderer.removeListener(UPDATE_DOWNLOADED, listener);
     },
+  },
+
+  // --- Window State Management ---
+  updateWindowState: (windows: WindowMeta[]): void => {
+    console.log('[Preload] Sending window state update:', windows.length, 'windows');
+    return ipcRenderer.send(WINDOW_STATE_UPDATE, windows);
   },
 
   // --- Debug Functions (Development Only) ---

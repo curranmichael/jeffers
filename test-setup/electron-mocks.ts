@@ -168,7 +168,6 @@ global.window.api = {
   // Shortcuts
   onShortcutMinimizeWindow: vi.fn(() => () => {}),
   onCloseActiveRequested: vi.fn(() => () => {}),
-  syncWindowStackOrder: vi.fn().mockResolvedValue({ success: true }), // LEGACY
   
   // To-Do
   createToDo: vi.fn().mockResolvedValue({ id: 'todo-1' }),
@@ -207,6 +206,16 @@ global.window.api = {
     onIngestionComplete: vi.fn(() => () => {})
   },
   
+  // Browser context menu
+  browserContextMenu: {
+    show: vi.fn().mockResolvedValue(undefined),
+    onShow: vi.fn(() => () => {}),
+    onHide: vi.fn(() => () => {}),
+    sendAction: vi.fn().mockResolvedValue(undefined),
+    notifyReady: vi.fn(),
+    notifyClosed: vi.fn(),
+  },
+  
   // Update
   update: {
     checkForUpdates: vi.fn().mockResolvedValue({ checking: false, updateAvailable: false }),
@@ -219,7 +228,10 @@ global.window.api = {
     onError: vi.fn(() => () => {}),
     onDownloadProgress: vi.fn(() => () => {}),
     onUpdateDownloaded: vi.fn(() => () => {})
-  }
+  },
+  
+  // Window State Management
+  updateWindowState: vi.fn()
 } as any;
 
 // Export mocks for test access

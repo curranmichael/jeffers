@@ -22,7 +22,6 @@ import { ClassicBrowserSnapshotService } from '../../services/browser/ClassicBro
 import { ClassicBrowserViewManager } from '../../services/browser/ClassicBrowserViewManager';
 import { BrowserEventBus } from '../../services/browser/BrowserEventBus';
 import { GlobalTabPool } from '../../services/browser/GlobalTabPool';
-import { WindowLifecycleService } from '../../services/browser/WindowLifecycleService'; // LEGACY
 import { SchedulerService } from '../../services/SchedulerService';
 import { ExaService } from '../../services/ExaService';
 import { ChatService } from '../../services/ChatService';
@@ -73,7 +72,6 @@ export interface ServiceRegistry {
   // Browser sub-services
   browserEventBus?: BrowserEventBus;
   globalTabPool?: GlobalTabPool;
-  windowLifecycleService?: WindowLifecycleService; // LEGACY
   classicBrowserState?: ClassicBrowserStateService;
   classicBrowserNavigation?: ClassicBrowserNavigationService;
   classicBrowserTab?: ClassicBrowserTabService;
@@ -513,14 +511,6 @@ export async function initializeServices(
       // Create BrowserEventBus service
       const browserEventBus = await createService('BrowserEventBus', BrowserEventBus, []);
       registry.browserEventBus = browserEventBus;
-      
-      // LEGACY - START: WindowLifecycleService to be removed
-      // Initialize WindowLifecycleService
-      const windowLifecycleService = await createService('WindowLifecycleService', WindowLifecycleService, [{
-        eventBus: browserEventBus
-      }]);
-      registry.windowLifecycleService = windowLifecycleService;
-      // LEGACY - END
       
       // Initialize ClassicBrowserStateService
       const stateService = await createService('ClassicBrowserStateService', ClassicBrowserStateService, [{
