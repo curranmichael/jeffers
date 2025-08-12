@@ -78,7 +78,7 @@ export function registerWindowStateHandler(
                   const currentState = stateService.getState(window.id);
                   if (currentState) {
                     logger.info('[WindowStateHandler] Snapshot captured, transitioning to FROZEN:', window.id);
-                    await stateService.setState(window.id, {
+                    stateService.setState(window.id, {
                       ...currentState,
                       freezeState: { 
                         type: 'FROZEN', 
@@ -91,7 +91,7 @@ export function registerWindowStateHandler(
                   // Revert to ACTIVE state on failure
                   const currentState = stateService.getState(window.id);
                   if (currentState) {
-                    await stateService.setState(window.id, {
+                    stateService.setState(window.id, {
                       ...currentState,
                       freezeState: { type: 'ACTIVE' }
                     });
@@ -103,7 +103,7 @@ export function registerWindowStateHandler(
               // Revert to ACTIVE state on error
               const currentState = stateService.getState(window.id);
               if (currentState) {
-                await stateService.setState(window.id, {
+                stateService.setState(window.id, {
                   ...currentState,
                   freezeState: { type: 'ACTIVE' }
                 });
@@ -120,7 +120,7 @@ export function registerWindowStateHandler(
           logger.info('[WindowStateHandler] Unfreezing window:', window.id);
           const currentState = stateService.getState(window.id);
           if (currentState) {
-            await stateService.setState(window.id, {
+            stateService.setState(window.id, {
               ...currentState,
               freezeState: { type: 'ACTIVE' }
             });
