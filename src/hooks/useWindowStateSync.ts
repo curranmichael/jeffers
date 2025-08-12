@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { StoreApi } from 'zustand';
-import { WindowStoreState } from '@/store/windowStore';
+import { WindowStoreState } from '../store/windowStoreFactory';
 
 /**
  * Hook that synchronizes window state from the renderer to the main process.
@@ -21,13 +21,10 @@ export function useWindowStateSync(store: StoreApi<WindowStoreState>) {
     window.api.updateWindowState(initialState.windows);
 
     // Subscribe to window state changes
-    const unsubscribe = store.subscribe(
-      (state) => state.windows,
-      (windows) => {
-        console.log('[WindowStateSync] Window state changed, sending update:', windows.length, 'windows');
-        window.api.updateWindowState(windows);
-      }
-    );
+    const unsubscribe = store.subscribe((state) => {
+      console.log('[WindowStateSync] Window state changed, sending update:', state.windows.length, 'windows');
+      window.api.updateWindowState(state.windows);
+    });
 
     return unsubscribe;
   }, [store]);

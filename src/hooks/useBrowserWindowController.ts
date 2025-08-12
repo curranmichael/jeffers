@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback } from 'react';
 import type { StoreApi } from 'zustand';
 import { logger } from '../../utils/logger';
 import type { WindowStoreState } from '../store/windowStoreFactory';
@@ -21,8 +21,6 @@ export function useBrowserWindowController(
   windowId: string,
   activeStore: StoreApi<WindowStoreState>
 ) {
-  // Lock to prevent concurrent operations (especially in React Strict Mode)
-  const operationInProgress = useRef<boolean>(false);
   // Helper to get current window metadata
   const getWindowMeta = useCallback((): WindowMeta | undefined => {
     return activeStore.getState().windows.find(w => w.id === windowId);
@@ -86,115 +84,8 @@ export function useBrowserWindowController(
     return unsubscribe;
   }, [windowId, activeStore, getWindowMeta, setBrowserFreezeState]);
 
-  // LEGACY - START: Complex state machine to be simplified
-  // Watch for state changes and trigger side effects
-  useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
-    let timeoutId: NodeJS.Timeout | undefined;
-    
-    // Wait for window.api to be available
-    const checkApi = () => {
-      if (!window.api) {
-        logger.warn(`[useBrowserWindowController] window.api not available yet for ${windowId}, retrying...`);
-        timeoutId = setTimeout(checkApi, 100);
-        return;
-      }
-      
-      // Capture the API reference
-      const api = window.api;
-      let previousFreezeState: BrowserFreezeState | undefined;
-      
-      unsubscribe = activeStore.subscribe(async (state) => {
-        const windowState = state.windows.find(w => w.id === windowId);
-        if (!windowState || windowState.type !== 'classic-browser') return;
-        
-        const payload = windowState.payload as ClassicBrowserPayload;
-        const freezeState = payload.freezeState;
-        
-        // Skip if freezeState is not defined
-        if (!freezeState) {
-          logger.warn(`[useBrowserWindowController] No freezeState for window ${windowId}`);
-          return;
-        }
-        
-        // Check if freeze state changed
-        if (previousFreezeState && freezeState.type !== previousFreezeState.type) {
-          logger.debug(`[useBrowserWindowController] Freeze state changed for ${windowId}: ${freezeState.type}`);
-          
-          // Check if an operation is already in progress
-          if (operationInProgress.current) {
-            logger.debug(`[useBrowserWindowController] Operation already in progress for ${windowId}, skipping duplicate`);
-            return;
-          }
-          
-          switch (freezeState.type) {
-            case 'CAPTURING':
-              // Lock before async operation
-              operationInProgress.current = true;
-              
-              // Set a timeout for the capture operation
-              const captureTimeout = setTimeout(() => {
-                if (operationInProgress.current) {
-                  logger.error(`[useBrowserWindowController] Capture timeout for ${windowId}`);
-                  setBrowserFreezeState({ type: 'ACTIVE' });
-                  operationInProgress.current = false;
-                }
-              }, CAPTURE_TIMEOUT_MS);
-              
-              // Capture the snapshot
-              try {
-                const snapshotUrl = await api.captureSnapshot(windowId);
-                clearTimeout(captureTimeout);
-                
-                if (snapshotUrl) {
-                  // Move to awaiting render state
-                  setBrowserFreezeState({ type: 'AWAITING_RENDER', snapshotUrl });
-                } else {
-                  // Capture failed, go back to active
-                  logger.error(`[useBrowserWindowController] Failed to capture snapshot for ${windowId}`);
-                  setBrowserFreezeState({ type: 'ACTIVE' });
-                }
-              } catch (error) {
-                clearTimeout(captureTimeout);
-                logger.error(`[useBrowserWindowController] Error capturing snapshot for ${windowId}:`, error);
-                setBrowserFreezeState({ type: 'ACTIVE' });
-              } finally {
-                // Always release the lock
-                operationInProgress.current = false;
-              }
-              break;
-              
-            case 'ACTIVE':
-              // Lock before async operation
-              operationInProgress.current = true;
-              
-              // Show and focus the view
-              try {
-                await api.showAndFocusView(windowId);
-              } catch (error) {
-                logger.error(`[useBrowserWindowController] Error showing view for ${windowId}:`, error);
-              } finally {
-                // Always release the lock
-                operationInProgress.current = false;
-              }
-              break;
-          }
-        }
-        
-        previousFreezeState = freezeState;
-      });
-    };
-    
-    // Start checking for API
-    checkApi();
-    
-    // Cleanup
-    return () => {
-      if (timeoutId) clearTimeout(timeoutId);
-      if (unsubscribe) unsubscribe();
-    };
-  }, [windowId, activeStore, setBrowserFreezeState]);
-  // LEGACY - END
+  // State machine logic removed - main process now handles freeze/unfreeze via windowStateHandler
+  // The renderer only updates state, and the main process reacts to those state changes
 
   // Callback for when the snapshot has been rendered
   const handleSnapshotLoaded = useCallback(() => {

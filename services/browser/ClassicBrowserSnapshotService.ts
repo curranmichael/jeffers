@@ -158,32 +158,23 @@ export class ClassicBrowserSnapshotService extends BaseService<ClassicBrowserSna
   }
 
   // Freeze/unfreeze methods for tab-pool architecture
+  // These methods are deprecated and only capture/store snapshots without mutating state
   async freezeWindow(windowId: string): Promise<string | null> {
     const result = await this.captureSnapshot(windowId);
     if (result) {
-      // LEGACY: State mutation to be removed - state should only be set by renderer
-      this.deps.stateService.setState(windowId, {
-        ...this.deps.stateService.getState(windowId)!,
-        freezeState: { type: 'FROZEN', snapshotUrl: result.snapshot }
-      });
-      this.logInfo(`Froze window ${windowId} with snapshot`);
+      // Only capture and return snapshot - state management handled by windowStateHandler
+      this.logInfo(`Captured snapshot for window ${windowId}`);
       return result.snapshot;
     } else {
-      this.logWarn(`Failed to freeze window ${windowId} - no snapshot captured`);
+      this.logWarn(`Failed to capture snapshot for window ${windowId}`);
       return null;
     }
   }
 
   async unfreezeWindow(windowId: string): Promise<void> {
-    const state = this.deps.stateService.getState(windowId);
-    if (state) {
-      // LEGACY: State mutation to be removed - state should only be set by renderer
-      this.deps.stateService.setState(windowId, {
-        ...state,
-        freezeState: { type: 'ACTIVE' }
-      });
-      this.logInfo(`Unfroze window ${windowId}`);
-    }
+    // No-op - state management handled by windowStateHandler
+    // Method kept for backward compatibility
+    this.logInfo(`unfreezeWindow called for ${windowId} (no-op)`);
   }
 
   /**

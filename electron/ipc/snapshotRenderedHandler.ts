@@ -18,14 +18,14 @@ export function registerSnapshotRenderedHandler(
     try {
       logger.debug(`[SnapshotRendered] Snapshot rendered confirmation for windowId: ${windowId}`);
       
-      // Get the frozen view and hide it now that the snapshot is visible
-      const frozenView = viewManager.getFrozenView(windowId);
-      if (frozenView) {
-        viewManager.setViewVisibility(frozenView, false);
+      // Get the view from the single map and hide it now that the snapshot is visible
+      const view = viewManager.getViewForWindow(windowId);
+      if (view) {
+        viewManager.setViewVisibility(view, false);
         logger.debug(`[SnapshotRendered] Hidden WebContentsView for windowId: ${windowId}`);
         return { success: true };
       } else {
-        logger.warn(`[SnapshotRendered] No frozen view found for windowId: ${windowId}`);
+        logger.warn(`[SnapshotRendered] No view found for windowId: ${windowId}`);
         return { success: false };
       }
     } catch (error) {
