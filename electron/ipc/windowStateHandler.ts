@@ -114,6 +114,18 @@ export function registerWindowStateHandler(
           }
         }
         
+        // Handle AWAITING_RENDER → FROZEN transition (renderer confirmed snapshot is rendered)
+        if (prevFreezeState === 'AWAITING_RENDER' && currentFreezeState === 'FROZEN') {
+          logger.info('[WindowStateHandler] Window marked as frozen after render:', window.id);
+          const currentState = stateService.getState(window.id);
+          if (currentState && window.payload?.freezeState) {
+            stateService.setState(window.id, {
+              ...currentState,
+              freezeState: window.payload.freezeState
+            });
+          }
+        }
+        
         // Handle FROZEN/AWAITING_RENDER/CAPTURING → ACTIVE transition (unfreeze)
         if ((prevFreezeState === 'FROZEN' || prevFreezeState === 'AWAITING_RENDER' || prevFreezeState === 'CAPTURING') && 
             currentFreezeState === 'ACTIVE') {
