@@ -39,8 +39,10 @@ export function registerWindowStateHandler(
       }
       
       // Minimize/restore
-      if (prev && prev.isMinimized !== window.isMinimized) {
-        if (window.isMinimized) {
+      const wasMinimized = prev?.isMinimized ?? false;
+      const isMinimized = window.isMinimized ?? false;
+      if (prev && wasMinimized !== isMinimized) {
+        if (isMinimized) {
           logger.debug('[WindowStateHandler] Window minimized:', window.id);
           eventBus.emit('window:minimized', { windowId: window.id });
         } else {
@@ -158,11 +160,11 @@ export function registerWindowStateHandler(
           windowId: w.id,
           zIndex: w.zIndex,
           isFocused: w.isFocused,
-          isMinimized: w.isMinimized
+          isMinimized: !!w.isMinimized
         }))
         .sort((a, b) => a.zIndex - b.zIndex);
         
-      eventBus.emit('window:z-order-update', orderedWindows);
+      eventBus.emit('window:z-order-update', { orderedWindows });
     }
   });
   

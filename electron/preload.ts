@@ -555,24 +555,37 @@ const api = {
     ipcRenderer.send(CLASSIC_BROWSER_SET_BACKGROUND_COLOR, windowId, color);
   },
 
-  // Capture snapshot and show/focus browser views
+  /**
+   * Captures a snapshot of the browser view without freezing it.
+   * Note: After the window state refactor, this only captures an image and does not
+   * change the freeze state. Freeze state is now managed through the unified
+   * window state update flow.
+   * @deprecated Direct usage discouraged - freeze/unfreeze is now handled automatically
+   * through window state updates
+   */
   captureSnapshot: (windowId: string): Promise<string | null> => {
     console.log(`[Preload Script] Invoking ${BROWSER_FREEZE_VIEW} for windowId: ${windowId}`);
     return ipcRenderer.invoke(BROWSER_FREEZE_VIEW, windowId);
   },
 
+  /**
+   * No-op method kept for backward compatibility.
+   * Note: After the window state refactor, unfreezing is handled automatically
+   * through the unified window state update flow when freezeState changes to ACTIVE.
+   * @deprecated Direct usage discouraged - handled automatically through window state
+   */
   showAndFocusView: (windowId: string): Promise<void> => {
     console.log(`[Preload Script] Invoking ${BROWSER_UNFREEZE_VIEW} for windowId: ${windowId}`);
     return ipcRenderer.invoke(BROWSER_UNFREEZE_VIEW, windowId);
   },
 
-  // @deprecated Use captureSnapshot instead
+  // @deprecated Use captureSnapshot instead (though direct usage is discouraged)
   freezeBrowserView: (windowId: string): Promise<string | null> => {
     console.log(`[Preload Script] Invoking ${BROWSER_FREEZE_VIEW} for windowId: ${windowId} (deprecated, use captureSnapshot)`);
     return ipcRenderer.invoke(BROWSER_FREEZE_VIEW, windowId);
   },
 
-  // @deprecated Use showAndFocusView instead  
+  // @deprecated Use showAndFocusView instead (though direct usage is discouraged)
   unfreezeBrowserView: (windowId: string): Promise<void> => {
     console.log(`[Preload Script] Invoking ${BROWSER_UNFREEZE_VIEW} for windowId: ${windowId} (deprecated, use showAndFocusView)`);
     return ipcRenderer.invoke(BROWSER_UNFREEZE_VIEW, windowId);
