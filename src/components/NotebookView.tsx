@@ -616,16 +616,17 @@ function NotebookWorkspace({ notebookId }: { notebookId: string }) {
             tabs: update.update.tabs || [],
             activeTabId: update.update.activeTabId || '',
             tabGroupTitle: update.update.tabGroupTitle !== undefined ? update.update.tabGroupTitle : currentPayload.tabGroupTitle,
-            // Preserve freezeState if it exists, otherwise default to ACTIVE
-            freezeState: currentPayload.freezeState || { type: 'ACTIVE' }
+            // Use freezeState from update if provided, otherwise preserve current
+            freezeState: update.update.freezeState !== undefined ? update.update.freezeState : (currentPayload.freezeState || { type: 'ACTIVE' })
           };
 
           // Check if the payload has actually changed
           const hasTabsChanged = JSON.stringify(currentPayload.tabs) !== JSON.stringify(newPayload.tabs);
           const hasActiveTabChanged = currentPayload.activeTabId !== newPayload.activeTabId;
           const hasTabGroupTitleChanged = currentPayload.tabGroupTitle !== newPayload.tabGroupTitle;
+          const hasFreezeStateChanged = JSON.stringify(currentPayload.freezeState) !== JSON.stringify(newPayload.freezeState);
           
-          if (!hasTabsChanged && !hasActiveTabChanged && !hasTabGroupTitleChanged) {
+          if (!hasTabsChanged && !hasActiveTabChanged && !hasTabGroupTitleChanged && !hasFreezeStateChanged) {
             console.log(`[NotebookWorkspace] Skipping redundant state update for window ${update.windowId} - no changes detected`);
             return;
           }

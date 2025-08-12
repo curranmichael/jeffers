@@ -32,7 +32,7 @@ export class ClassicBrowserSnapshotService extends BaseService<ClassicBrowserSna
     }
 
     const tabId = browserState.activeTabId;
-    const view = this.deps.viewManager.getView(tabId);
+    const view = this.deps.viewManager.getViewForWindow(windowId);
     
     // If view is not in pool, try to get cached snapshot
     if (!view) {
