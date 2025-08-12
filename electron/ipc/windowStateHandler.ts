@@ -114,8 +114,8 @@ export function registerWindowStateHandler(
           }
         }
         
-        // Handle FROZEN/CAPTURING/AWAITING_RENDER → ACTIVE transition (unfreeze)
-        if ((prevFreezeState === 'FROZEN' || prevFreezeState === 'CAPTURING' || prevFreezeState === 'AWAITING_RENDER') && 
+        // Handle FROZEN/AWAITING_RENDER/CAPTURING → ACTIVE transition (unfreeze)
+        if ((prevFreezeState === 'FROZEN' || prevFreezeState === 'AWAITING_RENDER' || prevFreezeState === 'CAPTURING') && 
             currentFreezeState === 'ACTIVE') {
           logger.info('[WindowStateHandler] Unfreezing window:', window.id);
           const currentState = stateService.getState(window.id);

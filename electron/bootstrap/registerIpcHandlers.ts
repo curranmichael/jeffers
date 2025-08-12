@@ -242,12 +242,12 @@ export function registerAllIpcHandlers(
   }
   
   // Register Window State Handler (replaces WindowLifecycleService and syncWindowStackOrder)
-  if (serviceRegistry.browserEventBus && serviceRegistry.classicBrowserSnapshot && serviceRegistry.classicBrowserStateService) {
+  if (serviceRegistry.browserEventBus && serviceRegistry.classicBrowserSnapshot && serviceRegistry.classicBrowserState) {
     registerWindowStateHandler(
       ipcMain,
       serviceRegistry.browserEventBus,
       serviceRegistry.classicBrowserSnapshot,
-      serviceRegistry.classicBrowserStateService as ClassicBrowserStateService
+      serviceRegistry.classicBrowserState as ClassicBrowserStateService
     );
     logger.info('[IPC] WindowStateUpdate handler registered.');
   } else {
