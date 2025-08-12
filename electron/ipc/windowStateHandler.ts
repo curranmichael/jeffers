@@ -77,11 +77,11 @@ export function registerWindowStateHandler(
                 if (snapshot) {
                   const currentState = stateService.getState(window.id);
                   if (currentState) {
-                    logger.info('[WindowStateHandler] Snapshot captured, transitioning to FROZEN:', window.id);
+                    logger.info('[WindowStateHandler] Snapshot captured, transitioning to AWAITING_RENDER:', window.id);
                     stateService.setState(window.id, {
                       ...currentState,
                       freezeState: { 
-                        type: 'FROZEN', 
+                        type: 'AWAITING_RENDER', 
                         snapshotUrl: snapshot.snapshot 
                       }
                     });
@@ -114,8 +114,8 @@ export function registerWindowStateHandler(
           }
         }
         
-        // Handle FROZEN/CAPTURING → ACTIVE transition (unfreeze)
-        if ((prevFreezeState === 'FROZEN' || prevFreezeState === 'CAPTURING') && 
+        // Handle FROZEN/CAPTURING/AWAITING_RENDER → ACTIVE transition (unfreeze)
+        if ((prevFreezeState === 'FROZEN' || prevFreezeState === 'CAPTURING' || prevFreezeState === 'AWAITING_RENDER') && 
             currentFreezeState === 'ACTIVE') {
           logger.info('[WindowStateHandler] Unfreezing window:', window.id);
           const currentState = stateService.getState(window.id);
