@@ -78,7 +78,6 @@ export function createMockWindowApi(): IAppAPI {
     onClassicBrowserViewFocused: vi.fn().mockReturnValue(() => {}),
     onClassicBrowserUrlChange: vi.fn().mockReturnValue(() => {}),
     classicBrowserRequestFocus: vi.fn().mockResolvedValue(undefined),
-    windowLifecycleStateChanged: vi.fn(),
     
     // Chat methods
     createChatInNotebook: vi.fn().mockResolvedValue({ id: 'chat-1', notebookId: 'nb-1', title: 'Test Chat', created_at: new Date().toISOString(), updated_at: new Date().toISOString() }),
@@ -148,7 +147,6 @@ export function createMockWindowApi(): IAppAPI {
     // Shortcuts
     onShortcutMinimizeWindow: vi.fn().mockReturnValue(() => {}),
     onCloseActiveRequested: vi.fn().mockReturnValue(() => {}),
-    syncWindowStackOrder: vi.fn().mockResolvedValue({ success: true }),
     
     // To-Do
     createToDo: vi.fn().mockResolvedValue({ id: 'todo-1', title: '', description: null, is_completed: false, user_id: 'user-1', created_at: new Date().toISOString(), updated_at: new Date().toISOString() }),
@@ -174,7 +172,10 @@ export function createMockWindowApi(): IAppAPI {
       onError: vi.fn().mockReturnValue(() => {}),
       onDownloadProgress: vi.fn().mockReturnValue(() => {}),
       onUpdateDownloaded: vi.fn().mockReturnValue(() => {})
-    }
+    },
+    
+    // Window State Management
+    updateWindowState: vi.fn()
   };
 }
 

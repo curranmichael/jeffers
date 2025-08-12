@@ -441,9 +441,6 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
     this.deps.viewManager.hideContextMenuOverlay(windowId);
   }
 
-  public syncViewStackingOrder(orderedWindows: Array<{ id: string; isFrozen: boolean; isMinimized: boolean }>): void {
-    this.deps.viewManager.handleZOrderUpdate({ orderedWindows: orderedWindows.map(w => ({ windowId: w.id, zIndex: 0, isFocused: false, isMinimized: w.isMinimized })) });
-  }
 
   public showAndFocusView(windowId: string): void {
     const activeTabId = this.deps.stateService.getState(windowId)?.activeTabId;

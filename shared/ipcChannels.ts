@@ -171,8 +171,6 @@ export const CLASSIC_BROWSER_VIEW_FOCUSED = 'classic-browser-view-focused';
 // Added for Renderer to request main process to focus a view
 export const CLASSIC_BROWSER_REQUEST_FOCUS = 'classic-browser-request-focus';
 
-// Window lifecycle management
-export const WINDOW_LIFECYCLE_STATE_CHANGED = 'window-lifecycle-state-changed';
 
 // Main -> Renderer: Notify when a classic browser window navigates to a new URL
 export const ON_CLASSIC_BROWSER_URL_CHANGE = 'on-classic-browser-url-change';
@@ -246,9 +244,6 @@ export const ON_MAIN_REQUEST_FLUSH = 'main:request-flush';
 export const SHORTCUT_MINIMIZE_WINDOW = 'shortcut:minimize-window';
 export const SHORTCUT_CLOSE_ACTIVE = 'shortcut:close-active';
 
-// Window Stack Synchronization
-/** Renderer -> Main: Sync the stacking order of WebContentsViews to match window z-indices */
-export const SYNC_WINDOW_STACK_ORDER = 'window:sync-stack-order';
 
 // --- Audio Transcription ---
 /** Renderer -> Main: Transcribe audio blob using OpenAI Whisper. */
@@ -310,3 +305,7 @@ export const BROWSER_CONTEXT_MENU_ACTION = 'browser:context-menu:action';
 export const OVERLAY_READY = 'overlay:ready';
 /** Renderer -> Main: Notify that overlay menu has closed. */
 export const OVERLAY_MENU_CLOSED = 'overlay:menu-closed';
+
+// --- Window State Management ---
+/** Renderer -> Main: Update window state for all windows (replaces lifecycle and stack sync). */
+export const WINDOW_STATE_UPDATE = 'window:state-update';

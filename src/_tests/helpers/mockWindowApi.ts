@@ -106,7 +106,6 @@ export function createMockWindowApi(): IAppAPI {
     onClassicBrowserState: vi.fn().mockReturnValue(() => {}),
     onClassicBrowserViewFocused: vi.fn().mockReturnValue(() => {}),
     classicBrowserRequestFocus: vi.fn(),
-    windowLifecycleStateChanged: vi.fn(),
     confirmSnapshotRendered: vi.fn(),
     onClassicBrowserUrlChange: vi.fn().mockReturnValue(() => {}),
     captureSnapshot: vi.fn().mockResolvedValue(null),
@@ -131,7 +130,6 @@ export function createMockWindowApi(): IAppAPI {
     // Window management
     onShortcutMinimizeWindow: vi.fn().mockReturnValue(() => {}),
     onCloseActiveRequested: vi.fn().mockReturnValue(() => {}),
-    syncWindowStackOrder: vi.fn().mockResolvedValue({ success: true }),
     
     // Todo operations
     createToDo: vi.fn().mockResolvedValue({
@@ -196,6 +194,9 @@ export function createMockWindowApi(): IAppAPI {
       onDownloadProgress: vi.fn().mockReturnValue(() => {}),
       onUpdateDownloaded: vi.fn().mockReturnValue(() => {}),
     },
+    
+    // Window State Management
+    updateWindowState: vi.fn(),
   };
 }
 

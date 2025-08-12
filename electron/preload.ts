@@ -62,7 +62,6 @@ import {
     CLASSIC_BROWSER_GET_STATE, // Get browser state
     CLASSIC_BROWSER_VIEW_FOCUSED, // Import the new channel
     CLASSIC_BROWSER_REQUEST_FOCUS, // Import the new channel
-    WINDOW_LIFECYCLE_STATE_CHANGED,
     ON_CLASSIC_BROWSER_URL_CHANGE, // Import the new URL change channel
     BROWSER_FREEZE_VIEW, // Import freeze channel
     BROWSER_UNFREEZE_VIEW, // Import unfreeze channel
@@ -97,7 +96,6 @@ import {
     NOTE_DELETE,
     SHORTCUT_MINIMIZE_WINDOW,
     SHORTCUT_CLOSE_ACTIVE,
-    SYNC_WINDOW_STACK_ORDER,
     AUDIO_TRANSCRIBE,
     // WOM channels
     WOM_INGESTION_STARTED,
@@ -120,6 +118,7 @@ import {
     UPDATE_ERROR,
     UPDATE_DOWNLOAD_PROGRESS,
     UPDATE_DOWNLOADED,
+    WINDOW_STATE_UPDATE,
 } from '../shared/ipcChannels';
 // Import IChatMessage along with other types
 import {
@@ -534,9 +533,6 @@ const api = {
     ipcRenderer.send(CLASSIC_BROWSER_REQUEST_FOCUS, windowId);
   },
   
-  windowLifecycleStateChanged: (windows: WindowMeta[]): void => {
-    ipcRenderer.send(WINDOW_LIFECYCLE_STATE_CHANGED, windows);
-  },
 
   // New method to subscribe to URL change events
   onClassicBrowserUrlChange: (callback: (data: { windowId: string; url: string; title: string | null }) => void): (() => void) => {
@@ -559,24 +555,37 @@ const api = {
     ipcRenderer.send(CLASSIC_BROWSER_SET_BACKGROUND_COLOR, windowId, color);
   },
 
-  // Capture snapshot and show/focus browser views
+  /**
+   * Captures a snapshot of the browser view without freezing it.
+   * Note: After the window state refactor, this only captures an image and does not
+   * change the freeze state. Freeze state is now managed through the unified
+   * window state update flow.
+   * @deprecated Direct usage discouraged - freeze/unfreeze is now handled automatically
+   * through window state updates
+   */
   captureSnapshot: (windowId: string): Promise<string | null> => {
     console.log(`[Preload Script] Invoking ${BROWSER_FREEZE_VIEW} for windowId: ${windowId}`);
     return ipcRenderer.invoke(BROWSER_FREEZE_VIEW, windowId);
   },
 
+  /**
+   * No-op method kept for backward compatibility.
+   * Note: After the window state refactor, unfreezing is handled automatically
+   * through the unified window state update flow when freezeState changes to ACTIVE.
+   * @deprecated Direct usage discouraged - handled automatically through window state
+   */
   showAndFocusView: (windowId: string): Promise<void> => {
     console.log(`[Preload Script] Invoking ${BROWSER_UNFREEZE_VIEW} for windowId: ${windowId}`);
     return ipcRenderer.invoke(BROWSER_UNFREEZE_VIEW, windowId);
   },
 
-  // @deprecated Use captureSnapshot instead
+  // @deprecated Use captureSnapshot instead (though direct usage is discouraged)
   freezeBrowserView: (windowId: string): Promise<string | null> => {
     console.log(`[Preload Script] Invoking ${BROWSER_FREEZE_VIEW} for windowId: ${windowId} (deprecated, use captureSnapshot)`);
     return ipcRenderer.invoke(BROWSER_FREEZE_VIEW, windowId);
   },
 
-  // @deprecated Use showAndFocusView instead  
+  // @deprecated Use showAndFocusView instead (though direct usage is discouraged)
   unfreezeBrowserView: (windowId: string): Promise<void> => {
     console.log(`[Preload Script] Invoking ${BROWSER_UNFREEZE_VIEW} for windowId: ${windowId} (deprecated, use showAndFocusView)`);
     return ipcRenderer.invoke(BROWSER_UNFREEZE_VIEW, windowId);
@@ -717,11 +726,6 @@ const api = {
     return () => ipcRenderer.removeListener(SHORTCUT_CLOSE_ACTIVE, listener);
   },
   
-  // --- Window Stack Synchronization ---
-  syncWindowStackOrder: (windowsInOrder: Array<{ id: string; isFrozen: boolean; isMinimized: boolean }>): Promise<{ success: boolean }> => {
-    console.log('[Preload Script] Syncing window stack order via IPC:', windowsInOrder.length, 'windows');
-    return ipcRenderer.invoke(SYNC_WINDOW_STACK_ORDER, windowsInOrder);
-  },
 
   // --- Browser Context Menu Operations ---
   browserContextMenu: {
@@ -815,6 +819,12 @@ const api = {
       ipcRenderer.on(UPDATE_DOWNLOADED, listener);
       return () => ipcRenderer.removeListener(UPDATE_DOWNLOADED, listener);
     },
+  },
+
+  // --- Window State Management ---
+  updateWindowState: (windows: WindowMeta[]): void => {
+    console.log('[Preload] Sending window state update:', windows.length, 'windows');
+    return ipcRenderer.send(WINDOW_STATE_UPDATE, windows);
   },
 
   // --- Debug Functions (Development Only) ---

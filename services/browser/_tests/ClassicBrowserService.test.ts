@@ -146,7 +146,6 @@ describe('ClassicBrowserService', () => {
       setBounds: vi.fn(),
       setVisibility: vi.fn(),
       setBackgroundColor: vi.fn(),
-      syncViewStackingOrder: vi.fn(),
       getActiveViewWindowIds: vi.fn().mockReturnValue([]),
       destroyBrowserView: vi.fn().mockResolvedValue(undefined),
       destroyAllBrowserViews: vi.fn().mockResolvedValue(undefined),
@@ -359,17 +358,6 @@ describe('ClassicBrowserService', () => {
     });
   });
 
-  describe('Z-Order Management', () => {
-    it('should sync view stacking order', () => {
-      const stackingOrder = [
-        { id: 'window-1', isFrozen: false, isMinimized: false },
-        { id: 'window-2', isFrozen: false, isMinimized: false }
-      ];
-      
-      service.syncViewStackingOrder(stackingOrder);
-      expect(viewManager.syncViewStackingOrder).toHaveBeenCalledWith(stackingOrder);
-    });
-  });
 
   describe('Error Handling', () => {
     it('should handle operations on non-existent windows', async () => {

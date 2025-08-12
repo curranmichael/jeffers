@@ -129,6 +129,8 @@ export interface ClassicBrowserStateUpdate {
     tabs?: TabState[];
     /** Update the tab group title. */
     tabGroupTitle?: string;
+    /** Update the freeze state. */
+    freezeState?: BrowserFreezeState;
   };
 }
 

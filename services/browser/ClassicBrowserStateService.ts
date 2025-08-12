@@ -109,7 +109,16 @@ export class ClassicBrowserStateService extends BaseService<ClassicBrowserStateS
       if (this.deps.mainWindow && !this.deps.mainWindow.isDestroyed()) {
         const currentState = this.getState(windowId);
         if (currentState) {
-          this.deps.mainWindow.webContents.send(ON_CLASSIC_BROWSER_STATE, { windowId, update: currentState });
+          // Send the full state including freezeState
+          this.deps.mainWindow.webContents.send(ON_CLASSIC_BROWSER_STATE, { 
+            windowId, 
+            update: {
+              tabs: currentState.tabs,
+              activeTabId: currentState.activeTabId,
+              tabGroupTitle: currentState.tabGroupTitle,
+              freezeState: currentState.freezeState
+            }
+          });
         }
       }
       this.pendingStateEmissions.delete(windowId);

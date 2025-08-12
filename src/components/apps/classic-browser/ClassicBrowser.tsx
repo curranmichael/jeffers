@@ -338,7 +338,7 @@ const ClassicBrowserViewWrapperComponent: React.FC<ClassicBrowserContentProps> =
               initialUrl: currentPayload?.initialUrl || update.update.tabs.find(t => t.id === update.update.activeTabId)?.url || 'about:blank',
               tabs: update.update.tabs,
               activeTabId: update.update.activeTabId,
-              freezeState: currentPayload?.freezeState || { type: 'ACTIVE' } // Preserve existing freeze state or default to ACTIVE
+              freezeState: update.update.freezeState || currentPayload?.freezeState || { type: 'ACTIVE' } // Use freezeState from update if provided, otherwise preserve existing or default to ACTIVE
             };
             
             updateWindowProps(windowId, {
