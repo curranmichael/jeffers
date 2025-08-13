@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useHashRouter } from "@/hooks/useHashRouter";
 import { useWindowStateSync } from "@/hooks/useWindowStateSync";
 import type { StoreApi } from "zustand";
@@ -420,22 +420,6 @@ function NotebookWorkspace({ notebookId }: { notebookId: string }) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [windows, activeStore, setIsIntentLineVisible]);
   
-  // Create a stable key representing the window order and states
-  const windowOrderKey = useMemo(() => {
-    return windows
-      .slice() // Don't mutate original
-      .sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0))
-      .map(w => {
-        // Determine freeze state for classic-browser windows
-        let freezeState = 'ACTIVE';
-        if (w.type === 'classic-browser') {
-          const payload = w.payload as ClassicBrowserPayload;
-          freezeState = payload.freezeState?.type || 'ACTIVE';
-        }
-        return `${w.id}:${w.zIndex || 0}:${freezeState}:${!!w.isMinimized}`;
-      })
-      .join('|');
-  }, [windows]);
   
 
   // Global shortcut handler for minimizing window
@@ -530,7 +514,6 @@ function NotebookWorkspace({ notebookId }: { notebookId: string }) {
         console.log(`[NotebookWorkspace] Unmounting notebook ${notebookId}. Windows will be persisted.`);
       };
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [notebookId, isHydrated, loadStartTime, windows.length]);
 
   // Effect for handling window close/unload and main process flush requests
