@@ -32,6 +32,7 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
   private preservedState: Map<string, Partial<TabState>> = new Map();
   private tabToWindowMapping: Map<string, string> = new Map(); // tabId -> windowId
   private eventHandlerCleanups: Map<string, () => void> = new Map(); // tabId -> cleanup function
+  private destroyingViews = new Set<string>(); // Track views being destroyed
   private readonly MAX_POOL_SIZE = 5;
 
   constructor(deps: GlobalTabPoolDeps) {
@@ -51,6 +52,11 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
   public async acquireView(tabId: string, windowId: string): Promise<ExtendedWebContentsView> {
     return this.execute('acquireView', async () => {
       this.logInfo(`[ACQUIRE VIEW] Starting acquisition for Tab ${tabId}, Window ${windowId}`);
+      
+      // Check if tab is being destroyed
+      if (this.destroyingViews.has(tabId)) {
+        throw new Error(`Tab ${tabId} is being destroyed, cannot acquire`);
+      }
       
       // Check if already in pool first
       if (this.pool.has(tabId)) {
@@ -273,10 +279,15 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
 
     // Store cleanup function
     this.eventHandlerCleanups.set(tabId, () => {
-      webContents.removeAllListeners();
-      // Clear the window open handler by removing it
-      webContents.setWindowOpenHandler(() => {
-        return { action: 'deny' };
+      // Defer cleanup to allow event queue to drain
+      setImmediate(() => {
+        if (!webContents.isDestroyed()) {
+          webContents.removeAllListeners();
+          // Clear the window open handler by removing it
+          webContents.setWindowOpenHandler(() => {
+            return { action: 'deny' };
+          });
+        }
       });
     });
 
@@ -290,6 +301,9 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
   private createEventHandlers(tabId: string, windowId: string) {
     return {
       'did-start-loading': () => {
+        const view = this.pool.get(tabId);
+        if (view?.webContents?.isDestroyed()) return; // Safety check
+        
         this.logInfo(`[PAGE LOADING] Tab ${tabId} started loading`);
         this.deps.eventBus.emit('view:did-start-loading', { tabId, windowId });
       },
@@ -318,6 +332,9 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
         }
       },
       'did-navigate': (event: Event, url: string, httpResponseCode?: number, httpStatusText?: string) => {
+        const view = this.pool.get(tabId);
+        if (view?.webContents?.isDestroyed()) return; // Safety check
+        
         this.logInfo(`[NAVIGATION] Tab ${tabId} navigated to: ${url} (HTTP ${httpResponseCode} ${httpStatusText || ''})`);
         
         // Update preserved state with new URL
@@ -326,13 +343,15 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
         this.logInfo(`[URL UPDATED] Tab ${tabId} URL state updated to: ${url}`);
         
         // Get the view to access webContents for title
-        const view = this.pool.get(tabId);
         if (view && !view.webContents.isDestroyed()) {
           const title = view.webContents.getTitle() || currentState.title || 'Untitled';
           this.deps.eventBus.emit('view:did-navigate', { windowId, url, title, tabId });
         }
       },
       'did-navigate-in-page': (event: Event, url: string, isMainFrame: boolean) => {
+        const view = this.pool.get(tabId);
+        if (view?.webContents?.isDestroyed()) return; // Safety check
+        
         if (isMainFrame) {
           this.logInfo(`[IN-PAGE NAV] Tab ${tabId} navigated in-page to: ${url}`);
           // Update preserved state for in-page navigation too
@@ -341,6 +360,9 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
         }
       },
       'page-title-updated': (event: Event, title: string) => {
+        const view = this.pool.get(tabId);
+        if (view?.webContents?.isDestroyed()) return; // Safety check
+        
         // Update preserved state with new title
         const currentState = this.preservedState.get(tabId) || {};
         this.preservedState.set(tabId, { ...currentState, title });
@@ -349,6 +371,9 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
         this.deps.eventBus.emit('view:page-title-updated', { windowId, title, tabId });
       },
       'page-favicon-updated': (event: Event, favicons: string[]) => {
+        const view = this.pool.get(tabId);
+        if (view?.webContents?.isDestroyed()) return; // Safety check
+        
         // Update preserved state with new favicon
         const faviconUrl = favicons.length > 0 ? favicons[0] : null;
         const currentState = this.preservedState.get(tabId) || {};
@@ -358,21 +383,31 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
         this.deps.eventBus.emit('view:page-favicon-updated', { windowId, faviconUrl: favicons, tabId });
       },
       'did-fail-load': (event: Event, errorCode: number, errorDescription: string, validatedURL: string, isMainFrame: boolean) => {
+        const view = this.pool.get(tabId);
+        if (view?.webContents?.isDestroyed()) return; // Safety check
+        
         if (isMainFrame) {
           this.logError(`[LOAD FAILED] Tab ${tabId} failed to load ${validatedURL}: ${errorDescription} (Error Code: ${errorCode})`);
         }
       },
       'focus': () => {
+        const view = this.pool.get(tabId);
+        if (view?.webContents?.isDestroyed()) return; // Safety check
+        
         this.logDebug(`Tab ${tabId} gained focus`);
       },
       'blur': () => {
+        const view = this.pool.get(tabId);
+        if (view?.webContents?.isDestroyed()) return; // Safety check
+        
         this.logDebug(`Tab ${tabId} lost focus`);
       },
       'context-menu': (event: Event, params: Electron.ContextMenuParams) => {
+        const view = this.pool.get(tabId);
+        if (view?.webContents?.isDestroyed()) return; // Safety check
+        
         this.logDebug(`Tab ${tabId} context menu requested at (${params.x}, ${params.y})`);
         
-        // Get the view for bounds
-        const view = this.pool.get(tabId);
         if (view) {
           const viewBounds = view.getBounds();
           
@@ -396,6 +431,9 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
     if (wc && !wc.isDestroyed()) {
       const tabId = view._tabId;
       if (tabId) {
+        // Mark as destroying to prevent new operations
+        this.destroyingViews.add(tabId);
+        
         // TODO: Enhance state preservation.
         // For now, we only preserve the URL. Later, we can add:
         // - Scroll position: `await wc.executeJavaScript(...)`
@@ -403,17 +441,23 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
         this.preservedState.set(tabId, { url: wc.getURL() });
       }
 
-      // Clean up event listeners before destroying
-      wc.removeAllListeners();
+      // Phase 1: Stop new operations
       wc.setAudioMuted(true);
       wc.stop();
       
-      // Destroy the view itself (which will destroy the WebContents)
-      try {
-        (view as ExtendedWebContentsView).destroy?.();
-      } catch {
-        // View already destroyed or destroy method not available
-      }
+      // Phase 2: Defer cleanup to allow queued events to complete
+      setImmediate(() => {
+        if (!wc.isDestroyed()) {
+          wc.removeAllListeners();
+          // Use close() instead of destroy() for graceful shutdown
+          wc.close();
+        }
+        
+        // Clean up the destroying state after cleanup is complete
+        if (tabId) {
+          this.destroyingViews.delete(tabId);
+        }
+      });
     }
   }
 
@@ -434,17 +478,20 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
     try {
       const wc = view.webContents;
       if (wc && !wc.isDestroyed()) {
-        // Clean up event listeners
-        wc.removeAllListeners();
+        // Stop new operations immediately
         wc.setAudioMuted(true);
         wc.stop();
+
+        // Defer cleanup to allow event queue to drain
+        setImmediate(() => {
+          if (!wc.isDestroyed()) {
+            wc.removeAllListeners();
+            wc.close(); // Use official API
+          }
+        });
       }
-      
-      // Destroy the view itself
-      (view as ExtendedWebContentsView).destroy?.();
     } catch {
       // Silent fail - we're already in error recovery
-      // Log for debugging but don't throw
       this.logDebug(`Failed to destroy view during error recovery`);
     }
   }
