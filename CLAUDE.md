@@ -266,7 +266,7 @@ abstract class BaseService<TDeps = {}> {
 - Clear dependency graph for testing and maintenance
 
 #### Composition Root
-All services are instantiated through the bootstrap system (`/electron/bootstrap/serviceBootstrap.ts`), which creates a `ServiceRegistry` that manages dependencies and ensures proper initialization order. The registry contains core services (e.g., `ActivityLogService`, `ProfileService`), feature services (e.g., `ChatService`, `NotebookService`), and browser services (e.g., `ClassicBrowserService`).
+All services are instantiated through the bootstrap system (`/electron/bootstrap/serviceBootstrap.ts`), which creates a `ServiceRegistry` that manages dependencies and ensures proper initialization order.
 
 #### Service Lifecycle Management
 Services implement lifecycle hooks for proper resource management:
@@ -389,7 +389,7 @@ Provides LangChain tools for AI agents:
 ## Code Conventions
 
 ### Naming Conventions
-- **Models**: `*Model` (e.g., `ChatModel`, `ObjectModel`, `ChunkModel`)
+- **Models**: `*Model` (e.g., `ChatModel`, `ObjectModelCore`, `ChunkModel`)
 - **Services**: `*Service` (e.g., `ChatService`, `SliceService`, `IngestionQueueService`)
 - **Workers**: `*Worker` (e.g., `UrlIngestionWorker`, `PdfIngestionWorker`)
 - **IPC Handlers**: `register*Handler` functions
@@ -402,18 +402,8 @@ Provides LangChain tools for AI agents:
 ```
 /electron/              # Electron main process
   /bootstrap/          # Application bootstrap
-    initServices.ts    # Service composition root
-  /ipc/                # IPC handlers (register*Handler pattern)
-    activityLogHandlers.ts
-    bookmarks.ts
-    chatSessionHandlers.ts
-    chatStreamHandler.ts
-    classicBrowser*.ts # Browser control handlers
-    debugHandlers.ts
-    notebookHandlers.ts
-    objectHandlers.ts
-    pdfIngestionHandler.ts
-    ...
+    serviceBootstrap.ts # Service composition root  
+  /ipc/                # IPC handlers (40+ handlers)
   /workers/            # Background workers
   main.ts              # Entry point
 
@@ -422,96 +412,34 @@ Provides LangChain tools for AI agents:
   /components/         # React components
     /ui/               # Reusable UI components
     /apps/             # Feature-specific components
-      /chat/
-      /classic-browser/
-      /web-layer/
   /hooks/              # Custom React hooks
   /store/              # Zustand stores
 
 /models/               # Data models (SQLite)
   /migrations/         # SQL migration files (5 migrations: 0000-0004)
-  ActivityLogModel.ts
-  ChatModel.ts
-  LanceVectorModel.ts
-  ChunkModel.ts
-  EmbeddingModel.ts
-  IngestionJobModel.ts
-  NotebookModel.ts
-  ObjectModel.ts
-  ToDoModel.ts
-  UserProfileModel.ts
+  ObjectModelCore.ts   # Core object model
+  NoteModel.ts
+  ObjectAssociationModel.ts
+  ObjectCognitiveModel.ts
+  BaseModel.ts
+  # ... 13 models total
 
 /services/             # Business logic
-  /_tests/             # Service tests
-    ProfileService.spec.ts
   /base/               # Base service infrastructure
-    BaseService.ts     # Abstract base service class
-    ServiceError.ts    # Custom error types
   /interfaces/         # Service interfaces
-    index.ts           # IService and dependency types
-  /agents/             # AI agents
+  /agents/             # AI agents (LLMClient, ConversationService, etc.)
     /tools/            # Agent tools
+  /browser/            # Browser services (ClassicBrowserService + sub-services)
   /ingestion/          # Ingestion services
-    BaseIngestionWorker.ts
-    ChunkingService.ts
-    IngestionAIService.ts
-    IngestionQueueService.ts
-    PdfIngestionService.ts
-    PdfIngestionWorker.ts
-    UrlIngestionWorker.ts
-  ActivityLogService.ts
-  AgentService.ts
-  CanaryService.ts      # Test service for validating base infrastructure
-  ChatService.ts
-  ClassicBrowserService.ts
-  ExaService.ts
-  HybridSearchService.ts
-  IntentService.ts
-  NotebookService.ts
-  ProfileService.ts
-  SchedulerService.ts
-  SearchResultFormatter.ts
-  SliceService.ts
-  ToDoService.ts
+  # ... 25+ services total
 
 /shared/               # Shared between main/renderer
   /schemas/            # Data validation schemas
   /types/              # Domain-based type definitions
-    index.ts           # Central export point
-    api.types.ts       # API-related types
-    chat.types.ts      # Chat domain types
-    chunk.types.ts     # Chunk-related types
-    ingestion.types.ts # Ingestion types
-    intent.types.ts    # Intent classification types
-    notebook.types.ts  # Notebook types
-    notes.types.ts     # Note-related types
-    object.types.ts    # Core object types
-    profile.types.ts   # User profile types
-    search.types.ts    # Search-related types
-    store.types.ts     # Storage types
-    todo.types.ts      # Todo types
-    window.types.ts    # Window management types
   ipcChannels.ts
-  types.d.ts           # (Legacy, being phased out)
 
 /ingestion/            # Ingestion utilities
-  /clean/              # Text cleaning utilities
-  /fetch/              # Content fetching
-    browserbaseFetch.ts
-    fetchMethod.ts
-    pageFetcher.ts
-  /parsers/            # Content parsers
-    chromeHtml.ts
-    firefoxJson.ts
-    safariHtml.ts
-
 /utils/                # Utilities
-  /cli/                # CLI tools
-    rebuildBetterSqlite3.ts
-    resetEmbeddings.ts
-  logger.ts
-  performanceTracker.ts
-  startupChecks.ts
 ```
 
 ### TypeScript Rules
