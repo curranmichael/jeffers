@@ -297,7 +297,6 @@ const ClassicBrowserViewWrapperComponent: React.FC<ClassicBrowserContentProps> =
     cleanupFunction,
     [windowId], // Remove activeStore - it's stable and causes unnecessary remounts
     {
-      unmountDelay: 50,
       debug: true,
       debugLabel: `ClassicBrowser[${windowId}]`
     }
