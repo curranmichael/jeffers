@@ -14,7 +14,17 @@ In Electron applications:
 
 ## Architecture Components
 
-### 1. Freeze State Machine
+### 1. Window State Synchronization
+
+The system uses a unified flow for all window state synchronization:
+
+```
+Renderer WindowStore → WINDOW_STATE_UPDATE IPC → WindowStateHandler → BrowserEventBus → Services
+```
+
+All window state changes (focus, minimize/restore, z-index, freeze/unfreeze) propagate through this single pipeline.
+
+### 2. Freeze State Machine
 
 The system implements a four-state machine to manage browser window visibility:
 
@@ -33,7 +43,21 @@ ACTIVE --[loses focus]--> CAPTURING --[snapshot taken]--> AWAITING_RENDER --[UI 
    |------------------------[gains focus]-------------------------------------------------------|
 ```
 
-### 2. ClassicBrowserSnapshotService
+The state machine is managed by the WindowStateHandler in the main process, with the renderer triggering transitions through state updates.
+
+### 3. WindowStateHandler
+
+The WindowStateHandler (`electron/ipc/windowStateHandler.ts`) coordinates all window state changes and manages freeze state transitions.
+
+#### Responsibilities
+
+- **State Change Detection**: Monitors window state changes from the renderer
+- **Freeze State Transitions**: Manages ACTIVE → CAPTURING → AWAITING_RENDER → FROZEN flow
+- **Snapshot Coordination**: Triggers snapshot capture when windows lose focus
+- **Event Emission**: Emits events to BrowserEventBus for focus, minimize/restore, and z-order changes
+- **Race Condition Prevention**: Tracks captures in progress to prevent duplicate operations
+
+### 4. ClassicBrowserSnapshotService
 
 The snapshot service manages the capture and storage of browser view snapshots with tab-aware functionality.
 
@@ -61,19 +85,17 @@ The snapshot service manages the capture and storage of browser view snapshots w
 - `getAllSnapshots()`: Returns all stored snapshots
 - `clearAllSnapshots()`: Removes all snapshots (used during cleanup)
 
-### 3. Controller Hook (useBrowserWindowController)
+### 5. Controller Hook (useBrowserWindowController)
 
-The controller hook manages the state machine and coordinates between components.
+The controller hook manages freeze state transitions in the renderer.
 
 #### Responsibilities
 
 - **Focus Monitoring**: Watches for window focus changes and triggers state transitions
 - **State Management**: Updates the freeze state in the window store
-- **IPC Communication**: Calls the snapshot service through IPC channels
-- **Timeout Handling**: Implements a 5-second timeout for capture operations
-- **Race Condition Prevention**: Uses operation locks to prevent concurrent state changes
+- **Snapshot Loaded Callback**: Transitions from AWAITING_RENDER to FROZEN when snapshot is rendered
 
-### 4. React Component Integration
+### 6. React Component Integration
 
 The ClassicBrowser component renders based on the current freeze state:
 
@@ -95,57 +117,61 @@ The ClassicBrowser component renders based on the current freeze state:
 
 ### Freezing Process
 
-1. **Focus Loss Detection**: The controller detects when a browser window loses focus
-2. **State Transition**: Updates state from ACTIVE to CAPTURING
-3. **Snapshot Capture**: IPC call to `captureSnapshot` in the main process (internally calls `freezeWindow`)
-4. **Image Processing**: The service captures the page and converts to data URL
-5. **State Management**: `freezeWindow` updates the state to FROZEN in ClassicBrowserStateService
-6. **State Update**: Transitions to AWAITING_RENDER with the snapshot URL in the UI
-7. **UI Rendering**: React component renders the snapshot image
-8. **Final State**: Component signals completion, state becomes FROZEN
+1. **Focus Loss Detection**: The useBrowserWindowController hook detects when a browser window loses focus
+2. **State Transition**: Updates state from ACTIVE to CAPTURING in the renderer's window store
+3. **IPC Sync**: useWindowStateSync sends the updated state via WINDOW_STATE_UPDATE
+4. **Main Process Handling**: WindowStateHandler detects the ACTIVE → CAPTURING transition
+5. **Snapshot Capture**: WindowStateHandler calls ClassicBrowserSnapshotService.captureSnapshot()
+6. **Image Processing**: The service captures the page and converts to data URL
+7. **State Update**: WindowStateHandler updates state to AWAITING_RENDER with the snapshot URL
+8. **State Propagation**: ClassicBrowserStateService emits state change to renderer
+9. **UI Rendering**: React component renders the snapshot image
+10. **Final State**: Component signals completion via handleSnapshotLoaded, state becomes FROZEN
 
 ### Unfreezing Process
 
-1. **Focus Gain Detection**: The controller detects when a browser window gains focus
-2. **State Transition**: Updates state directly to ACTIVE
-3. **View Display**: IPC call to `showAndFocusView` in the main process (internally calls `unfreezeWindow`)
-4. **State Management**: `unfreezeWindow` updates the state to ACTIVE in ClassicBrowserStateService
-5. **UI Update**: React component hides snapshot and shows the live view
+1. **Focus Gain Detection**: The useBrowserWindowController hook detects when a browser window gains focus
+2. **State Transition**: Updates state directly to ACTIVE in the renderer's window store
+3. **IPC Sync**: useWindowStateSync sends the updated state via WINDOW_STATE_UPDATE
+4. **Main Process Handling**: WindowStateHandler detects the transition to ACTIVE
+5. **State Update**: WindowStateHandler updates ClassicBrowserStateService to ACTIVE
+6. **Snapshot Cleanup**: WindowStateHandler calls snapshotService.clearSnapshot()
+7. **UI Update**: React component hides snapshot and shows the live view
 
 ## IPC Architecture
 
-### Channels
+### Primary Channel
 
-- `BROWSER_FREEZE_VIEW`: Triggers snapshot capture and state freeze
-- `BROWSER_UNFREEZE_VIEW`: Updates state to active
+- `WINDOW_STATE_UPDATE`: Single channel for all window state synchronization
 
-### Main Process Handlers
+### Legacy Channels (Deprecated)
+
+- `BROWSER_FREEZE_VIEW`: Legacy snapshot capture endpoint (returns snapshot but doesn't manage state)
+- `BROWSER_UNFREEZE_VIEW`: Legacy unfreeze endpoint (no-op, kept for compatibility)
+
+### Main Process Handler
 
 ```typescript
-// freezeBrowserView.ts
-ipcMain.handle(BROWSER_FREEZE_VIEW, async (event, windowId) => {
-  // Calls freezeWindow which captures snapshot and updates state
-  const snapshotResult = await classicBrowserService.freezeWindow(windowId);
-  return snapshotResult;
-});
-
-// unfreezeBrowserView.ts
-ipcMain.handle(BROWSER_UNFREEZE_VIEW, async (event, windowId) => {
-  // Calls unfreezeWindow which updates state to ACTIVE
-  await classicBrowserService.unfreezeWindow(windowId);
+// windowStateHandler.ts
+ipcMain.on(WINDOW_STATE_UPDATE, async (event, windows: WindowMeta[]) => {
+  // Process all window state changes including freeze transitions
+  // Detects ACTIVE → CAPTURING and triggers snapshot
+  // Detects transitions to ACTIVE and clears snapshots
+  // Emits events to BrowserEventBus for all state changes
 });
 ```
 
 ### Renderer Process API
 
 ```typescript
-// Exposed through preload script
-window.api.captureSnapshot(windowId): Promise<string | null>  // Calls BROWSER_FREEZE_VIEW
-window.api.showAndFocusView(windowId): Promise<void>          // Calls BROWSER_UNFREEZE_VIEW
+// Primary API (through preload script)
+window.api.updateWindowState(windows: WindowMeta[]): void  // Sends all window state updates
 
-// Deprecated aliases (still supported)
-window.api.freezeBrowserView(windowId): Promise<string | null>
-window.api.unfreezeBrowserView(windowId): Promise<void>
+// Legacy APIs (deprecated, minimal functionality)
+window.api.captureSnapshot(windowId): Promise<string | null>  // Returns snapshot only
+window.api.showAndFocusView(windowId): Promise<void>          // No-op
+window.api.freezeBrowserView(windowId): Promise<string | null> // Alias for captureSnapshot
+window.api.unfreezeBrowserView(windowId): Promise<void>       // Alias for showAndFocusView
 ```
 
 ## Memory Management
@@ -202,10 +228,11 @@ interface ClassicBrowserPayload {
 
 ### State Management Integration
 
-The freeze/unfreeze operations directly update the browser state through ClassicBrowserStateService:
-- `freezeWindow()` sets the freeze state to FROZEN with the snapshot URL
-- `unfreezeWindow()` sets the freeze state to ACTIVE
-- State changes are synchronized between main process and renderer
+The freeze state management follows a unidirectional flow:
+- Renderer's window store is the source of truth for state changes
+- WindowStateHandler processes state changes and triggers appropriate actions
+- ClassicBrowserStateService broadcasts state updates back to renderer
+- All state synchronization occurs through the WINDOW_STATE_UPDATE channel
 
 ### Sidebar Hover Behavior
 
