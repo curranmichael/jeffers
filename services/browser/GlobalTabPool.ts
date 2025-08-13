@@ -1,5 +1,5 @@
 
-import { WebContentsView } from 'electron';
+import { WebContentsView, Event } from 'electron';
 import { BaseService } from '../base/BaseService';
 import { TabState } from '../../shared/types/window.types';
 import { BrowserEventBus } from './BrowserEventBus';
@@ -248,17 +248,17 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
     const handlers = this.createEventHandlers(tabId, windowId);
     const webContents = view.webContents;
 
-    // Attach all handlers - use type assertions for each event type
-    (webContents as any).on('did-start-loading', handlers['did-start-loading']);
-    (webContents as any).on('did-stop-loading', handlers['did-stop-loading']);
-    (webContents as any).on('did-navigate', handlers['did-navigate']);
-    (webContents as any).on('did-navigate-in-page', handlers['did-navigate-in-page']);
-    (webContents as any).on('page-title-updated', handlers['page-title-updated']);
-    (webContents as any).on('page-favicon-updated', handlers['page-favicon-updated']);
-    (webContents as any).on('did-fail-load', handlers['did-fail-load']);
-    (webContents as any).on('focus', handlers['focus']);
-    (webContents as any).on('blur', handlers['blur']);
-    (webContents as any).on('context-menu', handlers['context-menu']);
+    // Attach all handlers
+    webContents.on('did-start-loading', handlers['did-start-loading']);
+    webContents.on('did-stop-loading', handlers['did-stop-loading']);
+    webContents.on('did-navigate', handlers['did-navigate']);
+    webContents.on('did-navigate-in-page', handlers['did-navigate-in-page']);
+    webContents.on('page-title-updated', handlers['page-title-updated']);
+    webContents.on('page-favicon-updated', handlers['page-favicon-updated']);
+    webContents.on('did-fail-load', handlers['did-fail-load']);
+    webContents.on('focus', handlers['focus']);
+    webContents.on('blur', handlers['blur']);
+    webContents.on('context-menu', handlers['context-menu']);
 
     // Handle window open requests (special case - uses setWindowOpenHandler)
     webContents.setWindowOpenHandler((details) => {
@@ -411,7 +411,7 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
       // Destroy the view itself (which will destroy the WebContents)
       try {
         (view as ExtendedWebContentsView).destroy?.();
-      } catch (error) {
+      } catch {
         // View already destroyed or destroy method not available
       }
     }
