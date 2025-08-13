@@ -186,36 +186,44 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
     this.logInfo(`[CREATE VIEW] Creating WebContentsView for Tab ${tabId} in Window ${windowId}`);
     
     const view = new WebContentsView({ webPreferences: securePrefs }) as ExtendedWebContentsView;
-    view.setBackgroundColor('#00000000'); // Transparent background
     
-    this.logInfo(`[VIEW CREATED] WebContentsView instance created for Tab ${tabId}`);
-    
-    // Apply border radius to the native view (6px to match 8px outer radius with 2px border)
-    // Note: setBorderRadius is a custom Electron method that may not be available in all builds
-    if (view.setBorderRadius) {
-      view.setBorderRadius(6);
-    }
-
-    // Set up WebContents event handlers with proper window context
-    this.attachEventHandlers(view, tabId, windowId);
-
-    // Restore minimal state if it exists
-    const state = this.preservedState.get(tabId);
-    if (state?.url) {
-      this.logInfo(`[URL ASSOCIATION] Tab ${tabId} <- URL: ${state.url}`);
-      this.logInfo(`[LOAD START] Tab ${tabId} beginning navigation to ${state.url}`);
+    try {
+      view.setBackgroundColor('#00000000'); // Transparent background
       
-      view.webContents.loadURL(state.url).then(() => {
-        this.logInfo(`[LOAD INITIATED] Tab ${tabId} loadURL() completed for ${state.url}`);
-      }).catch((error) => {
-        this.logError(`[LOAD ERROR] Tab ${tabId} failed to load ${state.url}:`, error);
-      });
-    } else {
-      this.logWarn(`[NO URL] Tab ${tabId} created without URL - view is blank`);
-    }
+      this.logInfo(`[VIEW CREATED] WebContentsView instance created for Tab ${tabId}`);
+      
+      // Apply border radius to the native view (6px to match 8px outer radius with 2px border)
+      // Note: setBorderRadius is a custom Electron method that may not be available in all builds
+      if (view.setBorderRadius) {
+        view.setBorderRadius(6);
+      }
 
-    this.logInfo(`[CREATE COMPLETE] WebContentsView for Tab ${tabId} ready`);
-    return view;
+      // Set up WebContents event handlers with proper window context
+      this.attachEventHandlers(view, tabId, windowId);
+
+      // Restore minimal state if it exists
+      const state = this.preservedState.get(tabId);
+      if (state?.url) {
+        this.logInfo(`[URL ASSOCIATION] Tab ${tabId} <- URL: ${state.url}`);
+        this.logInfo(`[LOAD START] Tab ${tabId} beginning navigation to ${state.url}`);
+        
+        view.webContents.loadURL(state.url).then(() => {
+          this.logInfo(`[LOAD INITIATED] Tab ${tabId} loadURL() completed for ${state.url}`);
+        }).catch((error) => {
+          this.logError(`[LOAD ERROR] Tab ${tabId} failed to load ${state.url}:`, error);
+        });
+      } else {
+        this.logWarn(`[NO URL] Tab ${tabId} created without URL - view is blank`);
+      }
+
+      this.logInfo(`[CREATE COMPLETE] WebContentsView for Tab ${tabId} ready`);
+      return view;
+    } catch (error) {
+      // Critical: Destroy the view if any initialization fails to prevent resource leak
+      this.logError(`[CREATE VIEW ERROR] Failed to initialize view for Tab ${tabId}:`, error);
+      this.destroyViewSafely(view);
+      throw error;
+    }
   }
 
   /**
@@ -415,6 +423,30 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
   private updateLRU(tabId: string): void {
     this.lruOrder = this.lruOrder.filter(id => id !== tabId);
     this.lruOrder.unshift(tabId); // Add to the front (most recent)
+  }
+
+  /**
+   * Safely destroys a WebContentsView during error recovery.
+   * Used when view initialization fails to prevent resource leaks.
+   * Silently handles any errors since we're already in error recovery.
+   */
+  private destroyViewSafely(view: ExtendedWebContentsView): void {
+    try {
+      const wc = view.webContents;
+      if (wc && !wc.isDestroyed()) {
+        // Clean up event listeners
+        wc.removeAllListeners();
+        wc.setAudioMuted(true);
+        wc.stop();
+      }
+      
+      // Destroy the view itself
+      (view as ExtendedWebContentsView).destroy?.();
+    } catch {
+      // Silent fail - we're already in error recovery
+      // Log for debugging but don't throw
+      this.logDebug(`Failed to destroy view during error recovery`);
+    }
   }
 
   /**
