@@ -61,13 +61,17 @@ export class ClassicBrowserTabService extends BaseService<ClassicBrowserTabServi
     let newActiveTabId = state.activeTabId;
     if (state.activeTabId === tabIdToClose) {
       const tabIndex = state.tabs.findIndex(t => t.id === tabIdToClose);
-      const newActiveIndex = Math.max(0, tabIndex - 1);
+      // Standard browser behavior: move to the right tab unless closing the last tab
+      const newActiveIndex = tabIndex === state.tabs.length - 1
+        ? tabIndex - 1  // Last tab: move left
+        : tabIndex + 1; // Any other tab: move right
       newActiveTabId = state.tabs[newActiveIndex].id;
     }
 
-    this.deps.stateService.removeTab(windowId, tabIdToClose);
+    // Set the new active tab before removing the old one to avoid invalid state
     if (state.activeTabId === tabIdToClose) {
       this.deps.stateService.setActiveTab(windowId, newActiveTabId);
     }
+    this.deps.stateService.removeTab(windowId, tabIdToClose);
   }
 }
