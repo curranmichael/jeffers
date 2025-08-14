@@ -35,6 +35,14 @@ export function isAuthenticationUrl(url: string): boolean {
       // LinkedIn
       'linkedin.com/oauth',
       
+      // Figma
+      'figma.com/oauth',
+      'figma.com/api/oauth',
+      'figma.com/login',
+      'api.figma.com/oauth',
+      'figma.com/start_google_sso',
+      'figma.com/finish_google_sso',
+      
       // Generic OAuth patterns
       '/oauth/',
       '/auth/',

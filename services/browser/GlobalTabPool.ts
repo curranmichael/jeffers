@@ -4,6 +4,7 @@ import { BaseService } from '../base/BaseService';
 import { TabState } from '../../shared/types/window.types';
 import { BrowserEventBus } from './BrowserEventBus';
 import type { ClassicBrowserSnapshotService } from './ClassicBrowserSnapshotService';
+import { isAuthenticationUrl } from './url.helpers';
 
 // Type definition for WebContentsView with custom properties
 interface ExtendedWebContentsView extends WebContentsView {
@@ -187,6 +188,9 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
       preload: undefined,
       webSecurity: true,
       plugins: true,
+      partition: 'persist:browser', // Use persistent partition for cookies/storage
+      javascript: true, // Explicitly enable JavaScript
+      experimentalFeatures: true, // Enable experimental features for better compatibility
     };
 
     this.logInfo(`[CREATE VIEW] Creating WebContentsView for Tab ${tabId} in Window ${windowId}`);
@@ -257,6 +261,7 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
     // Attach all handlers
     webContents.on('did-start-loading', handlers['did-start-loading']);
     webContents.on('did-stop-loading', handlers['did-stop-loading']);
+    webContents.on('will-navigate', handlers['will-navigate']);
     webContents.on('did-navigate', handlers['did-navigate']);
     webContents.on('did-navigate-in-page', handlers['did-navigate-in-page']);
     webContents.on('page-title-updated', handlers['page-title-updated']);
@@ -270,10 +275,21 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
     webContents.setWindowOpenHandler((details) => {
       this.logDebug(`Tab ${tabId} window open request:`, details);
       
-      // Use the windowId captured in closure
+      // Check if this is an OAuth/SSO flow
+      const currentUrl = webContents.getURL();
+      const isCurrentPageAuth = isAuthenticationUrl(currentUrl);
+      const isPopupAuth = isAuthenticationUrl(details.url);
+      
+      // Allow popups for OAuth flows
+      if (isCurrentPageAuth || isPopupAuth) {
+        this.logInfo(`[OAUTH POPUP] Allowing popup for OAuth flow: ${details.url} (from page: ${currentUrl})`);
+        return { action: 'allow' };
+      }
+      
+      // For non-OAuth popups, emit event for handling new tabs
       this.deps.eventBus.emit('view:window-open-request', { windowId, details });
       
-      // Always deny the default behavior - we handle it ourselves
+      // Deny unwanted popups (ads, etc)
       return { action: 'deny' };
     });
 
@@ -337,6 +353,11 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
         
         this.logInfo(`[NAVIGATION] Tab ${tabId} navigated to: ${url} (HTTP ${httpResponseCode} ${httpStatusText || ''})`);
         
+        // Special handling for Figma SSO completion
+        if (url.includes('finish_google_sso')) {
+          this.logInfo(`[FIGMA SSO] Detected Figma OAuth callback, monitoring for completion...`);
+        }
+        
         // Update preserved state with new URL
         const currentState = this.preservedState.get(tabId) || {};
         this.preservedState.set(tabId, { ...currentState, url });
@@ -358,6 +379,20 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
           const currentState = this.preservedState.get(tabId) || {};
           this.preservedState.set(tabId, { ...currentState, url });
         }
+      },
+      'will-navigate': (event: Event, url: string) => {
+        const view = this.pool.get(tabId);
+        if (!view || view.webContents?.isDestroyed()) return; // Safety check
+        
+        // Check if this is an OAuth redirect
+        const currentUrl = view.webContents.getURL();
+        if (currentUrl.includes('finish_google_sso') || currentUrl.includes('oauth') || currentUrl.includes('callback')) {
+          this.logInfo(`[OAUTH NAVIGATION] Allowing navigation from OAuth callback ${currentUrl} to ${url}`);
+          // Don't prevent the navigation for OAuth flows
+          return;
+        }
+        
+        this.logInfo(`[WILL NAVIGATE] Tab ${tabId} will navigate to: ${url}`);
       },
       'page-title-updated': (event: Event, title: string) => {
         const view = this.pool.get(tabId);
@@ -387,7 +422,12 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
         if (view?.webContents?.isDestroyed()) return; // Safety check
         
         if (isMainFrame) {
-          this.logError(`[LOAD FAILED] Tab ${tabId} failed to load ${validatedURL}: ${errorDescription} (Error Code: ${errorCode})`);
+          // ERR_ABORTED (-3) on OAuth callback URLs is expected - the page redirects after processing
+          if (errorCode === -3 && (validatedURL.includes('finish_google_sso') || validatedURL.includes('oauth') || validatedURL.includes('callback'))) {
+            this.logInfo(`[OAUTH REDIRECT] OAuth callback page aborted navigation (expected behavior): ${validatedURL}`);
+          } else {
+            this.logError(`[LOAD FAILED] Tab ${tabId} failed to load ${validatedURL}: ${errorDescription} (Error Code: ${errorCode})`);
+          }
         }
       },
       'focus': () => {

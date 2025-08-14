@@ -136,8 +136,6 @@ export const WebLayer: React.FC<WebLayerProps> = ({ initialUrl, isVisible, onClo
     destroyBrowserView,
     [isVisible ? WEB_LAYER_WINDOW_ID : null], // Only create when visible
     {
-      unmountDelay: 50,
-      immediateCleanupOnFinalUnmount: true, // Ensure WebContentsView is destroyed when component unmounts
       debug: true,
       debugLabel: `WebLayer[${WEB_LAYER_WINDOW_ID}]`
     }
