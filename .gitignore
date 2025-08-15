@@ -83,3 +83,6 @@ Thumbs.db
 # LanceDB data files
 data/lancedb/
 *.lance
+
+# Build scripts with credentials
+build-with-signing.sh
