@@ -46,22 +46,34 @@ interface AppSidebarProps {
 export function AppSidebar({ onAddChat, onAddBrowser, onGoHome, windows = [], activeStore, notebookId }: AppSidebarProps) {
   const minimizedWindows = windows.filter(w => w.isMinimized);
   
-  const handleNewNote = () => {
+  const handleNewNote = async () => {
     if (!activeStore || !notebookId) return;
     
-    const payload: NoteEditorPayload = {
-      notebookId,
-    };
-    
-    activeStore.getState().addWindow({
-      type: 'note_editor' as WindowContentType,
-      payload,
-      preferredMeta: {
-        title: 'New Note',
-        width: 600,
-        height: 400,
-      }
-    });
+    try {
+      // Create the note via service and get the ID
+      const note = await window.api.createNote({
+        notebookId,
+        content: "",
+        type: 'text'
+      });
+      
+      const payload: NoteEditorPayload = {
+        noteId: note.id,
+        notebookId,
+      };
+      
+      activeStore.getState().addWindow({
+        type: 'note_editor' as WindowContentType,
+        payload,
+        preferredMeta: {
+          title: 'New Note',
+          width: 600,
+          height: 400,
+        }
+      });
+    } catch (error) {
+      console.error('[AppSidebar] Failed to create new note window:', error);
+    }
   };
   
   

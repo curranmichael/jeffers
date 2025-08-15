@@ -21,10 +21,12 @@ export class NoteService extends BaseService<NoteServiceDeps> {
     notebookId: string,
     content: string,
     type: NoteType = 'text',
-    metadata?: NoteMetadata
+    metadata?: NoteMetadata,
+    id?: string
   ): Promise<Note> {
     return this.execute('createNote', async () => {
       const note = this.deps.noteModel.create({
+        id,
         notebookId,
         content,
         type,
