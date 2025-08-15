@@ -860,15 +860,21 @@ const ClassicBrowserViewWrapperComponent: React.FC<ClassicBrowserContentProps> =
           pointerEvents: showWebContentsView ? 'auto' : 'none'
         }}
       >
-        {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center z-10">
-            <p className="text-sm text-step-12/80">Loading {currentUrl}...</p>
-          </div>
-        )}
         {!isLoading && !currentUrl && (
-           <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
-            <Globe className="w-16 h-16 mb-4 text-step-12/30" />
-            <p className="text-lg text-step-12/60">New Tab</p>
+           <div className="absolute inset-0 flex items-center justify-center z-10">
+            <div className="relative">
+              {/* Background blur effect */}
+              <div className="absolute inset-0 -inset-4 bg-step-1/10 rounded-full blur-md" />
+              {/* Human-computer icon */}
+              <img 
+                src="/human_computer.svg"
+                alt=""
+                width="48" 
+                height="48"
+                className="relative opacity-10"
+                style={{ filter: 'invert(1)' }}
+              />
+            </div>
           </div>
         )}
       </div>

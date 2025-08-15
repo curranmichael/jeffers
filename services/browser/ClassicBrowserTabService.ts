@@ -4,7 +4,7 @@ import { BaseService } from '../base/BaseService';
 import { ClassicBrowserStateService } from './ClassicBrowserStateService';
 import { TabState, TabPoolState } from '../../shared/types/window.types';
 
-const DEFAULT_NEW_TAB_URL = 'https://www.are.na';
+const DEFAULT_NEW_TAB_URL = '';
 
 export interface ClassicBrowserTabServiceDeps {
   stateService: ClassicBrowserStateService;

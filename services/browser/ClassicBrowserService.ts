@@ -209,7 +209,7 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
     // Ensure there's always at least one tab when creating a browser window
     if (!initialState.tabs.length || !initialState.activeTabId) {
       this.logInfo(`[CREATE TAB] No tabs found, creating default tab`);
-      this.deps.tabService.createTab(windowId, 'https://www.are.na');
+      this.deps.tabService.createTab(windowId, '');
       // Check if we need to create a tab group after initialization
       this.deps.womService.checkAndCreateTabGroup(windowId).catch(err =>
         this.logError(`Failed to check/create tab group during init: ${err}`, err)
