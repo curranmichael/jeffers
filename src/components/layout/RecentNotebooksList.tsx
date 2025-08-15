@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { RecentNotebook } from '../../../shared/types';
 import { Button } from '../ui/button';
 import { motion } from 'framer-motion';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Plus } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -29,6 +29,7 @@ interface RecentNotebooksListProps {
   notebooks: RecentNotebook[];
   onSelectNotebook: (notebookId: string) => void;
   onDeleteNotebook?: (notebookId: string) => void;
+  onCreateNotebook?: () => void;
   topOffset?: number;
 }
 
@@ -59,7 +60,7 @@ function getRelativeTime(timestamp: string): string {
   }
 }
 
-export function RecentNotebooksList({ notebooks, onSelectNotebook, onDeleteNotebook, topOffset = 0 }: RecentNotebooksListProps) {
+export function RecentNotebooksList({ notebooks, onSelectNotebook, onDeleteNotebook, onCreateNotebook, topOffset = 0 }: RecentNotebooksListProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [notebookToDelete, setNotebookToDelete] = useState<RecentNotebook | null>(null);
 
@@ -105,7 +106,7 @@ export function RecentNotebooksList({ notebooks, onSelectNotebook, onDeleteNoteb
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
     >
-      <div style={{ paddingLeft: '48px' }}>
+      <div style={{ paddingLeft: '48px' }} className="flex items-center justify-between">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
@@ -121,6 +122,16 @@ export function RecentNotebooksList({ notebooks, onSelectNotebook, onDeleteNoteb
             <DropdownMenuItem>Goals</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        {onCreateNotebook && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onCreateNotebook}
+            className="h-6 w-6 p-0 hover:bg-step-2 mr-4 group"
+          >
+            <Plus className="h-4 w-4 text-step-11 group-hover:text-birkin" />
+          </Button>
+        )}
       </div>
       <div className="flex flex-col space-y-1" style={{ paddingLeft: '48px' }}>
         {notebooks.map((notebook, index) => (

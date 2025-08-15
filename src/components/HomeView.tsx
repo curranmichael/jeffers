@@ -826,6 +826,7 @@ export default function HomeView() {
                     notebooks={recentNotebooks}
                     onSelectNotebook={handleSelectRecentNotebook}
                     onDeleteNotebook={handleDeleteNotebook}
+                    onCreateNotebook={() => setIsComposeDialogOpen(true)}
                     topOffset={greetingTopOffset}
                   />
                 </motion.div>
