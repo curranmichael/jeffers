@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Note, NoteType, NoteEditorPayload } from "@/../shared/types";
+import { Note } from "@/../shared/types";
 import type { WindowStoreState } from "@/store/windowStoreFactory";
 import type { StoreApi } from "zustand";
 import { cn } from "@/lib/utils";
@@ -68,30 +68,23 @@ function markdownToHTML(markdown: string): string {
   return html;
 }
 
-export function NoteEditor({ noteId, notebookId, windowId, activeStore, isSelected = true }: NoteEditorProps) {
+export function NoteEditor({ noteId, notebookId, isSelected = true }: NoteEditorProps) {
   const [content, setContent] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [existingNote, setExistingNote] = useState<Note | null>(null);
-  const [noteInitialized, setNoteInitialized] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
   
   // Ref to store the latest values for saving
   const saveStateRef = useRef({
     content: "",
-    existingNote: null as Note | null,
-    noteId: noteId || null,
-    notebookId: notebookId,
   });
   
   // Update the ref whenever these values change
   useEffect(() => {
     saveStateRef.current = {
       content,
-      existingNote,
-      noteId: noteId || null,
-      notebookId,
     };
-  }, [content, existingNote, noteId, notebookId]);
+  }, [content]);
 
   // Load note function
   const loadNote = useCallback(async () => {
@@ -124,39 +117,12 @@ export function NoteEditor({ noteId, notebookId, windowId, activeStore, isSelect
     }
   }, [noteId, notebookId]);
 
-  // Initialize note - load existing or create new empty note
+  // Load existing note (note was already created by service)
   useEffect(() => {
-    if (noteId && !noteInitialized) {
-      // First check if note already exists
-      window.api.getNotesForNotebook(notebookId).then(notes => {
-        const existingNote = notes.find(n => n.id === noteId);
-        if (existingNote) {
-          // Note exists, load it
-          setExistingNote(existingNote);
-          setContent(existingNote.content);
-          setNoteInitialized(true);
-        } else {
-          // Note doesn't exist, create it
-          window.api.createNote({
-            id: noteId,
-            notebookId,
-            content: "",
-            type: 'text' as NoteType,
-          }).then(() => {
-            setNoteInitialized(true);
-          }).catch(error => {
-            console.error('[NoteEditor] Failed to create empty note:', error);
-            // If creation fails due to duplicate, just mark as initialized
-            if (error.message.includes('UNIQUE constraint failed')) {
-              setNoteInitialized(true);
-            }
-          });
-        }
-      }).catch(error => {
-        console.error('[NoteEditor] Failed to check existing notes:', error);
-      });
+    if (noteId) {
+      loadNote();
     }
-  }, [noteId, noteInitialized, notebookId]);
+  }, [noteId, loadNote]);
   
   // Focus editor when component mounts or becomes selected
   useEffect(() => {
@@ -177,7 +143,7 @@ export function NoteEditor({ noteId, notebookId, windowId, activeStore, isSelect
 
   // Stable save function that reads from ref
   const handleSave = useCallback(async () => {
-    const { content, noteId } = saveStateRef.current;
+    const { content } = saveStateRef.current;
     
     if (!content.trim() || !noteId) return;
     
@@ -186,7 +152,7 @@ export function NoteEditor({ noteId, notebookId, windowId, activeStore, isSelect
     } catch (error) {
       console.error('[NoteEditor] Failed to save note:', error);
     }
-  }, []);
+  }, [noteId]);
 
   // Auto-save on content change (debounced)
   useEffect(() => {

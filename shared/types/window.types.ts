@@ -39,7 +39,7 @@ export interface NotebookRawEditorPayload extends BaseWindowPayload {
 
 /** Payload for a note editor window. */
 export interface NoteEditorPayload extends BaseWindowPayload {
-  noteId?: string; // Optional: ID of existing note to edit
+  noteId: string; // Required: ID of the note to edit
   notebookId: string; // Required: ID of the notebook this note belongs to
 }
 
