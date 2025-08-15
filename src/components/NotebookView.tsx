@@ -368,7 +368,7 @@ function NotebookWorkspace({ notebookId }: { notebookId: string }) {
           // Open a new tab in the existing browser
           console.log('[Hotkey] CMD+T: Opening new tab in existing browser', existingBrowser.id);
           if (window.api?.classicBrowserCreateTab) {
-            window.api.classicBrowserCreateTab(existingBrowser.id, 'https://www.are.na')
+            window.api.classicBrowserCreateTab(existingBrowser.id, '')
               .then(result => {
                 if (!result.success) {
                   console.error('[Hotkey] Failed to create new tab:', result.error);
@@ -383,7 +383,7 @@ function NotebookWorkspace({ notebookId }: { notebookId: string }) {
           console.log('[Hotkey] CMD+T: No existing browser, creating new browser window');
           
           const newWindowPayload: ClassicBrowserPayload = {
-            initialUrl: 'https://www.are.na',
+            initialUrl: '',
             tabs: [], // Start with empty tabs - backend will create the initial tab
             activeTabId: '',
             freezeState: { type: 'ACTIVE' } // Start in active state
