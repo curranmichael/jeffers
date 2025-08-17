@@ -386,13 +386,13 @@ class ChatModel {
      * @returns An array of chat message objects in ascending chronological order.
      */
     async getMessagesBySessionId(sessionId: string, limit?: number, beforeTimestamp?: Date): Promise<IChatMessage[]> {
-        logger.debug(`[ChatModel] Getting messages for session ID: ${sessionId}, limit: ${limit}, before: ${beforeTimestamp?.toISOString()}`);
+        logger.debug(`[ChatModel] Getting messages for session ID: ${sessionId}, limit: ${limit}, before: ${beforeTimestamp ? (beforeTimestamp instanceof Date ? beforeTimestamp.toISOString() : beforeTimestamp) : 'none'}`);
         let query = 'SELECT * FROM chat_messages WHERE session_id = @session_id';
         const queryParams: Record<string, any> = { session_id: sessionId };
 
-        if (beforeTimestamp instanceof Date) { // Ensure it's a Date object
+        if (beforeTimestamp) { // Handle both Date objects and ISO strings
             query += ' AND timestamp < @timestamp_before';
-            queryParams.timestamp_before = beforeTimestamp.toISOString();
+            queryParams.timestamp_before = beforeTimestamp instanceof Date ? beforeTimestamp.toISOString() : beforeTimestamp;
         }
 
         query += ' ORDER BY timestamp DESC'; // Fetch most recent first for LIMIT, then reverse
