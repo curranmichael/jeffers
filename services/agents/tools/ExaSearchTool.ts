@@ -1,4 +1,4 @@
-import { Tool } from "@langchain/core/tools";
+import { StructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
 import { logger } from '../../../utils/logger';
 import { ExaService, ExaSearchOptions } from '../../ExaService';
@@ -25,9 +25,10 @@ export type ExaSearchToolInput = z.infer<typeof ExaSearchToolInputSchema>;
  * This tool can perform standalone Exa searches or hybrid searches combining
  * Exa results with local vector database results via HybridSearchService.
  */
-export class ExaSearchTool extends Tool {
+export class ExaSearchTool extends StructuredTool {
   name = "exa_search";
   description = "Search the web using Exa.ai's neural search. Returns relevant web content with scores. Use this to find current information, articles, documentation, or any web content.";
+  schema = ExaSearchToolInputSchema;
 
   private exaService: ExaService;
   private hybridSearchService: HybridSearchService;

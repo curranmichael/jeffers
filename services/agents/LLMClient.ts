@@ -88,8 +88,11 @@ export class LLMClient extends BaseService<LLMClientDeps> {
       // Convert OpenAIMessage format to BaseMessage format
       const baseMessages = this.convertToBaseMessages(messages);
 
-      // Using gpt-5-mini for faster responses while maintaining quality
-      const llm = createChatModel('gpt-5-mini', { temperature: OPENAI_CONFIG.temperature });
+      // Fast responses with low reasoning
+      const llm = createChatModel('gpt-5-mini', { 
+        temperature: OPENAI_CONFIG.temperature,
+        reasoning_effort: 'low'
+      });
 
       // Bind tools to the model
       const llmWithTools = llm.bind({
@@ -116,8 +119,11 @@ export class LLMClient extends BaseService<LLMClientDeps> {
       // Convert OpenAIMessage format to BaseMessage format
       const baseMessages = this.convertToBaseMessages(messages);
 
-      // Using gpt-5-mini for faster streaming responses
-      const llm = createChatModel('gpt-5-mini', { temperature: OPENAI_CONFIG.temperature });
+      // Fast streaming with low reasoning
+      const llm = createChatModel('gpt-5-mini', { 
+        temperature: OPENAI_CONFIG.temperature,
+        reasoning_effort: 'low'
+      });
 
       // Bind tools to the model - for summary generation, we don't need tools
       const llmWithTools = llm.bind({

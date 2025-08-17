@@ -155,7 +155,9 @@ export class IngestionAiService extends BaseService {
   get llm() {
     if (!this._llm) {
       this._llm = createChatModel('gpt-5-mini', {
-        response_format: { type: 'json_object' }
+        response_format: { type: 'json_object' },
+        reasoning_effort: 'low',  // Fast chunking
+        verbosity: 'low'
       });
     }
     return this._llm;

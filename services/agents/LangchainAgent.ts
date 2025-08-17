@@ -191,8 +191,11 @@ class LangchainAgent extends BaseService<LangchainAgentDeps> {
                     chat_history: (input: { question: string; chat_history: BaseMessage[] }) => input.chat_history,
                 },
                 rephraseQuestionPrompt,
-                // Using gpt-5-mini for the simple rephrasing task
-                createChatModel('gpt-5-mini'),
+                // Fast rephrasing with low reasoning
+                createChatModel('gpt-5-mini', {
+                    reasoning_effort: 'low',
+                    verbosity: 'low'
+                }),
                 new StringOutputParser(),
             ]);
 
@@ -243,7 +246,7 @@ class LangchainAgent extends BaseService<LangchainAgentDeps> {
                     }),
                     // Step 4: Generate the final answer
                     answerPrompt,
-                    // Using gpt-5 for the main answer generation
+                    // Main answer generation keeps default reasoning
                     createChatModel('gpt-5', { temperature: 1, streaming: true }),
                     new StringOutputParser(),
                 ])

@@ -64,10 +64,11 @@ export class ActionSuggestionService extends BaseService<ActionSuggestionService
         priority: 'balanced_throughput'
       };
 
-      // Using gpt-5-mini for fast, cheap UI suggestions
       const model = createChatModel('gpt-5-mini', {
-        max_tokens: 1000,  // Increased to ensure complete JSON response
-        response_format: { type: 'json_object' }
+        max_tokens: 1000,
+        response_format: { type: 'json_object' },
+        reasoning_effort: 'low',
+        verbosity: 'low'
       });
       
       const messages = [
