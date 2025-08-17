@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Note } from "@/../shared/types";
 import type { WindowStoreState } from "@/store/windowStoreFactory";
 import type { StoreApi } from "zustand";
 import { cn } from "@/lib/utils";
@@ -71,7 +70,6 @@ function markdownToHTML(markdown: string): string {
 export function NoteEditor({ noteId, notebookId, isSelected = true }: NoteEditorProps) {
   const [content, setContent] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [existingNote, setExistingNote] = useState<Note | null>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   
   // Ref to store the latest values for saving
@@ -95,8 +93,6 @@ export function NoteEditor({ noteId, notebookId, isSelected = true }: NoteEditor
       const notes = await window.api.getNotesForNotebook(notebookId);
       const note = notes.find(n => n.id === noteId);
       if (note) {
-        setExistingNote(note);
-        
         // Handle legacy markdown notes
         let htmlContent = note.content;
         if (isMarkdown(note.content)) {
