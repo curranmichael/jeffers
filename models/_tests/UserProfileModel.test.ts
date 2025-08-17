@@ -134,13 +134,13 @@ describe('UserProfileModel', () => {
 
     it('should update timestamp on every change', async () => {
       const profile1 = model.getProfile('default_user');
-      const timestamp1 = profile1?.updatedAt.getTime() || 0;
+      const timestamp1 = profile1?.updatedAt ? new Date(profile1.updatedAt).getTime() : 0;
 
       // Wait a bit to ensure timestamp difference
       await new Promise(resolve => setTimeout(resolve, 10));
 
       const profile2 = model.updateProfile('default_user', { name: 'Updated' });
-      const timestamp2 = profile2.updatedAt.getTime();
+      const timestamp2 = new Date(profile2.updatedAt).getTime();
 
       expect(timestamp2).toBeGreaterThan(timestamp1);
     });

@@ -39,10 +39,10 @@ describe('ToDoModel', () => {
       expect(todo.userId).toBe('default_user');
       expect(todo.title).toBe(title);
       expect(todo.description).toBe(description);
-      expect(todo.dueDate?.toISOString()).toBe(dueDate);
+      expect(todo.dueDate).toBe(dueDate);
       expect(todo.priority).toBe(priority);
       expect(todo.status).toBe('pending');
-      expect(todo.createdAt).toBeInstanceOf(Date);
+      expect(todo.createdAt).toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/);
     });
 
     it('should create subtasks and link to goals', () => {
@@ -150,7 +150,7 @@ describe('ToDoModel', () => {
       
       // Complete it
       const completed = model.updateToDo(todo.id, { status: 'completed' });
-      expect(completed?.completedAt).toBeInstanceOf(Date);
+      expect(completed?.completedAt).toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/);
       
       // Reopen it
       const reopened = model.updateToDo(todo.id, { status: 'pending' });

@@ -60,7 +60,7 @@ describe('EmbeddingModel', () => {
       expect(record.chunkId).toBe(testChunkId);
       expect(record.model).toBe('text-embedding-3-small');
       expect(record.vectorId).toBe(vectorId);
-      expect(record.createdAt).toBeInstanceOf(Date);
+      expect(record.createdAt).toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/);
     });
 
     it('should return existing record on duplicate vector_id', () => {
