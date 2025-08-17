@@ -358,7 +358,7 @@ Standardizes search results from multiple sources into unified format
 Provides contextual UI action suggestions using AI:
 - Analyzes user context and recent activity
 - Suggests relevant actions based on current state
-- Uses o1-mini model for intelligent suggestions
+- Uses gpt-5-mini model for intelligent suggestions
 
 #### LLMClient
 Core AI client that manages LLM interactions:
