@@ -14,7 +14,7 @@ vi.mock('electron', () => ({
 
 // Mock the logger
 vi.mock('../../utils/logger', () => ({
-  default: {
+  logger: {
     info: vi.fn(),
     error: vi.fn(),
     warn: vi.fn(),
@@ -46,7 +46,7 @@ describe('LanceVectorModel', () => {
       fs.rmSync(testDbPath, { recursive: true, force: true });
     }
     
-    model = new LanceVectorModel();
+    model = new LanceVectorModel({ userDataPath: '/tmp/test-lance' });
   });
 
   afterEach(async () => {
