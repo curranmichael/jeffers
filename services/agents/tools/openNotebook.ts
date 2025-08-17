@@ -25,7 +25,7 @@ export const openNotebook: AgentTool = {
     logger.info(`[openNotebook] Looking for "${notebook_name}" among ${notebooks.length} regular notebooks:`, notebooks.map((n: any) => n.title));
     
     const found = notebooks.find((nb: any) => 
-      nb.title.toLowerCase() === notebook_name.toLowerCase()
+      nb.title.trim().toLowerCase() === notebook_name.trim().toLowerCase()
     );
     
     if (found) {
