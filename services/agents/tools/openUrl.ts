@@ -20,7 +20,9 @@ export const openUrl: AgentTool = {
       return { content: "Error: URL was unclear." };
     }
     
-    const formattedUrl = url.startsWith('http') ? url : `https://${url}`;
+    // Handle various protocols correctly
+    const hasProtocol = url.includes('://');
+    const formattedUrl = hasProtocol ? url : `https://${url}`;
     
     return {
       content: `Opened URL: ${formattedUrl}`,
