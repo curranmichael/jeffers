@@ -157,7 +157,8 @@ module.exports = {
         // background: './build/dmg-background.png', // Optional: custom background (uncomment when image exists)
         format: 'ULFO', // macOS 10.11+ compatible
         // Optional: custom DMG name
-        name: 'Enai'
+        name: 'Enai',
+        overwrite: true // Overwrite existing DMG if present
       }
     },
     {

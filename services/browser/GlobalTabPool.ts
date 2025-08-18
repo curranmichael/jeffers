@@ -30,10 +30,8 @@ export interface GlobalTabPoolDeps {
 export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
   private pool: Map<string, ExtendedWebContentsView> = new Map();
   private lruOrder: string[] = []; // Tab IDs, most recent first
-  private preservedState: Map<string, Partial<TabState>> = new Map();
   private tabToWindowMapping: Map<string, string> = new Map(); // tabId -> windowId
   private eventHandlerCleanups: Map<string, () => void> = new Map(); // tabId -> cleanup function
-  private destroyingViews = new Set<string>(); // Track views being destroyed
   private readonly MAX_POOL_SIZE = 5;
 
   constructor(deps: GlobalTabPoolDeps) {
@@ -53,11 +51,6 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
   public async acquireView(tabId: string, windowId: string): Promise<ExtendedWebContentsView> {
     return this.execute('acquireView', async () => {
       this.logInfo(`[ACQUIRE VIEW] Starting acquisition for Tab ${tabId}, Window ${windowId}`);
-      
-      // Check if tab is being destroyed
-      if (this.destroyingViews.has(tabId)) {
-        throw new Error(`Tab ${tabId} is being destroyed, cannot acquire`);
-      }
       
       // Check if already in pool first
       if (this.pool.has(tabId)) {
@@ -104,7 +97,6 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
       } catch (error) {
         // Clean up any partial state on failure
         this.tabToWindowMapping.delete(tabId);
-        this.preservedState.delete(tabId);
         this.logError(`[ACQUIRE ERROR] Failed to create view for tab ${tabId}:`, error);
         throw error;
       }
@@ -121,16 +113,18 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
     return this.execute('releaseView', async () => {
       const view = this.pool.get(tabId);
       if (view) {
-        // Clean up event handlers BEFORE clearing mapping
-        this.cleanupEventHandlers(tabId);
-        
-        // Now safe to clear state
+        // Remove from pool immediately (synchronous)
         this.pool.delete(tabId);
         this.lruOrder = this.lruOrder.filter(id => id !== tabId);
-        this.preservedState.delete(tabId);
+        
+        // Clean up event handlers synchronously
+        this.cleanupEventHandlers(tabId);
+        
+        // Clear state synchronously
         this.tabToWindowMapping.delete(tabId);
         
-        await this.destroyView(view);
+        // Destroy view without blocking
+        this.destroyView(view);
       }
     });
   }
@@ -211,20 +205,8 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
       // Set up WebContents event handlers with proper window context
       this.attachEventHandlers(view, tabId, windowId);
 
-      // Restore minimal state if it exists
-      const state = this.preservedState.get(tabId);
-      if (state?.url) {
-        this.logInfo(`[URL ASSOCIATION] Tab ${tabId} <- URL: ${state.url}`);
-        this.logInfo(`[LOAD START] Tab ${tabId} beginning navigation to ${state.url}`);
-        
-        view.webContents.loadURL(state.url).then(() => {
-          this.logInfo(`[LOAD INITIATED] Tab ${tabId} loadURL() completed for ${state.url}`);
-        }).catch((error) => {
-          this.logError(`[LOAD ERROR] Tab ${tabId} failed to load ${state.url}:`, error);
-        });
-      } else {
-        this.logWarn(`[NO URL] Tab ${tabId} created without URL - view is blank`);
-      }
+      // New views start blank - URL will be set by the caller if needed
+      this.logInfo(`[VIEW READY] Tab ${tabId} created - awaiting navigation`);
 
       this.logInfo(`[CREATE COMPLETE] WebContentsView for Tab ${tabId} ready`);
       return view;
@@ -295,16 +277,13 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
 
     // Store cleanup function
     this.eventHandlerCleanups.set(tabId, () => {
-      // Defer cleanup to allow event queue to drain
-      setImmediate(() => {
-        if (!webContents.isDestroyed()) {
-          webContents.removeAllListeners();
-          // Clear the window open handler by removing it
-          webContents.setWindowOpenHandler(() => {
-            return { action: 'deny' };
-          });
-        }
-      });
+      if (!webContents.isDestroyed()) {
+        webContents.removeAllListeners();
+        // Clear the window open handler by removing it
+        webContents.setWindowOpenHandler(() => {
+          return { action: 'deny' };
+        });
+      }
     });
 
     // Store reference to cleanup listeners when view is destroyed
@@ -327,9 +306,8 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
         const view = this.pool.get(tabId);
         if (view && !view.webContents.isDestroyed()) {
           const webContents = view.webContents;
-          const currentState = this.preservedState.get(tabId) || {};
-          const url = webContents.getURL() || currentState.url || '';
-          const title = webContents.getTitle() || currentState.title || 'Untitled';
+          const url = webContents.getURL() || '';
+          const title = webContents.getTitle() || 'Untitled';
           const canGoBack = webContents.canGoBack();
           const canGoForward = webContents.canGoForward();
           
@@ -358,14 +336,9 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
           this.logInfo(`[FIGMA SSO] Detected Figma OAuth callback, monitoring for completion...`);
         }
         
-        // Update preserved state with new URL
-        const currentState = this.preservedState.get(tabId) || {};
-        this.preservedState.set(tabId, { ...currentState, url });
-        this.logInfo(`[URL UPDATED] Tab ${tabId} URL state updated to: ${url}`);
-        
         // Get the view to access webContents for title
         if (view && !view.webContents.isDestroyed()) {
-          const title = view.webContents.getTitle() || currentState.title || 'Untitled';
+          const title = view.webContents.getTitle() || 'Untitled';
           this.deps.eventBus.emit('view:did-navigate', { windowId, url, title, tabId });
         }
       },
@@ -375,9 +348,6 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
         
         if (isMainFrame) {
           this.logInfo(`[IN-PAGE NAV] Tab ${tabId} navigated in-page to: ${url}`);
-          // Update preserved state for in-page navigation too
-          const currentState = this.preservedState.get(tabId) || {};
-          this.preservedState.set(tabId, { ...currentState, url });
         }
       },
       'will-navigate': (event: Event, url: string) => {
@@ -398,21 +368,12 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
         const view = this.pool.get(tabId);
         if (view?.webContents?.isDestroyed()) return; // Safety check
         
-        // Update preserved state with new title
-        const currentState = this.preservedState.get(tabId) || {};
-        this.preservedState.set(tabId, { ...currentState, title });
-        
         // Emit with the windowId captured at handler creation time
         this.deps.eventBus.emit('view:page-title-updated', { windowId, title, tabId });
       },
       'page-favicon-updated': (event: Event, favicons: string[]) => {
         const view = this.pool.get(tabId);
         if (view?.webContents?.isDestroyed()) return; // Safety check
-        
-        // Update preserved state with new favicon
-        const faviconUrl = favicons.length > 0 ? favicons[0] : null;
-        const currentState = this.preservedState.get(tabId) || {};
-        this.preservedState.set(tabId, { ...currentState, faviconUrl });
         
         // Emit with the windowId captured at handler creation time
         this.deps.eventBus.emit('view:page-favicon-updated', { windowId, faviconUrl: favicons, tabId });
@@ -464,40 +425,18 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
 
 
   /**
-   * Destroys a WebContentsView and preserves its state.
+   * Destroys a WebContentsView without blocking.
    */
-  private async destroyView(view: ExtendedWebContentsView): Promise<void> {
+  private destroyView(view: ExtendedWebContentsView): void {
     const wc = view.webContents;
     if (wc && !wc.isDestroyed()) {
-      const tabId = view._tabId;
-      if (tabId) {
-        // Mark as destroying to prevent new operations
-        this.destroyingViews.add(tabId);
-        
-        // TODO: Enhance state preservation.
-        // For now, we only preserve the URL. Later, we can add:
-        // - Scroll position: `await wc.executeJavaScript(...)`
-        // - Navigation history: `wc.navigationHistory.getEntries()`
-        this.preservedState.set(tabId, { url: wc.getURL() });
-      }
-
-      // Phase 1: Stop new operations
+      // Stop new operations immediately
       wc.setAudioMuted(true);
       wc.stop();
       
-      // Phase 2: Defer cleanup to allow queued events to complete
-      setImmediate(() => {
-        if (!wc.isDestroyed()) {
-          wc.removeAllListeners();
-          // Use close() instead of destroy() for graceful shutdown
-          wc.close();
-        }
-        
-        // Clean up the destroying state after cleanup is complete
-        if (tabId) {
-          this.destroyingViews.delete(tabId);
-        }
-      });
+      // Remove listeners and close - fire and forget
+      wc.removeAllListeners();
+      wc.close();
     }
   }
 
@@ -521,14 +460,10 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
         // Stop new operations immediately
         wc.setAudioMuted(true);
         wc.stop();
-
-        // Defer cleanup to allow event queue to drain
-        setImmediate(() => {
-          if (!wc.isDestroyed()) {
-            wc.removeAllListeners();
-            wc.close(); // Use official API
-          }
-        });
+        
+        // Remove listeners and close - fire and forget
+        wc.removeAllListeners();
+        wc.close();
       }
     } catch {
       // Silent fail - we're already in error recovery
@@ -587,7 +522,6 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
     await Promise.all(allTabs.map(tabId => this.releaseView(tabId)));
     this.pool.clear();
     this.lruOrder = [];
-    this.preservedState.clear();
     this.tabToWindowMapping.clear();
     this.eventHandlerCleanups.clear();
   }

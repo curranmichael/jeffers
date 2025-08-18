@@ -15,6 +15,7 @@ vi.mock('electron', () => ({
       setWindowOpenHandler: vi.fn(), // Add missing method
       setAudioMuted: vi.fn(),
       stop: vi.fn(),
+      close: vi.fn(), // Add missing close method
       getTitle: vi.fn().mockReturnValue('Example Title'),
       canGoBack: vi.fn().mockReturnValue(false),
       canGoForward: vi.fn().mockReturnValue(false),
