@@ -33,7 +33,6 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
   private preservedState: Map<string, Partial<TabState>> = new Map();
   private tabToWindowMapping: Map<string, string> = new Map(); // tabId -> windowId
   private eventHandlerCleanups: Map<string, () => void> = new Map(); // tabId -> cleanup function
-  private destroyingViews = new Set<string>(); // Track views being destroyed
   private readonly MAX_POOL_SIZE = 5;
 
   constructor(deps: GlobalTabPoolDeps) {
@@ -53,11 +52,6 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
   public async acquireView(tabId: string, windowId: string): Promise<ExtendedWebContentsView> {
     return this.execute('acquireView', async () => {
       this.logInfo(`[ACQUIRE VIEW] Starting acquisition for Tab ${tabId}, Window ${windowId}`);
-      
-      // Check if tab is being destroyed
-      if (this.destroyingViews.has(tabId)) {
-        throw new Error(`Tab ${tabId} is being destroyed, cannot acquire`);
-      }
       
       // Check if already in pool first
       if (this.pool.has(tabId)) {
@@ -121,16 +115,19 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
     return this.execute('releaseView', async () => {
       const view = this.pool.get(tabId);
       if (view) {
-        // Clean up event handlers BEFORE clearing mapping
-        this.cleanupEventHandlers(tabId);
-        
-        // Now safe to clear state
+        // Remove from pool immediately (synchronous)
         this.pool.delete(tabId);
         this.lruOrder = this.lruOrder.filter(id => id !== tabId);
+        
+        // Clean up event handlers synchronously
+        this.cleanupEventHandlers(tabId);
+        
+        // Clear state synchronously
         this.preservedState.delete(tabId);
         this.tabToWindowMapping.delete(tabId);
         
-        await this.destroyView(view);
+        // Destroy view without blocking
+        this.destroyView(view);
       }
     });
   }
@@ -295,16 +292,13 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
 
     // Store cleanup function
     this.eventHandlerCleanups.set(tabId, () => {
-      // Defer cleanup to allow event queue to drain
-      setImmediate(() => {
-        if (!webContents.isDestroyed()) {
-          webContents.removeAllListeners();
-          // Clear the window open handler by removing it
-          webContents.setWindowOpenHandler(() => {
-            return { action: 'deny' };
-          });
-        }
-      });
+      if (!webContents.isDestroyed()) {
+        webContents.removeAllListeners();
+        // Clear the window open handler by removing it
+        webContents.setWindowOpenHandler(() => {
+          return { action: 'deny' };
+        });
+      }
     });
 
     // Store reference to cleanup listeners when view is destroyed
@@ -464,40 +458,18 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
 
 
   /**
-   * Destroys a WebContentsView and preserves its state.
+   * Destroys a WebContentsView without blocking.
    */
-  private async destroyView(view: ExtendedWebContentsView): Promise<void> {
+  private destroyView(view: ExtendedWebContentsView): void {
     const wc = view.webContents;
     if (wc && !wc.isDestroyed()) {
-      const tabId = view._tabId;
-      if (tabId) {
-        // Mark as destroying to prevent new operations
-        this.destroyingViews.add(tabId);
-        
-        // TODO: Enhance state preservation.
-        // For now, we only preserve the URL. Later, we can add:
-        // - Scroll position: `await wc.executeJavaScript(...)`
-        // - Navigation history: `wc.navigationHistory.getEntries()`
-        this.preservedState.set(tabId, { url: wc.getURL() });
-      }
-
-      // Phase 1: Stop new operations
+      // Stop new operations immediately
       wc.setAudioMuted(true);
       wc.stop();
       
-      // Phase 2: Defer cleanup to allow queued events to complete
-      setImmediate(() => {
-        if (!wc.isDestroyed()) {
-          wc.removeAllListeners();
-          // Use close() instead of destroy() for graceful shutdown
-          wc.close();
-        }
-        
-        // Clean up the destroying state after cleanup is complete
-        if (tabId) {
-          this.destroyingViews.delete(tabId);
-        }
-      });
+      // Remove listeners and close - fire and forget
+      wc.removeAllListeners();
+      wc.close();
     }
   }
 
@@ -521,14 +493,10 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
         // Stop new operations immediately
         wc.setAudioMuted(true);
         wc.stop();
-
-        // Defer cleanup to allow event queue to drain
-        setImmediate(() => {
-          if (!wc.isDestroyed()) {
-            wc.removeAllListeners();
-            wc.close(); // Use official API
-          }
-        });
+        
+        // Remove listeners and close - fire and forget
+        wc.removeAllListeners();
+        wc.close();
       }
     } catch {
       // Silent fail - we're already in error recovery
