@@ -252,6 +252,8 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
     webContents.on('focus', handlers['focus']);
     webContents.on('blur', handlers['blur']);
     webContents.on('context-menu', handlers['context-menu']);
+    webContents.on('dom-ready', handlers['dom-ready']);
+    webContents.on('did-frame-finish-load', handlers['did-frame-finish-load']);
 
     // Handle window open requests (special case - uses setWindowOpenHandler)
     webContents.setWindowOpenHandler((details) => {
@@ -418,6 +420,40 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
             params,
             viewBounds
           });
+        }
+      },
+      'dom-ready': () => {
+        const view = this.pool.get(tabId);
+        if (view?.webContents?.isDestroyed()) return; // Safety check
+        
+        const url = view.webContents.getURL() || '';
+        this.logInfo(`[DOM READY] Tab ${tabId} DOM is ready for: ${url}`);
+        
+        this.deps.eventBus.emit('view:dom-ready', { 
+          tabId, 
+          windowId,
+          url
+        });
+      },
+      'did-frame-finish-load': (event: Event, isMainFrame: boolean) => {
+        const view = this.pool.get(tabId);
+        if (view?.webContents?.isDestroyed()) return; // Safety check
+        
+        if (isMainFrame) {
+          const url = view.webContents.getURL() || '';
+          const title = view.webContents.getTitle() || 'Untitled';
+          
+          this.logInfo(`[FRAME LOADED] Tab ${tabId} main frame finished loading: ${url} (${title})`);
+          
+          this.deps.eventBus.emit('view:did-frame-finish-load', {
+            tabId,
+            windowId,
+            url,
+            title,
+            isMainFrame
+          });
+        } else {
+          this.logDebug(`[FRAME LOADED] Tab ${tabId} sub-frame finished loading`);
         }
       }
     };
