@@ -4,7 +4,8 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import type { StoreApi } from 'zustand';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Globe, XCircle } from 'lucide-react';
+import { XCircle, Globe } from 'lucide-react';
+import { HumanComputerIcon } from '@/components/HumanComputerIcon';
 import {
   Tooltip,
   TooltipContent,
@@ -860,14 +861,11 @@ const ClassicBrowserViewWrapperComponent: React.FC<ClassicBrowserContentProps> =
           pointerEvents: showWebContentsView ? 'auto' : 'none'
         }}
       >
-        {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center z-10">
-            <p className="text-sm text-step-12/80">Loading {currentUrl}...</p>
-          </div>
-        )}
         {!isLoading && !currentUrl && (
            <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
-            <Globe className="w-16 h-16 mb-4 text-step-12/30" />
+            <div className="mb-4 opacity-30">
+              <HumanComputerIcon />
+            </div>
             <p className="text-lg text-step-12/60">New Tab</p>
           </div>
         )}
