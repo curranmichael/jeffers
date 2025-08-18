@@ -1,7 +1,7 @@
 "use client";
 
 import { Home, MessageSquare, Globe, MonitorIcon, FileText, LucideIcon } from "lucide-react";
-import { NoteEditorPayload, WindowContentType } from "../../shared/types";
+import { WindowContentType } from "../../shared/types";
 import { VerticalTabs } from "@/components/VerticalTabs";
 import {
   Sidebar,
@@ -37,45 +37,14 @@ const WINDOW_TYPE_ICONS: Record<WindowContentType, LucideIcon> = {
 interface AppSidebarProps {
   onAddChat: () => void;
   onAddBrowser: () => void;
+  onAddNote: () => void;
   onGoHome: () => void;
   windows?: WindowMeta[];
   activeStore?: StoreApi<WindowStoreState>;
-  notebookId?: string;
 }
 
-export function AppSidebar({ onAddChat, onAddBrowser, onGoHome, windows = [], activeStore, notebookId }: AppSidebarProps) {
+export function AppSidebar({ onAddChat, onAddBrowser, onAddNote, onGoHome, windows = [], activeStore }: AppSidebarProps) {
   const minimizedWindows = windows.filter(w => w.isMinimized);
-  
-  const handleNewNote = async () => {
-    if (!activeStore || !notebookId) return;
-    
-    try {
-      // Create the note via service and get the ID
-      const note = await window.api.createNote({
-        notebookId,
-        content: "",
-        type: 'text'
-      });
-      
-      const payload: NoteEditorPayload = {
-        noteId: note.id,
-        notebookId,
-      };
-      
-      activeStore.getState().addWindow({
-        type: 'note_editor' as WindowContentType,
-        payload,
-        preferredMeta: {
-          title: 'New Note',
-          width: 600,
-          height: 400,
-        }
-      });
-    } catch (error) {
-      console.error('[AppSidebar] Failed to create new note window:', error);
-    }
-  };
-  
   
   return (
     <Sidebar side="right" variant="floating" className="bg-step-1 border-step-6 p-1" collapsible="icon">
@@ -120,7 +89,7 @@ export function AppSidebar({ onAddChat, onAddBrowser, onGoHome, windows = [], ac
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton 
-                  onClick={handleNewNote} 
+                  onClick={onAddNote} 
                   tooltip="Write a Note"
                 >
                   <FileText className="h-4 w-4 text-step-10 hover:text-birkin" />
