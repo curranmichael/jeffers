@@ -32,6 +32,9 @@ AI isn't bolted on through chatbots or copilots—it's woven into how objects ar
 **The environment learns and adapts**  
 Your patterns of thought and work reshape the environment, creating a truly personal computer. Information is organized in one dynamic layer by meaning and intent instead of application or file format. 
 
+**Second brain cognitive computing**
+Enai’s data model is a machine to augment and mirror the human brain. It consists of an intent stream, working memory, long term memory, and an ontological model. Each of these parts works together to extend human intelligence while providing a powerful context for agent orchestration.
+
 
 ## Architecture
 
