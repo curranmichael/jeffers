@@ -424,7 +424,7 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
       },
       'dom-ready': () => {
         const view = this.pool.get(tabId);
-        if (view?.webContents?.isDestroyed()) return; // Safety check
+        if (!view || view.webContents?.isDestroyed()) return; // Safety check
         
         const url = view.webContents.getURL() || '';
         this.logInfo(`[DOM READY] Tab ${tabId} DOM is ready for: ${url}`);
@@ -437,7 +437,7 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
       },
       'did-frame-finish-load': (event: Event, isMainFrame: boolean) => {
         const view = this.pool.get(tabId);
-        if (view?.webContents?.isDestroyed()) return; // Safety check
+        if (!view || view.webContents?.isDestroyed()) return; // Safety check
         
         if (isMainFrame) {
           const url = view.webContents.getURL() || '';

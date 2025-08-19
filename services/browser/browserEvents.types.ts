@@ -33,7 +33,10 @@ export interface BrowserEventMap {
     currentUrl: string;
     canGoBack: boolean;
     canGoForward: boolean;
+    tabId?: string;
   };
+  'view:dom-ready': { windowId: string; url: string; tabId?: string };
+  'view:did-frame-finish-load': { windowId: string; url: string; title: string; isMainFrame: boolean; tabId?: string };
   'view:render-process-gone': { windowId: string; details: RenderProcessGoneDetails };
   'view:window-open-request': { windowId: string; details: HandlerDetails };
   'view:will-navigate': { windowId: string; event: Event; url: string };

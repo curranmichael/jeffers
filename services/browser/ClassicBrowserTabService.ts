@@ -28,6 +28,7 @@ export class ClassicBrowserTabService extends BaseService<ClassicBrowserTabServi
       title: 'New Tab',
       faviconUrl: null,
       isLoading: makeActive,
+      loadingProgress: 0,
       canGoBack: false,
       canGoForward: false,
       error: null,

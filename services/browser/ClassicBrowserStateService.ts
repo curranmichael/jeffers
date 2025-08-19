@@ -5,6 +5,13 @@ import { ClassicBrowserPayload, TabState } from '../../shared/types';
 import { BaseService } from '../base/BaseService';
 import { BrowserEventBus } from './BrowserEventBus';
 
+// Progress milestones for navigation events
+const PROGRESS_START_LOADING = 5;
+const PROGRESS_DID_NAVIGATE = 35;
+const PROGRESS_DOM_READY = 60;
+const PROGRESS_FRAME_FINISH = 85;
+const PROGRESS_STOP_LOADING = 100;
+
 export interface ClassicBrowserStateServiceDeps {
   mainWindow: BrowserWindow;
   eventBus: BrowserEventBus;
@@ -17,6 +24,7 @@ export interface ClassicBrowserStateServiceDeps {
 export class ClassicBrowserStateService extends BaseService<ClassicBrowserStateServiceDeps> {
   public states = new Map<string, ClassicBrowserPayload>();
   private pendingStateEmissions = new Map<string, NodeJS.Timeout>();
+  private tabProgressMap = new Map<string, number>();
 
   constructor(deps: ClassicBrowserStateServiceDeps) {
     super('ClassicBrowserStateService', deps);
@@ -24,7 +32,68 @@ export class ClassicBrowserStateService extends BaseService<ClassicBrowserStateS
   }
 
   private setupEventListeners(): void {
-    // Event listeners removed - favicon updates now come from actual tab loading
+    const { eventBus } = this.deps;
+
+    // Progress tracking event listeners
+    eventBus.on('view:did-start-loading', ({ tabId, windowId }) => {
+      if (tabId) {
+        this.setTabProgress(windowId, tabId, PROGRESS_START_LOADING);
+        this.updateTab(windowId, tabId, { isLoading: true, loadingProgress: PROGRESS_START_LOADING, error: null });
+      }
+    });
+
+    eventBus.on('view:did-navigate', ({ tabId, windowId }) => {
+      if (tabId) {
+        this.setTabProgress(windowId, tabId, PROGRESS_DID_NAVIGATE);
+        this.updateTab(windowId, tabId, { loadingProgress: PROGRESS_DID_NAVIGATE });
+      }
+    });
+
+    eventBus.on('view:dom-ready', ({ tabId, windowId }) => {
+      if (tabId) {
+        this.setTabProgress(windowId, tabId, PROGRESS_DOM_READY);
+        this.updateTab(windowId, tabId, { loadingProgress: PROGRESS_DOM_READY });
+      }
+    });
+
+    eventBus.on('view:did-frame-finish-load', ({ tabId, windowId, isMainFrame }) => {
+      if (tabId && isMainFrame) {
+        this.setTabProgress(windowId, tabId, PROGRESS_FRAME_FINISH);
+        this.updateTab(windowId, tabId, { loadingProgress: PROGRESS_FRAME_FINISH });
+      }
+    });
+
+    eventBus.on('view:did-stop-loading', ({ tabId, windowId }) => {
+      if (tabId) {
+        this.setTabProgress(windowId, tabId, PROGRESS_STOP_LOADING);
+        this.updateTab(windowId, tabId, { isLoading: false, loadingProgress: PROGRESS_STOP_LOADING });
+      }
+    });
+
+    eventBus.on('view:did-fail-load', ({ tabId, windowId, errorDescription }) => {
+      if (tabId) {
+        this.setTabProgress(windowId, tabId, PROGRESS_STOP_LOADING);
+        this.updateTab(windowId, tabId, { 
+          isLoading: false, 
+          loadingProgress: PROGRESS_STOP_LOADING,
+          error: errorDescription || 'Failed to load page'
+        });
+      }
+    });
+  }
+
+  private setTabProgress(windowId: string, tabId: string, progress: number): void {
+    const key = `${windowId}-${tabId}`;
+    const currentProgress = this.tabProgressMap.get(key) || 0;
+    // Only increase progress, never decrease
+    if (progress > currentProgress) {
+      this.tabProgressMap.set(key, progress);
+    }
+  }
+
+  private getTabProgress(windowId: string, tabId: string): number {
+    const key = `${windowId}-${tabId}`;
+    return this.tabProgressMap.get(key) || 0;
   }
 
   public getState(windowId: string): ClassicBrowserPayload | undefined {
@@ -56,6 +125,19 @@ export class ClassicBrowserStateService extends BaseService<ClassicBrowserStateS
   public updateTab(windowId: string, tabId: string, updates: Partial<TabState>): void {
     const state = this.getState(windowId);
     if (state) {
+      // If loadingProgress is being updated, ensure it doesn't decrease
+      if (updates.loadingProgress !== undefined) {
+        const storedProgress = this.getTabProgress(windowId, tabId);
+        updates.loadingProgress = Math.max(updates.loadingProgress, storedProgress);
+      }
+      
+      // Reset progress when navigation starts fresh
+      if (updates.url && state.tabs.find(t => t.id === tabId)?.url !== updates.url) {
+        const key = `${windowId}-${tabId}`;
+        this.tabProgressMap.set(key, 0);
+        updates.loadingProgress = 0;
+      }
+      
       const newTabs = state.tabs.map(t => t.id === tabId ? { ...t, ...updates } : t);
       // Check if URL or loading state changed (navigation-relevant)
       const tabChanged = state.tabs.find(t => t.id === tabId);

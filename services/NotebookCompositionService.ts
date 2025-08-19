@@ -67,6 +67,7 @@ export class NotebookCompositionService extends BaseService<NotebookCompositionS
           title: object.title || 'Untitled',
           faviconUrl: null,
           isLoading: false,
+          loadingProgress: 100,
           canGoBack: false,
           canGoForward: false,
           error: null
