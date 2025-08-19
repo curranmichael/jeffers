@@ -1,0 +1,71 @@
+
+> src@0.1.0 make
+> electron-forge make --targets @electron-forge/maker-dmg
+
+❯ Checking your system
+❯ Checking package manager version
+✔ Found npm@11.4.1
+✔ Checking your system
+[?25h❯ Loading configuration
+✔ Loading configuration
+❯ Resolving make targets
+› Making for the following targets: 
+✔ Resolving make targets
+❯ Running package command
+❯ Preparing to package application
+✔ Preparing to package application
+❯ Running packaging hooks
+❯ Running generateAssets hook
+✔ Running generateAssets hook
+❯ Running prePackage hook
+✔ Running prePackage hook
+✔ Running packaging hooks
+❯ Packaging application
+› Determining targets...
+❯ Packaging for arm64 on darwin
+❯ Copying files
+❯ Preparing native dependencies
+❯ Finalizing package
+(node:9530) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+(node:9530) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+(node:9530) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+✔ Copying files
+(node:9530) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+(node:9530) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+(node:9530) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+(node:9530) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+(node:9530) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+✔ Preparing native dependencies: 2 / 2
+(node:9530) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+✅ Copied Next.js build output to: /var/folders/5y/4dsntc5573b5y2chclv23yr40000gn/T/electron-packager/tmp-ObBsmq/Electron.app/Contents/Resources/app/out
+✅ Copied .env file to packaged app at: /var/folders/5y/4dsntc5573b5y2chclv23yr40000gn/T/electron-packager/tmp-ObBsmq/Electron.app/Contents/Resources/app/.env
+(node:9530) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+(node:9530) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+✔ Finalizing package
+✔ Packaging for arm64 on darwin
+✔ Packaging application
+❯ Running postPackage hook
+✔ Running postPackage hook
+✔ Running package command
+❯ Running preMake hook
+✔ Running preMake hook
+❯ Making distributables
+(node:9530) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+(node:9530) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+❯ Making a dmg distributable for darwin/arm64
+✖ Making a dmg distributable for darwin/arm64 [FAILED: Command failed: cp -R /Users/currandwyer/enai/out/Enai-darwin-arm64/Enai.app /Volumes/Enai/Enai.app
+cp: /Volumes/Enai/Enai.app: Operation not permitted
+
+]
+✖ Making distributables [FAILED: Command failed: cp -R /Users/currandwyer/enai/out/Enai-darwin-arm64/Enai.app /Volumes/Enai/Enai.app
+cp: /Volumes/Enai/Enai.app: Operation not permitted
+
+]
+[?25h
+An unhandled rejection has occurred inside Forge:
+Error: Command failed: cp -R /Users/currandwyer/enai/out/Enai-darwin-arm64/Enai.app /Volumes/Enai/Enai.app
+cp: /Volumes/Enai/Enai.app: Operation not permitted
+at makeError (/Users/currandwyer/enai/node_modules/execa/index.js:174:9)
+    at /Users/currandwyer/enai/node_modules/execa/index.js:278:16
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
