@@ -55,7 +55,7 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
       // Check if already in pool first
       if (this.pool.has(tabId)) {
         const view = this.pool.get(tabId)!;
-        const currentUrl = view.webContents.getURL();
+        const currentUrl = view.webContents?.getURL() || '';
         this.logInfo(`[REUSE VIEW] Tab ${tabId} already in pool with URL: ${currentUrl || 'blank'}`);
         
         // Check for window transfer
@@ -210,12 +210,12 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
         userAgent = `Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeVersion} Safari/537.36`;
       }
       
-      view.webContents.setUserAgent(userAgent);
+      view.webContents?.setUserAgent(userAgent);
       this.logInfo(`[USER AGENT] Set for Tab ${tabId}: ${userAgent}`);
       
       // Verify it was actually set
-      const actualUserAgent = view.webContents.getUserAgent();
-      if (actualUserAgent !== userAgent) {
+      const actualUserAgent = view.webContents?.getUserAgent();
+      if (actualUserAgent && actualUserAgent !== userAgent) {
         this.logWarn(`[USER AGENT] Mismatch! Expected: ${userAgent}, Actual: ${actualUserAgent}`);
       }
       
@@ -285,8 +285,8 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
       this.logDebug(`Tab ${tabId} window open request:`, details);
       
       // Check if this is an OAuth/SSO flow
-      const currentUrl = webContents.getURL();
-      const isCurrentPageAuth = isAuthenticationUrl(currentUrl);
+      const currentUrl = webContents?.getURL() || '';
+      const isCurrentPageAuth = currentUrl ? isAuthenticationUrl(currentUrl) : false;
       const isPopupAuth = isAuthenticationUrl(details.url);
       
       // Allow popups for OAuth flows
@@ -304,7 +304,7 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
 
     // Store cleanup function
     this.eventHandlerCleanups.set(tabId, () => {
-      if (!webContents.isDestroyed()) {
+      if (webContents && !webContents.isDestroyed()) {
         webContents.removeAllListeners();
         // Clear the window open handler by removing it
         webContents.setWindowOpenHandler(() => {
@@ -333,26 +333,21 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
         const view = this.pool.get(tabId);
         if (!view || view.webContents?.isDestroyed()) return; // Aligned safety check
         
-        const webContents = view.webContents;
-        if (webContents) {
-          const url = webContents.getURL() || '';
-          const title = webContents.getTitle() || 'Untitled';
-          const canGoBack = webContents.canGoBack();
-          const canGoForward = webContents.canGoForward();
-          
-          this.logInfo(`[PAGE LOADED] Tab ${tabId} finished loading: ${url} (${title})`);
-          
-          this.deps.eventBus.emit('view:did-stop-loading', { 
-            windowId, 
-            url, 
-            title, 
-            canGoBack, 
-            canGoForward, 
-            tabId 
-          });
-        } else {
-          this.logWarn(`[PAGE LOADED] Tab ${tabId} stopped loading but view not found`);
-        }
+        const url = view.webContents?.getURL() || '';
+        const title = view.webContents?.getTitle() || 'Untitled';
+        const canGoBack = view.webContents?.canGoBack() || false;
+        const canGoForward = view.webContents?.canGoForward() || false;
+        
+        this.logInfo(`[PAGE LOADED] Tab ${tabId} finished loading: ${url} (${title})`);
+        
+        this.deps.eventBus.emit('view:did-stop-loading', { 
+          windowId, 
+          url, 
+          title, 
+          canGoBack, 
+          canGoForward, 
+          tabId 
+        });
       },
       'did-navigate': (event: Event, url: string, httpResponseCode?: number, httpStatusText?: string) => {
         const view = this.pool.get(tabId);
@@ -365,10 +360,7 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
           this.logInfo(`[FIGMA SSO] Detected Figma OAuth callback, monitoring for completion...`);
         }
         
-        // Get the view to access webContents for title
-        if (!view || view.webContents?.isDestroyed()) return; // Aligned safety check
-        
-        const title = view.webContents.getTitle() || 'Untitled';
+        const title = view.webContents?.getTitle() || 'Untitled';
         this.deps.eventBus.emit('view:did-navigate', { windowId, url, title, tabId });
       },
       'did-navigate-in-page': (event: Event, url: string, isMainFrame: boolean) => {
@@ -384,8 +376,8 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
         if (!view || view.webContents?.isDestroyed()) return; // Safety check
         
         // Check if this is an OAuth redirect
-        const currentUrl = view.webContents.getURL();
-        if (currentUrl.includes('finish_google_sso') || currentUrl.includes('oauth') || currentUrl.includes('callback')) {
+        const currentUrl = view.webContents?.getURL() || '';
+        if (currentUrl && (currentUrl.includes('finish_google_sso') || currentUrl.includes('oauth') || currentUrl.includes('callback'))) {
           this.logInfo(`[OAUTH NAVIGATION] Allowing navigation from OAuth callback ${currentUrl} to ${url}`);
           // Don't prevent the navigation for OAuth flows
           return;
@@ -438,22 +430,20 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
         
         this.logDebug(`Tab ${tabId} context menu requested at (${params.x}, ${params.y})`);
         
-        if (view) {
-          const viewBounds = view.getBounds();
-          
-          // Emit event with windowId from closure
-          this.deps.eventBus.emit('view:context-menu-requested', {
-            windowId,
-            params,
-            viewBounds
-          });
-        }
+        const viewBounds = view.getBounds();
+        
+        // Emit event with windowId from closure
+        this.deps.eventBus.emit('view:context-menu-requested', {
+          windowId,
+          params,
+          viewBounds
+        });
       },
       'dom-ready': () => {
         const view = this.pool.get(tabId);
         if (!view || view.webContents?.isDestroyed()) return; // Safety check
         
-        const url = view.webContents.getURL() || '';
+        const url = view.webContents?.getURL() || '';
         this.logInfo(`[DOM READY] Tab ${tabId} DOM is ready for: ${url}`);
         
         this.deps.eventBus.emit('view:dom-ready', { 
@@ -467,8 +457,8 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
         if (!view || view.webContents?.isDestroyed()) return; // Safety check
         
         if (isMainFrame) {
-          const url = view.webContents.getURL() || '';
-          const title = view.webContents.getTitle() || 'Untitled';
+          const url = view.webContents?.getURL() || '';
+          const title = view.webContents?.getTitle() || 'Untitled';
           
           this.logInfo(`[FRAME LOADED] Tab ${tabId} main frame finished loading: ${url} (${title})`);
           

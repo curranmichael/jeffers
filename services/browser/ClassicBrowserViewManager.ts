@@ -86,7 +86,7 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
           view.setBounds(newState.bounds);
         }
         // Restore focus to webContents
-        view.webContents.focus();
+        view.webContents?.focus();
         
         // Skip navigation check - the view was just hidden, not detached
         // The content should still be intact
@@ -165,7 +165,7 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
 
       const activeTab = newState.tabs.find(tab => tab.id === activeTabId);
       if (activeTab) {
-        const viewUrl = newView.webContents.getURL();
+        const viewUrl = newView.webContents?.getURL() || '';
         const isBlankView = !viewUrl || viewUrl === 'about:blank' || viewUrl === '';
         
         this.logInfo(`[TAB STATE] Tab ${activeTabId} - Current URL: ${viewUrl || 'blank'}, Target URL: ${activeTab.url || 'none'}`);
@@ -317,7 +317,7 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
       return; // No URL to navigate to
     }
 
-    const currentUrl = view.webContents.getURL();
+    const currentUrl = view.webContents?.getURL() || '';
     const webContents = view.webContents;
     
     this.logInfo(`[ENSURE NAV] Tab ${tab.id} - Comparing current: ${currentUrl || 'blank'} with target: ${tab.url}`);
@@ -351,7 +351,11 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
     if (isSecureUrl(tab.url, { context: 'tab-restoration' })) {
       try {
         (view as ExtendedWebContentsView)._lastNavigationTime = now;
-        await view.webContents.loadURL(tab.url);
+        if (view.webContents) {
+          await view.webContents.loadURL(tab.url);
+        } else {
+          this.logWarn(`[ENSURE NAV] Tab ${tab.id} has no webContents, skipping navigation`);
+        }
       } catch (error) {
         // Only log as error if it's not an abort (which might be expected)
         if (error instanceof Error && (error as ErrorWithCode).code === 'ERR_ABORTED') {
@@ -561,7 +565,7 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
 
       // Send the context data to the overlay
       this.logInfo(`[showContextMenuOverlay] Sending context data to overlay via IPC channel: ${BROWSER_CONTEXT_MENU_SHOW}`);
-      overlay.webContents.send(BROWSER_CONTEXT_MENU_SHOW, contextData);
+      overlay.webContents?.send(BROWSER_CONTEXT_MENU_SHOW, contextData);
 
       this.activeOverlayWindowIds.add(windowId);
       this.logInfo(`[showContextMenuOverlay] Context menu overlay shown successfully`);
@@ -660,12 +664,16 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
     this.logInfo(`[createOverlayView] Loading overlay URL: ${overlayUrl}`);
     
     // Load the HTML file first, then inject the windowId via IPC
-    overlay.webContents.loadURL(overlayUrl).then(() => {
-      this.logInfo(`[createOverlayView] Successfully loaded overlay, will inject windowId: ${windowId}`);
-      // We'll send the windowId after the page loads
-    }).catch((error) => {
-      this.logError(`[createOverlayView] Failed to load overlay: ${error}`);
-    });
+    if (overlay.webContents) {
+      overlay.webContents.loadURL(overlayUrl).then(() => {
+        this.logInfo(`[createOverlayView] Successfully loaded overlay, will inject windowId: ${windowId}`);
+        // We'll send the windowId after the page loads
+      }).catch((error) => {
+        this.logError(`[createOverlayView] Failed to load overlay: ${error}`);
+      });
+    } else {
+      this.logError(`[createOverlayView] Overlay has no webContents`);
+    }
 
     // Setup overlay-specific listeners
     this.setupOverlayListeners(overlay, windowId);
