@@ -74,7 +74,7 @@ describe('UrlIngestionWorker', () => {
     vi.mocked(IngestionAiService).mockImplementation(() => mockIngestionAiService);
     
     // Initialize worker
-    urlWorker = new UrlIngestionWorker(objectModel, ingestionJobModel);
+    urlWorker = new UrlIngestionWorker(objectModel, ingestionJobModel, mockIngestionAiService);
   });
 
   afterEach(() => {
@@ -98,7 +98,7 @@ describe('UrlIngestionWorker', () => {
         jobType: 'url',
         sourceIdentifier: testUrl,
         priority: 0,
-        jobSpecificData: {}
+        jobSpecificData: { url: testUrl }
       });
       
       // Setup worker mock to simulate successful parsing
@@ -173,7 +173,7 @@ describe('UrlIngestionWorker', () => {
         jobType: 'url',
         sourceIdentifier: testUrl,
         priority: 0,
-        jobSpecificData: {}
+        jobSpecificData: { url: testUrl }
       });
       
       // Execute the job
@@ -205,7 +205,7 @@ describe('UrlIngestionWorker', () => {
         jobType: 'url',
         sourceIdentifier: testUrl,
         priority: 0,
-        jobSpecificData: {}
+        jobSpecificData: { url: testUrl }
       });
       
       // Setup worker mock to simulate parsing failure
@@ -258,7 +258,7 @@ describe('UrlIngestionWorker', () => {
         sourceIdentifier: testUrl,
         priority: 0,
         relatedObjectId: existingObject.id,
-        jobSpecificData: { relatedObjectId: existingObject.id }
+        jobSpecificData: { url: testUrl, relatedObjectId: existingObject.id }
       });
       
       // Setup worker mock
@@ -315,7 +315,7 @@ describe('UrlIngestionWorker', () => {
         jobType: 'url',
         sourceIdentifier: testUrl,
         priority: 0,
-        jobSpecificData: {}
+        jobSpecificData: { url: testUrl }
       });
       
       // Setup worker mock to never respond (simulating timeout)
@@ -368,7 +368,7 @@ describe('UrlIngestionWorker', () => {
         jobType: 'url',
         sourceIdentifier: testUrl,
         priority: 0,
-        jobSpecificData: {}
+        jobSpecificData: { url: testUrl }
       });
       
       // Setup worker mock
@@ -420,8 +420,21 @@ describe('URL Ingestion Pipeline - Integration', () => {
   let chunkingService: ChunkingService;
   let urlWorker: UrlIngestionWorker;
   let vectorStore: IVectorStore;
+  let mockIngestionAiService: any;
 
   beforeEach(async () => {
+    // Setup mock IngestionAiService
+    mockIngestionAiService = {
+      generateObjectSummary: vi.fn().mockResolvedValue({
+        title: 'Test Article',
+        summary: 'This is a test summary of the article.',
+        tags: ['test', 'mock', 'article'],
+        propositions: [
+          { type: 'main', content: 'Main proposition about the article' },
+          { type: 'supporting', content: 'Supporting detail' }
+        ]
+      })
+    };
     // Setup in-memory database
     db = new Database(':memory:');
     await runMigrations(db);
@@ -440,14 +453,25 @@ describe('URL Ingestion Pipeline - Integration', () => {
       })
     } as any;
     
+    // Create mock dependencies for IngestionQueueService
+    const queueServiceDeps = {
+      ingestionJobModel,
+      objectModelCore: objectModel,
+      chunkModel,
+      embeddingModel,
+      vectorModel: vectorStore,
+      ingestionAiService: mockIngestionAiService,
+      pdfIngestionService: {} as any // Mock PDF service
+    };
+    
     // Initialize services
-    ingestionQueueService = new IngestionQueueService(ingestionJobModel, {
+    ingestionQueueService = new IngestionQueueService(queueServiceDeps, {
       concurrency: 5,
       pollInterval: 100,
       maxRetries: 1
     });
     
-    urlWorker = new UrlIngestionWorker(objectModel, ingestionJobModel);
+    urlWorker = new UrlIngestionWorker(objectModel, ingestionJobModel, mockIngestionAiService);
     ingestionQueueService.registerProcessor('url', urlWorker.execute.bind(urlWorker));
     
     chunkingService = new ChunkingService(
@@ -464,8 +488,8 @@ describe('URL Ingestion Pipeline - Integration', () => {
   });
 
   afterEach(async () => {
-    await ingestionQueueService.stop();
-    chunkingService.stop();
+    await ingestionQueueService.cleanup();
+    await chunkingService.cleanup();
     vi.clearAllMocks();
     db.close();
   });
@@ -487,7 +511,7 @@ describe('URL Ingestion Pipeline - Integration', () => {
     vi.mocked(IngestionAiService).mockImplementation(() => mockIngestionAiService);
     
     // Recreate the worker with the new mock
-    urlWorker = new UrlIngestionWorker(objectModel, ingestionJobModel);
+    urlWorker = new UrlIngestionWorker(objectModel, ingestionJobModel, mockIngestionAiService);
     ingestionQueueService.registerProcessor('url', urlWorker.execute.bind(urlWorker));
     const testUrl = 'https://example.com/pipeline-test';
     
@@ -538,11 +562,11 @@ describe('URL Ingestion Pipeline - Integration', () => {
     
     const job = await ingestionQueueService.addJob('url', testUrl, {
       priority: 0,
-      jobSpecificData: { relatedObjectId: object.id }
+      jobSpecificData: { url: testUrl, relatedObjectId: object.id }
     });
     
     // Start processing
-    ingestionQueueService.start();
+    await ingestionQueueService.processJobs();
     
     // Wait for job to complete
     await new Promise<void>((resolve) => {

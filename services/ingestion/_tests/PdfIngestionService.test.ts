@@ -90,8 +90,27 @@ describe('PdfIngestionService', () => {
   let testPdfPath: string;
 
   beforeEach(async () => {
-    // Create service - no parameters needed
-    service = new PdfIngestionService();
+    // Create mock IngestionAiService
+    const mockIngestionAiService = new IngestionAiService();
+    
+    // Create service with dependencies
+    service = new PdfIngestionService({
+      ingestionAiService: mockIngestionAiService
+    });
+
+    // Mock the extractPdfText method to avoid PDF.js loading
+    vi.spyOn(service as any, 'extractPdfText').mockResolvedValue([{
+      pageContent: 'Sample PDF content for testing that is long enough to pass the 50 character minimum requirement for text extraction validation.',
+      metadata: {
+        numpages: 5,
+        info: {
+          Title: 'Test PDF',
+          Author: 'Test Author'
+        },
+        metadata: {},
+        version: '1.10.100'
+      }
+    }]);
 
     // Create test PDF file
     testPdfPath = path.join('/tmp', `test-${uuidv4()}.pdf`);
@@ -116,7 +135,7 @@ describe('PdfIngestionService', () => {
       const result = await service.extractTextAndGenerateAiSummary(testPdfPath, objectId);
       
       expect(result).toBeDefined();
-      expect(result.rawText).toBe('Sample PDF content for testing');
+      expect(result.rawText).toBe('Sample PDF content for testing that is long enough to pass the 50 character minimum requirement for text extraction validation.');
       expect(result.aiContent).toBeDefined();
       expect(result.aiContent.title).toBe('Test PDF Analysis');
       expect(result.aiContent.summary).toBe('This is a comprehensive summary of the test PDF content.');
@@ -126,13 +145,27 @@ describe('PdfIngestionService', () => {
     });
 
     it('should handle invalid AI response gracefully', async () => {
-      // Mock invalid AI response
-      vi.mocked(IngestionAiService).mockImplementationOnce(() => ({
+      // Mock the AI service to throw an error
+      const failingAiService = {
         generateObjectSummary: vi.fn().mockRejectedValue(new Error('AI_PROCESSING_FAILED'))
-      }) as any);
-
-      // Create a new service instance
-      const newService = new PdfIngestionService();
+      };
+      
+      // Create a new service instance with failing AI service
+      const newService = new PdfIngestionService({
+        ingestionAiService: failingAiService as any
+      });
+      
+      // Mock extractPdfText for this service instance too
+      vi.spyOn(newService as any, 'extractPdfText').mockResolvedValue([{
+        pageContent: 'Sample PDF content for testing that is long enough to pass the 50 character minimum requirement for text extraction validation.',
+        metadata: {
+          numpages: 5,
+          info: { Title: 'Test PDF', Author: 'Test Author' },
+          metadata: {},
+          version: '1.10.100'
+        }
+      }]);
+      
       const objectId = uuidv4();
 
       await expect(newService.extractTextAndGenerateAiSummary(testPdfPath, objectId))
@@ -151,17 +184,16 @@ describe('PdfIngestionService', () => {
     });
 
     it('should handle empty PDF content', async () => {
-      // Mock pdf-parse to return empty text
-      mockPdfParse.mockResolvedValueOnce({
-        text: '',
-        numpages: 0,
-        info: {
-          Title: '',
-          Author: ''
-        },
-        metadata: {},
-        version: '1.10.100'
-      });
+      // Override the extractPdfText mock to return empty content for this test
+      vi.spyOn(service as any, 'extractPdfText').mockResolvedValueOnce([{
+        pageContent: '', // Empty content to trigger the error
+        metadata: {
+          numpages: 0,
+          info: { Title: '', Author: '' },
+          metadata: {},
+          version: '1.10.100'
+        }
+      }]);
 
       const objectId = uuidv4();
       

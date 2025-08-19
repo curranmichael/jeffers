@@ -91,7 +91,7 @@ describe('IngestionAiService', () => {
       expect(result[1].content).toContain('The new chunking strategy aims for larger');
       expect(llmModule.createChatModel).toHaveBeenCalledWith('gpt-5-mini', {
         response_format: { type: 'json_object' },
-        max_tokens: 4000
+        max_tokens: 16000
       });
     });
 
@@ -420,7 +420,7 @@ describe('IngestionAiService', () => {
         .rejects.toThrow('OpenAI service unavailable');
 
       expect(mockModel.invoke).toHaveBeenCalledTimes(2);
-      expect(logger.error).toHaveBeenCalledTimes(3); // 2 API errors + 1 final error
+      expect(logger.error).toHaveBeenCalledTimes(4); // 2 API errors + 1 final error + 1 BaseService error
     });
 
     it('should validate minimum required fields', async () => {
