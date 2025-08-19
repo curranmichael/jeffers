@@ -194,6 +194,31 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
     try {
       view.setBackgroundColor('#00000000'); // Transparent background
       
+      // Set user agent to match standard Chrome
+      const chromeVersion = process.versions.chrome;
+      const platform = process.platform;
+      let userAgent: string;
+      
+      if (platform === 'darwin') {
+        // macOS
+        userAgent = `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeVersion} Safari/537.36`;
+      } else if (platform === 'win32') {
+        // Windows
+        userAgent = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeVersion} Safari/537.36`;
+      } else {
+        // Linux and others
+        userAgent = `Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeVersion} Safari/537.36`;
+      }
+      
+      view.webContents.setUserAgent(userAgent);
+      this.logInfo(`[USER AGENT] Set for Tab ${tabId}: ${userAgent}`);
+      
+      // Verify it was actually set
+      const actualUserAgent = view.webContents.getUserAgent();
+      if (actualUserAgent !== userAgent) {
+        this.logWarn(`[USER AGENT] Mismatch! Expected: ${userAgent}, Actual: ${actualUserAgent}`);
+      }
+      
       this.logInfo(`[VIEW CREATED] WebContentsView instance created for Tab ${tabId}`);
       
       // Apply border radius to the native view (6px to match 8px outer radius with 2px border)

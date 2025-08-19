@@ -140,8 +140,8 @@ export class ClassicBrowserViewManager extends BaseService<ClassicBrowserViewMan
       const activeTab = newState.tabs.find(tab => tab.id === activeTabId);
       const previousTab = previousState.tabs.find(tab => tab.id === activeTabId);
 
-      if (activeTab && previousTab && currentView &&
-          (activeTab.url !== previousTab.url || activeTab.isLoading !== previousTab.isLoading)) {
+      // Only trigger navigation if the URL actually changed, NOT just loading state
+      if (activeTab && previousTab && currentView && activeTab.url !== previousTab.url) {
         this.ensureViewNavigatedToTab(currentView, activeTab);
       }
     }
