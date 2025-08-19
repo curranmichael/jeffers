@@ -324,15 +324,17 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
     return {
       'did-start-loading': () => {
         const view = this.pool.get(tabId);
-        if (view?.webContents?.isDestroyed()) return; // Safety check
+        if (!view || view.webContents?.isDestroyed()) return; // Safety check
         
         this.logInfo(`[PAGE LOADING] Tab ${tabId} started loading`);
         this.deps.eventBus.emit('view:did-start-loading', { tabId, windowId });
       },
       'did-stop-loading': () => {
         const view = this.pool.get(tabId);
-        if (view && !view.webContents.isDestroyed()) {
-          const webContents = view.webContents;
+        if (!view || view.webContents?.isDestroyed()) return; // Aligned safety check
+        
+        const webContents = view.webContents;
+        if (webContents) {
           const url = webContents.getURL() || '';
           const title = webContents.getTitle() || 'Untitled';
           const canGoBack = webContents.canGoBack();
@@ -354,7 +356,7 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
       },
       'did-navigate': (event: Event, url: string, httpResponseCode?: number, httpStatusText?: string) => {
         const view = this.pool.get(tabId);
-        if (view?.webContents?.isDestroyed()) return; // Safety check
+        if (!view || view.webContents?.isDestroyed()) return; // Safety check
         
         this.logInfo(`[NAVIGATION] Tab ${tabId} navigated to: ${url} (HTTP ${httpResponseCode} ${httpStatusText || ''})`);
         
@@ -364,14 +366,14 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
         }
         
         // Get the view to access webContents for title
-        if (view && !view.webContents.isDestroyed()) {
-          const title = view.webContents.getTitle() || 'Untitled';
-          this.deps.eventBus.emit('view:did-navigate', { windowId, url, title, tabId });
-        }
+        if (!view || view.webContents?.isDestroyed()) return; // Aligned safety check
+        
+        const title = view.webContents.getTitle() || 'Untitled';
+        this.deps.eventBus.emit('view:did-navigate', { windowId, url, title, tabId });
       },
       'did-navigate-in-page': (event: Event, url: string, isMainFrame: boolean) => {
         const view = this.pool.get(tabId);
-        if (view?.webContents?.isDestroyed()) return; // Safety check
+        if (!view || view.webContents?.isDestroyed()) return; // Safety check
         
         if (isMainFrame) {
           this.logInfo(`[IN-PAGE NAV] Tab ${tabId} navigated in-page to: ${url}`);
@@ -393,21 +395,21 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
       },
       'page-title-updated': (event: Event, title: string) => {
         const view = this.pool.get(tabId);
-        if (view?.webContents?.isDestroyed()) return; // Safety check
+        if (!view || view.webContents?.isDestroyed()) return; // Safety check
         
         // Emit with the windowId captured at handler creation time
         this.deps.eventBus.emit('view:page-title-updated', { windowId, title, tabId });
       },
       'page-favicon-updated': (event: Event, favicons: string[]) => {
         const view = this.pool.get(tabId);
-        if (view?.webContents?.isDestroyed()) return; // Safety check
+        if (!view || view.webContents?.isDestroyed()) return; // Safety check
         
         // Emit with the windowId captured at handler creation time
         this.deps.eventBus.emit('view:page-favicon-updated', { windowId, faviconUrl: favicons, tabId });
       },
       'did-fail-load': (event: Event, errorCode: number, errorDescription: string, validatedURL: string, isMainFrame: boolean) => {
         const view = this.pool.get(tabId);
-        if (view?.webContents?.isDestroyed()) return; // Safety check
+        if (!view || view.webContents?.isDestroyed()) return; // Safety check
         
         if (isMainFrame) {
           // ERR_ABORTED (-3) on OAuth callback URLs is expected - the page redirects after processing
@@ -420,19 +422,19 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
       },
       'focus': () => {
         const view = this.pool.get(tabId);
-        if (view?.webContents?.isDestroyed()) return; // Safety check
+        if (!view || view.webContents?.isDestroyed()) return; // Safety check
         
         this.logDebug(`Tab ${tabId} gained focus`);
       },
       'blur': () => {
         const view = this.pool.get(tabId);
-        if (view?.webContents?.isDestroyed()) return; // Safety check
+        if (!view || view.webContents?.isDestroyed()) return; // Safety check
         
         this.logDebug(`Tab ${tabId} lost focus`);
       },
       'context-menu': (event: Event, params: Electron.ContextMenuParams) => {
         const view = this.pool.get(tabId);
-        if (view?.webContents?.isDestroyed()) return; // Safety check
+        if (!view || view.webContents?.isDestroyed()) return; // Safety check
         
         this.logDebug(`Tab ${tabId} context menu requested at (${params.x}, ${params.y})`);
         
