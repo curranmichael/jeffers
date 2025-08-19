@@ -148,11 +148,11 @@ export const TabBar: React.FC<TabBarProps> = ({
       import('topbar').then((module) => {
         const topbar = module.default;
         topbar.config({
-          barThickness: 2,
+          barThickness: 4,
           barColors: {
-            '0': '#10b981',    // emerald-500
-            '0.5': '#3b82f6',  // blue-500
-            '1.0': '#6366f1'   // indigo-500
+            '0': '#F37021',    // birkin
+            '0.5': '#F37021',  // birkin
+            '1.0': '#F37021'   // birkin
           },
           shadowBlur: 0,
           shadowColor: 'rgba(0, 0, 0, 0)',

@@ -192,7 +192,7 @@ export class ClassicBrowserStateService extends BaseService<ClassicBrowserStateS
         const currentState = this.getState(windowId);
         if (currentState) {
           // Send the full state including freezeState
-          this.deps.mainWindow.webContents.send(ON_CLASSIC_BROWSER_STATE, { 
+          this.deps.mainWindow.webContents?.send(ON_CLASSIC_BROWSER_STATE, { 
             windowId, 
             update: {
               tabs: currentState.tabs,

@@ -174,7 +174,7 @@
 /* TopBar loading indicator positioning */
 .topbar {
   position: fixed !important;
-  top: 36px !important; /* Position below tab bar (36px = 9 * 4px) */
-  height: 2px !important;
+  top: 2px !important; /* Position at very top of viewport */
+  height: 4px !important;
   z-index: 9999 !important;
 }
