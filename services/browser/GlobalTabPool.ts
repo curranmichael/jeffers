@@ -452,11 +452,14 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
           url
         });
       },
-      'did-frame-finish-load': (event: Event, isMainFrame: boolean) => {
+      'did-frame-finish-load': (event: Event, isMainFrame?: boolean) => {
         const view = this.pool.get(tabId);
         if (!view || view.webContents?.isDestroyed()) return; // Safety check
         
-        if (isMainFrame) {
+        // Safely handle isMainFrame parameter which might be undefined
+        const isMain = isMainFrame === true; // Explicit boolean conversion
+        
+        if (isMain) {
           const url = view.webContents?.getURL() || '';
           const title = view.webContents?.getTitle() || 'Untitled';
           
@@ -467,7 +470,7 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
             windowId,
             url,
             title,
-            isMainFrame
+            isMainFrame: isMain
           });
         } else {
           this.logDebug(`[FRAME LOADED] Tab ${tabId} sub-frame finished loading`);
