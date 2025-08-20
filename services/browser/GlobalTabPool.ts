@@ -363,11 +363,14 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
         const title = view.webContents?.getTitle() || 'Untitled';
         this.deps.eventBus.emit('view:did-navigate', { windowId, url, title, tabId });
       },
-      'did-navigate-in-page': (event: Event, url: string, isMainFrame: boolean) => {
+      'did-navigate-in-page': (event: Event, url: string, isMainFrame?: boolean) => {
         const view = this.pool.get(tabId);
         if (!view || view.webContents?.isDestroyed()) return; // Safety check
         
-        if (isMainFrame) {
+        // Safely handle isMainFrame parameter which might be undefined
+        const isMain = isMainFrame === true; // Explicit boolean conversion
+        
+        if (isMain) {
           this.logInfo(`[IN-PAGE NAV] Tab ${tabId} navigated in-page to: ${url}`);
         }
       },
@@ -399,11 +402,14 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
         // Emit with the windowId captured at handler creation time
         this.deps.eventBus.emit('view:page-favicon-updated', { windowId, faviconUrl: favicons, tabId });
       },
-      'did-fail-load': (event: Event, errorCode: number, errorDescription: string, validatedURL: string, isMainFrame: boolean) => {
+      'did-fail-load': (event: Event, errorCode: number, errorDescription: string, validatedURL: string, isMainFrame?: boolean) => {
         const view = this.pool.get(tabId);
         if (!view || view.webContents?.isDestroyed()) return; // Safety check
         
-        if (isMainFrame) {
+        // Safely handle isMainFrame parameter which might be undefined
+        const isMain = isMainFrame === true; // Explicit boolean conversion
+        
+        if (isMain) {
           // ERR_ABORTED (-3) on OAuth callback URLs is expected - the page redirects after processing
           if (errorCode === -3 && (validatedURL.includes('finish_google_sso') || validatedURL.includes('oauth') || validatedURL.includes('callback'))) {
             this.logInfo(`[OAUTH REDIRECT] OAuth callback page aborted navigation (expected behavior): ${validatedURL}`);
