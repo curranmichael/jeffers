@@ -76,6 +76,41 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
       }
     });
 
+    // Listen for loading state updates
+    eventBus.on('view:did-start-loading', ({ windowId, tabId }) => {
+      // Use the specific tabId if provided, otherwise use the active tab
+      let targetTabId = tabId;
+      if (!targetTabId) {
+        const state = this.deps.stateService.getState(windowId);
+        targetTabId = state?.activeTabId;
+      }
+      
+      if (targetTabId) {
+        this.deps.stateService.updateTab(windowId, targetTabId, { isLoading: true });
+      }
+    });
+
+    eventBus.on('view:did-stop-loading', ({ windowId, url, title, canGoBack, canGoForward, tabId }) => {
+      // Use the specific tabId if provided, otherwise use the active tab
+      let targetTabId = tabId;
+      if (!targetTabId) {
+        const state = this.deps.stateService.getState(windowId);
+        targetTabId = state?.activeTabId;
+      }
+      
+      if (targetTabId) {
+        // Update loading state and navigation state in one go
+        this.deps.stateService.updateTab(windowId, targetTabId, { 
+          isLoading: false, 
+          url,
+          title,
+          canGoBack, 
+          canGoForward,
+          error: null 
+        });
+      }
+    });
+
     // Listen for tab group title updates from enrichment service
     eventBus.on('tabgroup:title-updated', ({ windowId, title }) => {
       this.logInfo(`Tab group title updated for window ${windowId}: "${title}"`);
