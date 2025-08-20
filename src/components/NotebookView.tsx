@@ -8,7 +8,7 @@ import { useStore } from "zustand";
 import { motion } from "framer-motion";
 
 import { createNotebookWindowStore, type WindowStoreState, notebookStores } from "@/store/windowStoreFactory";
-import { WindowMeta, WindowContentType, WindowPayload, IntentResultPayload, ClassicBrowserPayload, ClassicBrowserStateUpdate } from '../../shared/types';
+import { WindowMeta, WindowContentType, WindowPayload, NoteEditorPayload, IntentResultPayload, ClassicBrowserPayload, ClassicBrowserStateUpdate } from '../../shared/types';
 import { WindowFrame } from '@/components/ui/WindowFrame';
 import { AppSidebar } from '@/components/AppSidebar';
 import { SidebarProvider, SidebarInset, useSidebar } from "@/components/ui/sidebar";
@@ -26,6 +26,7 @@ function NotebookContent({
   setNotebookTitle,
   onAddChat,
   onAddBrowser,
+  onAddNote,
   onGoHome,
   notebookIntentText,
   setNotebookIntentText,
@@ -42,6 +43,7 @@ function NotebookContent({
   setNotebookTitle: (title: string) => void;
   onAddChat: () => void;
   onAddBrowser: () => void;
+  onAddNote: () => void;
   onGoHome: () => void;
   notebookIntentText: string;
   setNotebookIntentText: (text: string) => void;
@@ -211,10 +213,10 @@ function NotebookContent({
         <AppSidebar 
           onAddChat={onAddChat}
           onAddBrowser={onAddBrowser}
+          onAddNote={onAddNote}
           onGoHome={onGoHome}
           windows={windows}
           activeStore={activeStore}
-          notebookId={notebookId}
         />
       </motion.div>
       
@@ -730,8 +732,42 @@ function NotebookWorkspace({ notebookId }: { notebookId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [notebookId]); // Remove activeStore and router from deps - they're stable refs
 
-  // MOVED UP: Define useCallback before any conditional returns.
-  const handleAddWindow = useCallback(() => {
+  const handleAddNoteWindow = useCallback(async () => {
+    try {
+      // Create the note via service and get the ID
+      const note = await window.api.createNote({
+        notebookId,
+        content: "",
+        type: 'text'
+      });
+      
+      const payload: NoteEditorPayload = {
+        noteId: note.id,
+        notebookId,
+      };
+      
+      const currentWindows = activeStore.getState().windows;
+      const x = (currentWindows.length % 5) * 210 + 100;
+      const y = Math.floor(currentWindows.length / 5) * 210 + 100;
+      
+      activeStore.getState().addWindow({
+        type: 'note_editor' as WindowContentType,
+        payload,
+        preferredMeta: {
+          title: 'New Note',
+          x,
+          y,
+          width: 600,
+          height: 400,
+        }
+      });
+    } catch (error) {
+      console.error('[NotebookView] Failed to create new note window:', error);
+    }
+  }, [activeStore, notebookId]);
+
+  // Wrapper to add a generic browser window using existing logic
+  const handleAddBrowserWindow = useCallback(() => {
     // Minimize any existing classic-browser windows
     const currentWindows = activeStore.getState().windows;
     currentWindows.forEach(window => {
@@ -790,7 +826,7 @@ function NotebookWorkspace({ notebookId }: { notebookId: string }) {
       }
     });
   }, [activeStore]);
-
+  
   const handleGoHome = useCallback(() => {
     router.push('/');
   }, [router]);
@@ -824,7 +860,8 @@ function NotebookWorkspace({ notebookId }: { notebookId: string }) {
         notebookTitle={notebookTitle}
         setNotebookTitle={setNotebookTitle}
         onAddChat={handleAddChatWindow}
-        onAddBrowser={handleAddWindow}
+        onAddBrowser={handleAddBrowserWindow}
+        onAddNote={handleAddNoteWindow}
         onGoHome={handleGoHome}
         notebookIntentText={notebookIntentText}
         setNotebookIntentText={setNotebookIntentText}
