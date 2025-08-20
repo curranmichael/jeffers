@@ -47,7 +47,7 @@ export class ClassicBrowserSnapshotService extends BaseService<ClassicBrowserSna
     }
 
     return this.execute('captureSnapshot', async () => {
-      const currentUrl = view.webContents.getURL();
+      const currentUrl = view.webContents?.getURL() || '';
       if (isAuthenticationUrl(currentUrl)) {
         this.logInfo(`Skipping snapshot capture for authentication URL: ${currentUrl}`);
         return undefined;

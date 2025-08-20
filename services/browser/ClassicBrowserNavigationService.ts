@@ -56,7 +56,11 @@ export class ClassicBrowserNavigationService extends BaseService<ClassicBrowserN
     }
 
     this.deps.stateService.updateTab(windowId, activeTabId, { url: validUrl, isLoading: true, error: null });
-    await view.webContents.loadURL(validUrl);
+    if (view.webContents) {
+      await view.webContents.loadURL(validUrl);
+    } else {
+      this.logWarn(`Cannot navigate - webContents is null for tab ${activeTabId}`);
+    }
   }
 
   

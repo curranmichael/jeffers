@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { TabState } from '../../../../shared/types';
@@ -139,45 +139,101 @@ export const TabBar: React.FC<TabBarProps> = ({
   isFocused = true,
   windowId
 }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const topbarRef = useRef<any>(null);
+
+  // Initialize TopBar once
+  useEffect(() => {
+    if (!topbarRef.current && typeof window !== 'undefined') {
+      import('topbar').then((module) => {
+        const topbar = module.default;
+        topbar.config({
+          barThickness: 4,
+          barColors: {
+            '0': '#F37021',    // birkin
+            '0.5': '#F37021',  // birkin
+            '1.0': '#F37021'   // birkin
+          },
+          shadowBlur: 0,
+          shadowColor: 'rgba(0, 0, 0, 0)',
+          className: 'topbar'
+        });
+        // Initialize by showing and immediately hiding to create the DOM element
+        topbar.show();
+        topbar.hide();
+        topbarRef.current = topbar;
+      });
+    }
+  }, []);
+
+  // Update progress based on active tab
+  useEffect(() => {
+    if (typeof window === 'undefined' || !topbarRef.current) return;
+    
+    const activeTab = tabs.find(t => t.id === activeTabId);
+    if (!activeTab) return;
+
+    const topbar = topbarRef.current;
+    if (activeTab.isLoading) {
+      // Show and update progress
+      const progress = activeTab.loadingProgress || 0;
+      if (progress === 0 || progress === 5) {
+        topbar.show();
+      } else if (progress < 100) {
+        topbar.progress(progress / 100);
+      } else {
+        topbar.hide();
+      }
+    } else {
+      // Hide when not loading
+      topbar.hide();
+    }
+  }, [tabs, activeTabId]);
+
   // Only show tab bar when there are multiple tabs
   if (tabs.length <= 1) {
     return null;
   }
 
   return (
-    <div className={cn(
-      "overflow-x-auto scrollbar-hide h-9",
-      isFocused ? 'bg-step-4' : 'bg-step-3',
-      isFocused ? 'opacity-100' : 'opacity-90'
-    )}>
-      <div className="inline-flex items-start h-full">
-        {tabs.map((tab) => (
-          <Tab
-            key={tab.id}
-            tab={tab}
-            isActive={tab.id === activeTabId}
-            onTabClick={onTabClick}
-            onTabClose={onTabClose}
-            isFocused={isFocused}
-            windowId={windowId}
-            totalTabsCount={tabs.length}
-          />
-        ))}
-        
-        {/* New Tab button - now inside the scrollable area */}
-        <div className="relative inline-flex items-start pl-2 h-9 pt-1.5">
-          <button
-            onClick={onNewTab}
-            className={cn(
-              "flex items-center justify-center w-6 h-6 rounded transition-colors",
-              "hover:bg-step-2 hover:text-birkin",
-              isFocused ? "text-step-11" : "text-step-9"
-            )}
-            style={{ borderRadius: '4px' }}
-            title="New Tab"
-          >
-            <span className="text-sm leading-none">+</span>
-          </button>
+    <div className="relative">
+      <div 
+        ref={containerRef}
+        className={cn(
+          "overflow-x-auto scrollbar-hide h-9 relative",
+          isFocused ? 'bg-step-4' : 'bg-step-3',
+          isFocused ? 'opacity-100' : 'opacity-90'
+        )}
+      >
+        <div className="inline-flex items-start h-full">
+          {tabs.map((tab) => (
+            <Tab
+              key={tab.id}
+              tab={tab}
+              isActive={tab.id === activeTabId}
+              onTabClick={onTabClick}
+              onTabClose={onTabClose}
+              isFocused={isFocused}
+              windowId={windowId}
+              totalTabsCount={tabs.length}
+            />
+          ))}
+          
+          {/* New Tab button - now inside the scrollable area */}
+          <div className="relative inline-flex items-start pl-2 h-9 pt-1.5">
+            <button
+              onClick={onNewTab}
+              className={cn(
+                "flex items-center justify-center w-6 h-6 rounded transition-colors",
+                "hover:bg-step-2 hover:text-birkin",
+                isFocused ? "text-step-11" : "text-step-9"
+              )}
+              style={{ borderRadius: '4px' }}
+              title="New Tab"
+            >
+              <span className="text-sm leading-none">+</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
