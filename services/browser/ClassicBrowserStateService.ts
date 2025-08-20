@@ -117,6 +117,10 @@ export class ClassicBrowserStateService extends BaseService<ClassicBrowserStateS
   public removeTab(windowId: string, tabId: string): void {
     const state = this.getState(windowId);
     if (state) {
+      // Clean up progress tracking first to prevent race conditions
+      const key = `${windowId}-${tabId}`;
+      this.tabProgressMap.delete(key);
+      
       const newTabs = state.tabs.filter(t => t.id !== tabId);
       this.setState(windowId, { ...state, tabs: newTabs }, true); // Force navigation check when tabs removed
     }
