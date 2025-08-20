@@ -170,3 +170,11 @@
 .notebook-dropdown {
   z-index: var(--dropdown-z-index, 10000) !important;
 }
+
+/* TopBar loading indicator positioning */
+.topbar {
+  position: fixed !important;
+  top: 2px !important; /* Position at very top of viewport */
+  height: 4px !important;
+  z-index: 9999 !important;
+}

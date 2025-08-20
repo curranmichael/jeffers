@@ -19,25 +19,28 @@ export interface BrowserEventMap {
 
   // View lifecycle events
   'view:did-start-loading': { windowId: string; tabId?: string };
-  'view:did-stop-loading': { windowId: string; url: string; title: string; canGoBack: boolean; canGoForward: boolean; tabId?: string };
-  'view:did-navigate': { windowId: string; url: string; title: string; tabId?: string; isMainFrame?: boolean; canGoBack?: boolean; canGoForward?: boolean };
-  'view:did-navigate-in-page': { windowId: string; url: string; isMainFrame: boolean; title: string; canGoBack: boolean; canGoForward: boolean; tabId?: string };
-  'view:page-title-updated': { windowId: string; title: string; tabId?: string };
-  'view:page-favicon-updated': { windowId: string; faviconUrl: string[]; tabId?: string };
+  'view:did-stop-loading': { windowId: string; url?: string; title?: string; canGoBack?: boolean; canGoForward?: boolean; tabId?: string };
+  'view:did-navigate': { windowId: string; url?: string; title?: string; tabId?: string; isMainFrame?: boolean; canGoBack?: boolean; canGoForward?: boolean };
+  'view:did-navigate-in-page': { windowId: string; url?: string; isMainFrame?: boolean; title?: string; canGoBack?: boolean; canGoForward?: boolean; tabId?: string };
+  'view:page-title-updated': { windowId: string; title?: string; tabId?: string };
+  'view:page-favicon-updated': { windowId: string; faviconUrl?: string[]; tabId?: string };
   'view:did-fail-load': { 
     windowId: string; 
-    errorCode: number; 
-    errorDescription: string; 
-    validatedURL: string; 
-    isMainFrame: boolean;
-    currentUrl: string;
-    canGoBack: boolean;
-    canGoForward: boolean;
+    errorCode?: number; 
+    errorDescription?: string; 
+    validatedURL?: string; 
+    isMainFrame?: boolean;
+    currentUrl?: string;
+    canGoBack?: boolean;
+    canGoForward?: boolean;
+    tabId?: string;
   };
+  'view:dom-ready': { windowId: string; url?: string; tabId?: string };
+  'view:did-frame-finish-load': { windowId: string; url?: string; title?: string; isMainFrame?: boolean; tabId?: string };
   'view:render-process-gone': { windowId: string; details: RenderProcessGoneDetails };
   'view:window-open-request': { windowId: string; details: HandlerDetails };
-  'view:will-navigate': { windowId: string; event: Event; url: string };
-  'view:did-redirect-navigation': { windowId: string; url: string };
+  'view:will-navigate': { windowId: string; event: Event; url?: string };
+  'view:did-redirect-navigation': { windowId: string; url?: string };
   'view:iframe-window-open-request': { windowId: string; details: HandlerDetails };
 
   // Context menu events

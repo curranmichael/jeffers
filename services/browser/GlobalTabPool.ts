@@ -55,7 +55,7 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
       // Check if already in pool first
       if (this.pool.has(tabId)) {
         const view = this.pool.get(tabId)!;
-        const currentUrl = view.webContents.getURL();
+        const currentUrl = view.webContents?.getURL() || '';
         this.logInfo(`[REUSE VIEW] Tab ${tabId} already in pool with URL: ${currentUrl || 'blank'}`);
         
         // Check for window transfer
@@ -194,6 +194,31 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
     try {
       view.setBackgroundColor('#00000000'); // Transparent background
       
+      // Set user agent to match standard Chrome
+      const chromeVersion = process.versions.chrome;
+      const platform = process.platform;
+      let userAgent: string;
+      
+      if (platform === 'darwin') {
+        // macOS
+        userAgent = `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeVersion} Safari/537.36`;
+      } else if (platform === 'win32') {
+        // Windows
+        userAgent = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeVersion} Safari/537.36`;
+      } else {
+        // Linux and others
+        userAgent = `Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeVersion} Safari/537.36`;
+      }
+      
+      view.webContents?.setUserAgent(userAgent);
+      this.logInfo(`[USER AGENT] Set for Tab ${tabId}: ${userAgent}`);
+      
+      // Verify it was actually set
+      const actualUserAgent = view.webContents?.getUserAgent();
+      if (actualUserAgent && actualUserAgent !== userAgent) {
+        this.logWarn(`[USER AGENT] Mismatch! Expected: ${userAgent}, Actual: ${actualUserAgent}`);
+      }
+      
       this.logInfo(`[VIEW CREATED] WebContentsView instance created for Tab ${tabId}`);
       
       // Apply border radius to the native view (6px to match 8px outer radius with 2px border)
@@ -260,8 +285,8 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
       this.logDebug(`Tab ${tabId} window open request:`, details);
       
       // Check if this is an OAuth/SSO flow
-      const currentUrl = webContents.getURL();
-      const isCurrentPageAuth = isAuthenticationUrl(currentUrl);
+      const currentUrl = webContents?.getURL() || '';
+      const isCurrentPageAuth = currentUrl ? isAuthenticationUrl(currentUrl) : false;
       const isPopupAuth = isAuthenticationUrl(details.url);
       
       // Allow popups for OAuth flows
@@ -279,7 +304,7 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
 
     // Store cleanup function
     this.eventHandlerCleanups.set(tabId, () => {
-      if (!webContents.isDestroyed()) {
+      if (webContents && !webContents.isDestroyed()) {
         webContents.removeAllListeners();
         // Clear the window open handler by removing it
         webContents.setWindowOpenHandler(() => {
@@ -299,37 +324,34 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
     return {
       'did-start-loading': () => {
         const view = this.pool.get(tabId);
-        if (view?.webContents?.isDestroyed()) return; // Safety check
+        if (!view || view.webContents?.isDestroyed()) return; // Safety check
         
         this.logInfo(`[PAGE LOADING] Tab ${tabId} started loading`);
         this.deps.eventBus.emit('view:did-start-loading', { tabId, windowId });
       },
       'did-stop-loading': () => {
         const view = this.pool.get(tabId);
-        if (view && !view.webContents.isDestroyed()) {
-          const webContents = view.webContents;
-          const url = webContents.getURL() || '';
-          const title = webContents.getTitle() || 'Untitled';
-          const canGoBack = webContents.canGoBack();
-          const canGoForward = webContents.canGoForward();
-          
-          this.logInfo(`[PAGE LOADED] Tab ${tabId} finished loading: ${url} (${title})`);
-          
-          this.deps.eventBus.emit('view:did-stop-loading', { 
-            windowId, 
-            url, 
-            title, 
-            canGoBack, 
-            canGoForward, 
-            tabId 
-          });
-        } else {
-          this.logWarn(`[PAGE LOADED] Tab ${tabId} stopped loading but view not found`);
-        }
+        if (!view || view.webContents?.isDestroyed()) return; // Aligned safety check
+        
+        const url = view.webContents?.getURL() || '';
+        const title = view.webContents?.getTitle() || 'Untitled';
+        const canGoBack = view.webContents?.canGoBack() || false;
+        const canGoForward = view.webContents?.canGoForward() || false;
+        
+        this.logInfo(`[PAGE LOADED] Tab ${tabId} finished loading: ${url} (${title})`);
+        
+        this.deps.eventBus.emit('view:did-stop-loading', { 
+          windowId, 
+          url, 
+          title, 
+          canGoBack, 
+          canGoForward, 
+          tabId 
+        });
       },
       'did-navigate': (event: Event, url: string, httpResponseCode?: number, httpStatusText?: string) => {
         const view = this.pool.get(tabId);
-        if (view?.webContents?.isDestroyed()) return; // Safety check
+        if (!view || view.webContents?.isDestroyed()) return; // Safety check
         
         this.logInfo(`[NAVIGATION] Tab ${tabId} navigated to: ${url} (HTTP ${httpResponseCode} ${httpStatusText || ''})`);
         
@@ -338,18 +360,20 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
           this.logInfo(`[FIGMA SSO] Detected Figma OAuth callback, monitoring for completion...`);
         }
         
-        // Get the view to access webContents for title
-        if (view && !view.webContents.isDestroyed()) {
-          const title = view.webContents.getTitle() || 'Untitled';
-          this.deps.eventBus.emit('view:did-navigate', { windowId, url, title, tabId });
-        }
+        const title = view.webContents?.getTitle() || 'Untitled';
+        this.deps.eventBus.emit('view:did-navigate', { windowId, url, title, tabId });
       },
-      'did-navigate-in-page': (event: Event, url: string, isMainFrame: boolean) => {
+      'did-navigate-in-page': (event: Event, url: string, isMainFrame?: boolean) => {
         const view = this.pool.get(tabId);
-        if (view?.webContents?.isDestroyed()) return; // Safety check
+        if (!view || view.webContents?.isDestroyed()) return; // Safety check
         
-        if (isMainFrame) {
+        // Safely handle isMainFrame parameter which might be undefined
+        const isMain = isMainFrame === true; // Explicit boolean conversion
+        
+        if (isMain) {
           this.logInfo(`[IN-PAGE NAV] Tab ${tabId} navigated in-page to: ${url}`);
+          const title = view.webContents?.getTitle() || 'Untitled';
+          this.deps.eventBus.emit('view:did-navigate-in-page', { windowId, url, title, tabId });
         }
       },
       'will-navigate': (event: Event, url: string) => {
@@ -357,8 +381,8 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
         if (!view || view.webContents?.isDestroyed()) return; // Safety check
         
         // Check if this is an OAuth redirect
-        const currentUrl = view.webContents.getURL();
-        if (currentUrl.includes('finish_google_sso') || currentUrl.includes('oauth') || currentUrl.includes('callback')) {
+        const currentUrl = view.webContents?.getURL() || '';
+        if (currentUrl && (currentUrl.includes('finish_google_sso') || currentUrl.includes('oauth') || currentUrl.includes('callback'))) {
           this.logInfo(`[OAUTH NAVIGATION] Allowing navigation from OAuth callback ${currentUrl} to ${url}`);
           // Don't prevent the navigation for OAuth flows
           return;
@@ -368,23 +392,26 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
       },
       'page-title-updated': (event: Event, title: string) => {
         const view = this.pool.get(tabId);
-        if (view?.webContents?.isDestroyed()) return; // Safety check
+        if (!view || view.webContents?.isDestroyed()) return; // Safety check
         
         // Emit with the windowId captured at handler creation time
         this.deps.eventBus.emit('view:page-title-updated', { windowId, title, tabId });
       },
       'page-favicon-updated': (event: Event, favicons: string[]) => {
         const view = this.pool.get(tabId);
-        if (view?.webContents?.isDestroyed()) return; // Safety check
+        if (!view || view.webContents?.isDestroyed()) return; // Safety check
         
         // Emit with the windowId captured at handler creation time
         this.deps.eventBus.emit('view:page-favicon-updated', { windowId, faviconUrl: favicons, tabId });
       },
-      'did-fail-load': (event: Event, errorCode: number, errorDescription: string, validatedURL: string, isMainFrame: boolean) => {
+      'did-fail-load': (event: Event, errorCode: number, errorDescription: string, validatedURL: string, isMainFrame?: boolean) => {
         const view = this.pool.get(tabId);
-        if (view?.webContents?.isDestroyed()) return; // Safety check
+        if (!view || view.webContents?.isDestroyed()) return; // Safety check
         
-        if (isMainFrame) {
+        // Safely handle isMainFrame parameter which might be undefined
+        const isMain = isMainFrame === true; // Explicit boolean conversion
+        
+        if (isMain) {
           // ERR_ABORTED (-3) on OAuth callback URLs is expected - the page redirects after processing
           if (errorCode === -3 && (validatedURL.includes('finish_google_sso') || validatedURL.includes('oauth') || validatedURL.includes('callback'))) {
             this.logInfo(`[OAUTH REDIRECT] OAuth callback page aborted navigation (expected behavior): ${validatedURL}`);
@@ -395,38 +422,36 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
       },
       'focus': () => {
         const view = this.pool.get(tabId);
-        if (view?.webContents?.isDestroyed()) return; // Safety check
+        if (!view || view.webContents?.isDestroyed()) return; // Safety check
         
         this.logDebug(`Tab ${tabId} gained focus`);
       },
       'blur': () => {
         const view = this.pool.get(tabId);
-        if (view?.webContents?.isDestroyed()) return; // Safety check
+        if (!view || view.webContents?.isDestroyed()) return; // Safety check
         
         this.logDebug(`Tab ${tabId} lost focus`);
       },
       'context-menu': (event: Event, params: Electron.ContextMenuParams) => {
         const view = this.pool.get(tabId);
-        if (view?.webContents?.isDestroyed()) return; // Safety check
+        if (!view || view.webContents?.isDestroyed()) return; // Safety check
         
         this.logDebug(`Tab ${tabId} context menu requested at (${params.x}, ${params.y})`);
         
-        if (view) {
-          const viewBounds = view.getBounds();
-          
-          // Emit event with windowId from closure
-          this.deps.eventBus.emit('view:context-menu-requested', {
-            windowId,
-            params,
-            viewBounds
-          });
-        }
+        const viewBounds = view.getBounds();
+        
+        // Emit event with windowId from closure
+        this.deps.eventBus.emit('view:context-menu-requested', {
+          windowId,
+          params,
+          viewBounds
+        });
       },
       'dom-ready': () => {
         const view = this.pool.get(tabId);
-        if (view?.webContents?.isDestroyed()) return; // Safety check
+        if (!view || view.webContents?.isDestroyed()) return; // Safety check
         
-        const url = view.webContents.getURL() || '';
+        const url = view.webContents?.getURL() || '';
         this.logInfo(`[DOM READY] Tab ${tabId} DOM is ready for: ${url}`);
         
         this.deps.eventBus.emit('view:dom-ready', { 
@@ -435,13 +460,16 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
           url
         });
       },
-      'did-frame-finish-load': (event: Event, isMainFrame: boolean) => {
+      'did-frame-finish-load': (event: Event, isMainFrame?: boolean) => {
         const view = this.pool.get(tabId);
-        if (view?.webContents?.isDestroyed()) return; // Safety check
+        if (!view || view.webContents?.isDestroyed()) return; // Safety check
         
-        if (isMainFrame) {
-          const url = view.webContents.getURL() || '';
-          const title = view.webContents.getTitle() || 'Untitled';
+        // Safely handle isMainFrame parameter which might be undefined
+        const isMain = isMainFrame === true; // Explicit boolean conversion
+        
+        if (isMain) {
+          const url = view.webContents?.getURL() || '';
+          const title = view.webContents?.getTitle() || 'Untitled';
           
           this.logInfo(`[FRAME LOADED] Tab ${tabId} main frame finished loading: ${url} (${title})`);
           
@@ -450,7 +478,7 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
             windowId,
             url,
             title,
-            isMainFrame
+            isMainFrame: isMain
           });
         } else {
           this.logDebug(`[FRAME LOADED] Tab ${tabId} sub-frame finished loading`);

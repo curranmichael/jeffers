@@ -57,8 +57,8 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
 
     // Listen for favicon updates and update the correct tab
     eventBus.on('view:page-favicon-updated', ({ windowId, faviconUrl, tabId }) => {
-      // this.logInfo(`[FAVICON RECEIVED] Window ${windowId}, tab ${tabId || 'UNSPECIFIED'}: ${faviconUrl.length} favicons`);
-      const favicon = faviconUrl.length > 0 ? faviconUrl[0] : null;
+      // this.logInfo(`[FAVICON RECEIVED] Window ${windowId}, tab ${tabId || 'UNSPECIFIED'}: ${faviconUrl?.length} favicons`);
+      const favicon = faviconUrl && faviconUrl.length > 0 ? faviconUrl[0] : null;
       
       // Use the specific tabId if provided, otherwise use the active tab
       let targetTabId = tabId;
@@ -322,8 +322,12 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
       .then(async (view) => {
         try {
           // Load the URL in the background tab
-          await view.webContents.loadURL(url);
-          this.logDebug(`Background tab ${tabId} loaded successfully`);
+          if (view.webContents) {
+            await view.webContents.loadURL(url);
+            this.logDebug(`Background tab ${tabId} loaded successfully`);
+          } else {
+            this.logDebug(`Background tab ${tabId} has no webContents`);
+          }
         } catch (loadErr) {
           this.logDebug(`Failed to load URL in background tab ${tabId}: ${loadErr instanceof Error ? loadErr.message : String(loadErr)}`);
         }
@@ -484,7 +488,7 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
     const view = this.deps.viewManager.getView(activeTabId);
     if (view) {
       this.deps.mainWindow.contentView.addChildView(view);
-      view.webContents.focus();
+      view.webContents?.focus();
     }
   }
 

@@ -62,6 +62,8 @@ export interface TabState {
   faviconUrl: string | null;
   /** Whether the tab is currently loading a page. */
   isLoading: boolean;
+  /** Loading progress percentage (0-100). */
+  loadingProgress?: number;
   /** Whether the tab can navigate backward. */
   canGoBack: boolean;
   /** Whether the tab can navigate forward. */
