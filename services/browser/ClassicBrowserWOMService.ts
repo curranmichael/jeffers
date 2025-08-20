@@ -58,7 +58,9 @@ export class ClassicBrowserWOMService extends BaseService<ClassicBrowserWOMServi
         targetTabId = activeTab?.id;
       }
       
-      await this.handleNavigation(windowId, url, title, targetTabId);
+      if (url && title) {
+        await this.handleNavigation(windowId, url, title, targetTabId);
+      }
     });
 
     // Listen for async ingestion completion

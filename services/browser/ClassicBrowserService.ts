@@ -57,8 +57,8 @@ export class ClassicBrowserService extends BaseService<ClassicBrowserServiceDeps
 
     // Listen for favicon updates and update the correct tab
     eventBus.on('view:page-favicon-updated', ({ windowId, faviconUrl, tabId }) => {
-      // this.logInfo(`[FAVICON RECEIVED] Window ${windowId}, tab ${tabId || 'UNSPECIFIED'}: ${faviconUrl.length} favicons`);
-      const favicon = faviconUrl.length > 0 ? faviconUrl[0] : null;
+      // this.logInfo(`[FAVICON RECEIVED] Window ${windowId}, tab ${tabId || 'UNSPECIFIED'}: ${faviconUrl?.length} favicons`);
+      const favicon = faviconUrl && faviconUrl.length > 0 ? faviconUrl[0] : null;
       
       // Use the specific tabId if provided, otherwise use the active tab
       let targetTabId = tabId;

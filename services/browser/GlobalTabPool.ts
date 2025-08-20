@@ -372,6 +372,8 @@ export class GlobalTabPool extends BaseService<GlobalTabPoolDeps> {
         
         if (isMain) {
           this.logInfo(`[IN-PAGE NAV] Tab ${tabId} navigated in-page to: ${url}`);
+          const title = view.webContents?.getTitle() || 'Untitled';
+          this.deps.eventBus.emit('view:did-navigate-in-page', { windowId, url, title, tabId });
         }
       },
       'will-navigate': (event: Event, url: string) => {

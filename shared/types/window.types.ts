@@ -63,7 +63,7 @@ export interface TabState {
   /** Whether the tab is currently loading a page. */
   isLoading: boolean;
   /** Loading progress percentage (0-100). */
-  loadingProgress: number;
+  loadingProgress?: number;
   /** Whether the tab can navigate backward. */
   canGoBack: boolean;
   /** Whether the tab can navigate forward. */
