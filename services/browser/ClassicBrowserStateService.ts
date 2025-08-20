@@ -243,6 +243,9 @@ export class ClassicBrowserStateService extends BaseService<ClassicBrowserStateS
     }
     this.pendingStateEmissions.clear();
     
+    // Clear progress tracking
+    this.tabProgressMap.clear();
+    
     // Clear states
     this.states.clear();
   }
