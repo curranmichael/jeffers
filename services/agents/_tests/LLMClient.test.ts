@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { LLMClient } from '../LLMClient';
 import { OpenAIMessage } from '../../../shared/types/agent.types';
-import { mockLoggerModule } from '../../../test-utils/mocks/logger';
 import { 
   createMockConversationService, 
   createMockNotebookService, 
@@ -9,7 +8,14 @@ import {
 } from '../../../test-utils/mocks/services';
 
 // Mock modules
-vi.mock('../../../utils/logger', () => mockLoggerModule);
+vi.mock('../../../utils/logger', () => ({
+  logger: {
+    info: vi.fn(),
+    debug: vi.fn(),
+    error: vi.fn(),
+    warn: vi.fn(),
+  },
+}));
 
 vi.mock('@langchain/openai', () => ({
   ChatOpenAI: vi.fn().mockImplementation(() => ({
@@ -108,9 +114,15 @@ describe('LLMClient', () => {
         getEnrichedProfileForAI: vi.fn().mockResolvedValue('User Name: Test User'),
       });
       
+      const notebookService = createMockNotebookService({
+        getAllRegularNotebooks: vi.fn().mockResolvedValue([
+          { id: 'notebook-123', title: 'Test Notebook' }
+        ]),
+      });
+      
       const llmClient = new LLMClient({
         conversationService: conversationService as any,
-        notebookService: createMockNotebookService() as any,
+        notebookService: notebookService as any,
         profileService: profileService as any,
       });
       
@@ -163,9 +175,15 @@ describe('LLMClient', () => {
         getEnrichedProfileForAI: vi.fn().mockResolvedValue('User Name: Test User'),
       });
       
+      const notebookService = createMockNotebookService({
+        getAllRegularNotebooks: vi.fn().mockResolvedValue([
+          { id: 'notebook-123', title: 'Test Notebook' }
+        ]),
+      });
+      
       const llmClient = new LLMClient({
         conversationService: conversationService as any,
-        notebookService: createMockNotebookService() as any,
+        notebookService: notebookService as any,
         profileService: profileService as any,
       });
       
