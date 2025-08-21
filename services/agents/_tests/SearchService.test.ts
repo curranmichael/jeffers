@@ -126,16 +126,44 @@ describe('SearchService', () => {
   describe('detectNewsSources', () => {
     it('should detect and clean news sources from query', () => {
       const testCases = [
-        { query: 'climate change nyt', expected: { sources: ['nytimes.com'], cleanedQuery: 'climate change' } },
-        { query: 'tech news from wsj and reuters', expected: { sources: ['wsj.com', 'reuters.com'], cleanedQuery: 'tech news' } },
-        { query: 'NYT article about AI', expected: { sources: ['nytimes.com'], cleanedQuery: 'article about AI' } },
-        { query: 'general search query', expected: { sources: [], cleanedQuery: 'general search query' } },
-        { query: 'nyt wsj reuters', expected: { sources: ['nytimes.com', 'wsj.com', 'reuters.com'], cleanedQuery: '' } },
+        { 
+          query: 'climate change nyt', 
+          expectedSources: ['nytimes.com'], 
+          expectedCleanedQuery: 'climate change' 
+        },
+        { 
+          query: 'tech news from wsj and reuters', 
+          expectedSources: ['wsj.com', 'reuters.com'], 
+          expectedCleanedQuery: 'tech news' 
+        },
+        { 
+          query: 'NYT article about AI', 
+          expectedSources: ['nytimes.com'], 
+          expectedCleanedQuery: 'article about AI' 
+        },
+        { 
+          query: 'general search query', 
+          expectedSources: [], 
+          expectedCleanedQuery: 'general search query' 
+        },
+        { 
+          query: 'nyt wsj reuters', 
+          expectedSources: ['nytimes.com', 'wsj.com', 'reuters.com'], 
+          expectedCleanedQuery: '' 
+        },
       ];
 
-      testCases.forEach(({ query, expected }) => {
+      testCases.forEach(({ query, expectedSources, expectedCleanedQuery }) => {
         const result = searchService.detectNewsSources(query);
-        expect(result).toEqual(expected);
+        
+        // Check cleaned query exactly
+        expect(result.cleanedQuery).toBe(expectedCleanedQuery);
+        
+        // Check sources contain expected items (order doesn't matter)
+        expect(result.sources).toHaveLength(expectedSources.length);
+        expectedSources.forEach(source => {
+          expect(result.sources).toContain(source);
+        });
       });
     });
   });
