@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { TabState } from '../../../../shared/types';
+import type { TabState, TopBar } from '../../../../shared/types';
 
 interface TabProps {
   tab: TabState;
@@ -140,7 +140,7 @@ export const TabBar: React.FC<TabBarProps> = ({
   windowId
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const topbarRef = useRef<any>(null);
+  const topbarRef = useRef<TopBar | null>(null);
 
   // Initialize TopBar once
   useEffect(() => {

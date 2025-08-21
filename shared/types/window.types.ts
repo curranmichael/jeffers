@@ -1,4 +1,21 @@
 /**
+ * Type definition for the topbar progress indicator library.
+ * Used in the browser tab bar to show loading progress.
+ */
+export interface TopBar {
+  show: () => void;
+  hide: () => void;
+  progress: (value: string | number) => void;
+  config: (options: {
+    barThickness?: number;
+    barColors?: { [key: string]: string };
+    shadowBlur?: number;
+    shadowColor?: string;
+    className?: string;
+  }) => void;
+}
+
+/**
  * Defines the type of content a window can hold.
  * Starts with basic types; will be expanded as specific window contents are implemented.
  */
