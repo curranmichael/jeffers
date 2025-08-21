@@ -130,8 +130,8 @@ export class LanceVectorModel implements IVectorStoreModel {
   private initializationError: Error | null = null;
   private deps: LanceVectorModelDeps;
 
-  constructor(deps: LanceVectorModelDeps) {
-    this.deps = deps;
+  constructor(deps?: LanceVectorModelDeps) {
+    this.deps = deps || { userDataPath: '/tmp/test-lance' };
   }
 
   async initialize(): Promise<void> {
@@ -295,7 +295,43 @@ export class LanceVectorModel implements IVectorStoreModel {
     }
   }
 
-  async addDocuments(documents: VectorRecord[]): Promise<string[]> {
+  // LangChain compatibility method for Document objects with optional IDs
+  async addDocuments(documents: Document[] | VectorRecord[], ids?: string[]): Promise<string[]> {
+    if (!this.isInitialized || !this.table || !this.embeddings) {
+      throw new Error('LanceVectorModel not initialized');
+    }
+
+    if (documents.length === 0) {
+      logger.debug('[LanceVectorModel] No documents to add.');
+      return [];
+    }
+
+    // Handle LangChain Document objects
+    if (documents.length > 0 && 'pageContent' in documents[0]) {
+      const langchainDocs = documents as Document[];
+      const texts = langchainDocs.map(doc => doc.pageContent);
+      const providedIds = ids || langchainDocs.map(() => uuidv4());
+      
+      // Create metadata from Document objects
+      const metadata: Omit<VectorRecord, 'vector' | 'content'>[] = langchainDocs.map((doc, index) => ({
+        id: providedIds[index],
+        recordType: 'chunk' as const,
+        mediaType: 'webpage' as MediaType,
+        layer: 'lom' as const,
+        processingDepth: 'chunk' as const,
+        createdAt: new Date().toISOString(),
+        lastAccessedAt: new Date().toISOString(),
+        ...doc.metadata
+      }));
+      
+      return this.addDocumentsWithText(texts, metadata);
+    }
+    
+    // Handle VectorRecord objects (original method)
+    return this._addVectorRecords(documents as VectorRecord[]);
+  }
+
+  private async _addVectorRecords(documents: VectorRecord[]): Promise<string[]> {
     if (!this.isInitialized || !this.table || !this.embeddings) {
       throw new Error('LanceVectorModel not initialized');
     }
@@ -422,13 +458,41 @@ export class LanceVectorModel implements IVectorStoreModel {
     } as VectorRecord;
   }
 
-  async querySimilarByVector(queryVector: number[], options: VectorSearchOptions = {}): Promise<VectorSearchResult[]> {
+  // LangChain compatibility method for querying by text - returns [Document, score][] tuples
+  async querySimilarByText(
+    queryText: string, 
+    k: number = 10, 
+    filter?: VectorSearchFilter
+  ): Promise<[Document, number][]> {
+    if (!this.isInitialized || !this.table || !this.embeddings) {
+      throw new Error('LanceVectorModel not initialized');
+    }
+
+    try {
+      logger.debug(`[LanceVectorModel] Querying similar documents by text, k=${k}`);
+      
+      // Embed the query text
+      const queryVector = await this.embeddings.embedQuery(queryText);
+      
+      // Use the vector query method
+      return this.querySimilarByVector(queryVector, k, filter);
+    } catch (error) {
+      logger.error('[LanceVectorModel] Error querying by text:', error);
+      throw error;
+    }
+  }
+
+  // LangChain compatibility method for querying by vector - returns [Document, score][] tuples
+  async querySimilarByVector(
+    queryVector: number[], 
+    k: number = 10, 
+    filter?: VectorSearchFilter
+  ): Promise<[Document, number][]> {
     if (!this.isInitialized || !this.table) {
       throw new Error('LanceVectorModel not initialized');
     }
 
     try {
-      const { k = 10, filter } = options;
       logger.debug(`[LanceVectorModel] Querying similar documents by vector, k=${k}`);
       
       let search = this.table!.search(queryVector).limit(k);
@@ -443,16 +507,20 @@ export class LanceVectorModel implements IVectorStoreModel {
       
       const results = await search.execute();
       
-      const searchResults: VectorSearchResult[] = results.map((result: any) => {
+      const searchResults: [Document, number][] = results.map((result: any) => {
         const rawResult = result as Record<string, unknown> & { _distance?: number };
         const distance = rawResult._distance || 0;
-        const similarity = 1 - distance;
+        // LanceDB returns squared Euclidean distance, convert to similarity score (0-1)
+        const similarity = Math.max(0, Math.min(1, 1 / (1 + Math.abs(distance))));
+        const record = this.createVectorRecordFromResult(rawResult);
         
-        return {
-          record: this.createVectorRecordFromResult(rawResult),
-          score: similarity,
-          distance: distance
-        };
+        return [
+          new Document({ 
+            pageContent: record.content || '', 
+            metadata: record as unknown as Record<string, unknown>
+          }),
+          similarity
+        ];
       });
       
       logger.debug(`[LanceVectorModel] Found ${searchResults.length} similar documents.`);
@@ -462,6 +530,7 @@ export class LanceVectorModel implements IVectorStoreModel {
       throw error;
     }
   }
+
 
   async deleteDocumentsByIds(ids: string[]): Promise<void> {
     if (!this.isInitialized || !this.table) {
@@ -476,9 +545,9 @@ export class LanceVectorModel implements IVectorStoreModel {
     try {
       logger.debug(`[LanceVectorModel] Deleting ${ids.length} documents...`);
       
-      // Build deletion predicate
-      const idList = ids.map(id => `'${id}'`).join(', ');
-      const predicate = `id IN [${idList}]`;
+      // Build deletion predicate - LanceDB uses SQL syntax, not array notation
+      const idList = ids.map(id => `'${this.escapeString(id)}'`).join(', ');
+      const predicate = `\`id\` IN (${idList})`;
       
       // Execute deletion
       await this.table!.delete(predicate);
@@ -516,8 +585,8 @@ export class LanceVectorModel implements IVectorStoreModel {
 
   // Helper method for LangChain compatibility
   async similaritySearch(query: string, k: number = 10, filter?: VectorSearchFilter): Promise<Document[]> {
-    const results = await this.querySimilarByText(query, { k, filter });
-    return results.map(r => new Document({ pageContent: r.record.content || '', metadata: r.record }));
+    const results = await this.querySimilarByText(query, k, filter);
+    return results.map(([doc, _score]) => doc);
   }
 
   // Helper to escape SQL string values
