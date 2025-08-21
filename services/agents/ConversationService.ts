@@ -16,6 +16,7 @@ interface ConversationServiceDeps {
 export class ConversationService extends BaseService<ConversationServiceDeps> {
   private conversationHistory = new Map<string, OpenAIMessage[]>();
   private sessionIdMap = new Map<string, string>(); // Maps senderId to sessionId
+  private sessionCreationPromises = new Map<string, Promise<string>>(); // Prevent concurrent session creation
 
   constructor(deps: ConversationServiceDeps) {
     super('ConversationService', deps);
@@ -31,6 +32,7 @@ export class ConversationService extends BaseService<ConversationServiceDeps> {
     const conversationCount = this.conversationHistory.size;
     this.conversationHistory.clear();
     this.sessionIdMap.clear();
+    this.sessionCreationPromises.clear();
     
     this.logInfo(`ConversationService cleanup complete - cleared ${conversationCount} conversations`);
   }
@@ -40,23 +42,52 @@ export class ConversationService extends BaseService<ConversationServiceDeps> {
       // Check if we already have a session ID for this sender
       let sessionId = this.sessionIdMap.get(senderId);
       
-      if (!sessionId) {
-        // Get or create the NotebookCover for the user
-        // For now, we're using default_user for all homepage conversations
-        const notebookCover = await this.deps.notebookService.getNotebookCover('default_user');
-        
-        // Create session and let ChatModel generate the ID
-        const session = await this.deps.chatModel.createSession(
-          notebookCover.id, 
-          undefined, // Let ChatModel generate the session ID
-          `Conversation - ${new Date().toISOString()}`
-        );
-        sessionId = session.sessionId;
-        this.sessionIdMap.set(senderId, sessionId);
-        this.logInfo(`Created new session ${sessionId} for sender ${senderId} in NotebookCover ${notebookCover.id}`);
+      if (sessionId) {
+        return sessionId;
       }
       
-      return sessionId;
+      // Check if there's already a session creation in progress
+      let creationPromise = this.sessionCreationPromises.get(senderId);
+      
+      if (creationPromise) {
+        return creationPromise;
+      }
+      
+      // Create new promise for session creation
+      creationPromise = (async () => {
+        try {
+          // Double-check in case another thread completed while we were waiting
+          const existingSessionId = this.sessionIdMap.get(senderId);
+          if (existingSessionId) {
+            return existingSessionId;
+          }
+          
+          // Get or create the NotebookCover for the user
+          // For now, we're using default_user for all homepage conversations
+          const notebookCover = await this.deps.notebookService.getNotebookCover('default_user');
+          
+          // Create session and let ChatModel generate the ID
+          const session = await this.deps.chatModel.createSession(
+            notebookCover.id, 
+            undefined, // Let ChatModel generate the session ID
+            `Conversation - ${new Date().toISOString()}`
+          );
+          
+          const newSessionId = session.sessionId;
+          this.sessionIdMap.set(senderId, newSessionId);
+          this.logInfo(`Created new session ${newSessionId} for sender ${senderId} in NotebookCover ${notebookCover.id}`);
+          
+          return newSessionId;
+        } finally {
+          // Clean up the promise from cache
+          this.sessionCreationPromises.delete(senderId);
+        }
+      })();
+      
+      // Cache the promise
+      this.sessionCreationPromises.set(senderId, creationPromise);
+      
+      return creationPromise;
     });
   }
 
