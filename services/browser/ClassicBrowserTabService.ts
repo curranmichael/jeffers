@@ -4,7 +4,7 @@ import { BaseService } from '../base/BaseService';
 import { ClassicBrowserStateService } from './ClassicBrowserStateService';
 import { TabState, TabPoolState } from '../../shared/types/window.types';
 
-const DEFAULT_NEW_TAB_URL = 'https://www.are.na';
+const DEFAULT_NEW_TAB_URL = ''; // Empty URL for new tab page
 
 export interface ClassicBrowserTabServiceDeps {
   stateService: ClassicBrowserStateService;
@@ -22,17 +22,21 @@ export class ClassicBrowserTabService extends BaseService<ClassicBrowserTabServi
   public createTab(windowId: string, url?: string, makeActive: boolean = true): string {
     const tabId = uuidv4();
     
+    // Use empty string for new tabs to trigger React component
+    const tabUrl = url || DEFAULT_NEW_TAB_URL;
+    const isNewTabPage = !tabUrl || tabUrl === '';
+    
     const newTab: TabState = {
       id: tabId,
-      url: url || DEFAULT_NEW_TAB_URL,
-      title: 'New Tab',
+      url: tabUrl,
+      title: isNewTabPage ? 'New Tab' : 'Loading...',
       faviconUrl: null,
-      isLoading: makeActive,
+      isLoading: !isNewTabPage && makeActive, // Don't set loading for new tab pages
       loadingProgress: 0,
       canGoBack: false,
       canGoForward: false,
       error: null,
-      poolState: makeActive ? TabPoolState.LOADING : TabPoolState.INACTIVE,
+      poolState: isNewTabPage ? TabPoolState.INACTIVE : (makeActive ? TabPoolState.LOADING : TabPoolState.INACTIVE),
       lastAccessed: Date.now(),
       windowId: windowId,
     };
@@ -54,7 +58,7 @@ export class ClassicBrowserTabService extends BaseService<ClassicBrowserTabServi
     if (!state) return;
 
     if (state.tabs.length === 1) {
-      this.createTab(windowId, DEFAULT_NEW_TAB_URL, true);
+      this.createTab(windowId, DEFAULT_NEW_TAB_URL, true); // Creates empty tab
       this.deps.stateService.removeTab(windowId, tabIdToClose);
       return;
     }

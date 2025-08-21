@@ -27,6 +27,7 @@ import { useNativeResource } from '@/hooks/use-native-resource';
 import { useBrowserWindowController } from '@/hooks/useBrowserWindowController';
 import { TabBar } from './TabBar';
 import { isLikelyUrl, formatUrlWithProtocol } from './urlDetection.helpers';
+import { NewTabPage } from './NewTabPage';
 
 // Constants from WindowFrame for consistency
 const DRAG_HANDLE_CLASS = 'window-drag-handle';
@@ -572,6 +573,24 @@ const ClassicBrowserViewWrapperComponent: React.FC<ClassicBrowserContentProps> =
     }
   }, [windowId]);
   
+  // Handler for navigating from NewTabPage
+  const handleNavigateFromNewTab = useCallback((url: string) => {
+    if (!url) return;
+    
+    console.log(`[ClassicBrowser ${windowId}] Navigating from new tab page to:`, url);
+    
+    // Update address bar immediately
+    setAddressBarUrl(url);
+    
+    // Navigate via the existing IPC call
+    if (window.api && typeof window.api.classicBrowserLoadUrl === 'function') {
+      window.api.classicBrowserLoadUrl(windowId, url)
+        .catch((err: Error) => {
+          console.error(`[ClassicBrowser ${windowId}] Error navigating from new tab:`, err);
+        });
+    }
+  }, [windowId]);
+
   // Handle bookmark click
   const handleBookmarkClick = useCallback(async () => {
     // Prevent action if no active tab, no URL, or already in progress
@@ -626,6 +645,9 @@ const ClassicBrowserViewWrapperComponent: React.FC<ClassicBrowserContentProps> =
     }
   }, [activeTabId, currentUrl, pageTitle, isBookmarked, isCurrentlyBookmarking, windowId]);
 
+  // Check if this is a new tab (no URL or empty URL)
+  const isNewTabPage = !currentUrl || currentUrl === '' || currentUrl === 'about:blank';
+  
   // Conditional rendering for error state or placeholder before view is ready
   if (error) {
     return (
@@ -815,62 +837,74 @@ const ClassicBrowserViewWrapperComponent: React.FC<ClassicBrowserContentProps> =
         windowId={windowId}
       />
       
-      {/* Content area that will host the BrowserView */}
-      <div 
-        ref={webContentsViewRef} 
-        className={cn(
-          "relative flex-1 w-full focus:outline-none overflow-hidden rounded-t-lg",
-          windowMeta.isFocused ? 'bg-step-4' : 'bg-step-3'
-        )}
-        // The actual BrowserView will be positioned over this div by Electron.
-        // We can add a placeholder or loading indicator here if desired.
-        // For now, it will be blank until the BrowserView is created and loaded.
-      >
-      {/* Snapshot overlay when frozen or awaiting render */}
-      {(isAwaitingRender || isFrozen) && snapshotUrl && (
-        <div 
-          className="absolute inset-0 z-20 transition-opacity duration-200 ease-in-out rounded-t-lg overflow-hidden"
-          style={{ 
-            opacity: 1
-          }}
-        >
-          <img 
-            src={snapshotUrl} 
-            alt="Browser snapshot"
-            className="w-full h-full object-cover"
-            style={{
-              imageRendering: 'crisp-edges', // Ensure sharp rendering
-              backgroundColor: windowMeta.isFocused ? '#2a2a28' : '#222221' // step-4 : step-3
-            }}
-            onLoad={() => {
-              console.log(`[ClassicBrowser ${windowId}] Snapshot image loaded and rendered`);
-              // Notify the controller that the snapshot has been rendered
-              if (isAwaitingRender) {
-                controller.handleSnapshotLoaded();
-              }
-            }}
+      {/* Content area - either NewTabPage or BrowserView */}
+      {isNewTabPage ? (
+        // Render React component directly for new tabs
+        <div className="flex-1 w-full overflow-hidden">
+          <NewTabPage 
+            onNavigate={handleNavigateFromNewTab}
+            isFocused={windowMeta.isFocused}
           />
         </div>
-      )}
-      
-      {/* Live view container - hidden when frozen or during unfreeze delay */}
-      <div 
-        className="absolute inset-0"
-        style={{ 
-          opacity: showWebContentsView ? 1 : 0,
-          pointerEvents: showWebContentsView ? 'auto' : 'none'
-        }}
-      >
-        {!isLoading && !currentUrl && (
-           <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
-            <div className="mb-4 opacity-30">
-              <HumanComputerIcon />
+      ) : (
+        // Host the BrowserView for actual web content
+        <div 
+          ref={webContentsViewRef} 
+          className={cn(
+            "relative flex-1 w-full focus:outline-none overflow-hidden rounded-t-lg",
+            windowMeta.isFocused ? 'bg-step-4' : 'bg-step-3'
+          )}
+          // The actual BrowserView will be positioned over this div by Electron.
+          // We can add a placeholder or loading indicator here if desired.
+          // For now, it will be blank until the BrowserView is created and loaded.
+        >
+          {/* Snapshot overlay when frozen or awaiting render */}
+          {(isAwaitingRender || isFrozen) && snapshotUrl && (
+            <div 
+              className="absolute inset-0 z-20 transition-opacity duration-200 ease-in-out rounded-t-lg overflow-hidden"
+              style={{ 
+                opacity: 1
+              }}
+            >
+              <img 
+                src={snapshotUrl} 
+                alt="Browser snapshot"
+                className="w-full h-full object-cover"
+                style={{
+                  imageRendering: 'crisp-edges', // Ensure sharp rendering
+                  backgroundColor: windowMeta.isFocused ? '#2a2a28' : '#222221' // step-4 : step-3
+                }}
+                onLoad={() => {
+                  console.log(`[ClassicBrowser ${windowId}] Snapshot image loaded and rendered`);
+                  // Notify the controller that the snapshot has been rendered
+                  if (isAwaitingRender) {
+                    controller.handleSnapshotLoaded();
+                  }
+                }}
+              />
             </div>
-            <p className="text-lg text-step-12/60">New Tab</p>
+          )}
+      
+          
+          {/* Live view container - hidden when frozen or during unfreeze delay */}
+          <div 
+            className="absolute inset-0"
+            style={{ 
+              opacity: showWebContentsView ? 1 : 0,
+              pointerEvents: showWebContentsView ? 'auto' : 'none'
+            }}
+          >
+            {!isLoading && !currentUrl && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
+                <div className="mb-4 opacity-30">
+                  <HumanComputerIcon />
+                </div>
+                <p className="text-lg text-step-12/60">New Tab</p>
+              </div>
+            )}
           </div>
-        )}
-      </div>
-      </div>
+        </div>
+      )}
     </div>
   );
 };
