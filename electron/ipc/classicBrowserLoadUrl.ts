@@ -37,6 +37,8 @@ export function registerClassicBrowserLoadUrlHandler(classicBrowserService: Clas
     }
 
     try {
+      // The loadUrl method in ClassicBrowserNavigationService will handle view acquisition
+      // It already checks if a view exists and acquires one if needed
       await classicBrowserService.loadUrl(windowId, url);
       // No explicit return needed for Promise<void> if successful
     } catch (err: any) {
