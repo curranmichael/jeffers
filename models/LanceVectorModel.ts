@@ -9,13 +9,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../utils/logger';
 import { createEmbeddingModel } from '../utils/llm';
 import { OpenAIEmbeddings } from '@langchain/openai';
-import Database from 'better-sqlite3';
-import * as arrow from 'apache-arrow';
 import { 
   IVectorStoreModel, 
   VectorRecord, 
-  VectorSearchOptions, 
-  VectorSearchResult,
   VectorSearchFilter,
   BaseVectorRecord
 } from '../shared/types/vector.types';
@@ -130,8 +126,13 @@ export class LanceVectorModel implements IVectorStoreModel {
   private initializationError: Error | null = null;
   private deps: LanceVectorModelDeps;
 
-  constructor(deps?: LanceVectorModelDeps) {
-    this.deps = deps || { userDataPath: '/tmp/test-lance' };
+  constructor(deps: LanceVectorModelDeps) {
+    this.deps = deps;
+  }
+
+  // Test-only factory method - DO NOT USE IN PRODUCTION
+  static createForTesting(): LanceVectorModel {
+    return new LanceVectorModel({ userDataPath: '/tmp/test-lance' });
   }
 
   async initialize(): Promise<void> {
@@ -405,25 +406,6 @@ export class LanceVectorModel implements IVectorStoreModel {
     }
   }
 
-  async querySimilarByText(queryText: string, options: VectorSearchOptions = {}): Promise<VectorSearchResult[]> {
-    if (!this.isInitialized || !this.table || !this.embeddings) {
-      throw new Error('LanceVectorModel not initialized');
-    }
-
-    try {
-      const { k = 10, filter } = options;
-      logger.debug(`[LanceVectorModel] Querying similar documents by text, k=${k}`);
-      
-      // Embed the query text
-      const queryVector = await this.embeddings.embedQuery(queryText);
-      
-      // Use the vector query method
-      return this.querySimilarByVector(queryVector, options);
-    } catch (error) {
-      logger.error('[LanceVectorModel] Error querying by text:', error);
-      throw error;
-    }
-  }
 
   private createVectorRecordFromResult(data: Record<string, any>): VectorRecord {
     // Helper function to safely convert to number
@@ -566,11 +548,8 @@ export class LanceVectorModel implements IVectorStoreModel {
 
     const vectorStore = {
       similaritySearch: async (query: string, k: number, filter?: VectorSearchFilter): Promise<Document[]> => {
-        const results = await this.querySimilarByText(query, { k, filter });
-        return results.map(r => new Document({ 
-          pageContent: r.record.content || '', 
-          metadata: r.record as unknown as Record<string, unknown>
-        }));
+        const results = await this.querySimilarByText(query, k, filter);
+        return results.map(([doc, _score]) => doc);
       },
       _vectorstoreType: () => 'lancedb',
     } as any;

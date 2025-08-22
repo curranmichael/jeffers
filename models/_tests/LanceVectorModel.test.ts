@@ -46,7 +46,7 @@ describe('LanceVectorModel', () => {
       fs.rmSync(testDbPath, { recursive: true, force: true });
     }
     
-    model = new LanceVectorModel({ userDataPath: '/tmp/test-lance' });
+    model = LanceVectorModel.createForTesting();
   });
 
   afterEach(async () => {
@@ -113,7 +113,7 @@ describe('LanceVectorModel', () => {
     });
 
     it('should throw error if not initialized', async () => {
-      const uninitializedModel = new LanceVectorModel();
+      const uninitializedModel = LanceVectorModel.createForTesting();
       const documents = [new Document({ pageContent: 'Test' })];
       
       await expect(uninitializedModel.addDocuments(documents))
