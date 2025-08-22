@@ -2,16 +2,6 @@ import { vi } from 'vitest';
 import { setupClassicBrowserMocks } from '../test-utils/classic-browser-mocks';
 import '@testing-library/jest-dom/vitest';
 
-// Configure PDF.js worker for tests
-const setupPdfJsWorker = () => {
-  // Mock PDF.js worker to prevent "No PDFJS.workerSrc specified" errors
-  global.PDFJS = {
-    workerSrc: 'mock-worker.js'
-  } as any;
-};
-
-// Initialize PDF.js worker setup
-setupPdfJsWorker();
 
 // Mock ResizeObserver which is not available in test environment
 global.ResizeObserver = class ResizeObserver {
