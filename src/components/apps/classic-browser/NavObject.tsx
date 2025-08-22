@@ -2,7 +2,6 @@
 
 import React, { useState, useCallback } from 'react';
 import { IntentLine } from '@/components/ui/intent-line';
-import { HumanComputerIcon } from '@/components/HumanComputerIcon';
 import { isLikelyUrl, formatUrlWithProtocol } from './urlDetection.helpers';
 import { cn } from '@/lib/utils';
 
@@ -57,13 +56,6 @@ export function NavObject({ onNavigate, isFocused = true }: NavObjectProps) {
             className="w-full text-base text-step-12 bg-transparent border-0 border-b-[1px] border-step-9 hover:border-step-11.5 focus:ring-0 focus:border-step-10 placeholder:text-step-12"
             autoFocus
           />
-        </div>
-        
-        {/* Icon */}
-        <div className="flex justify-center">
-          <div className="opacity-30">
-            <HumanComputerIcon />
-          </div>
         </div>
         
         {/* Quick Links (optional - for future enhancement) */}
