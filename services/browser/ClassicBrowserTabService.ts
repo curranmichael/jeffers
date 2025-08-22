@@ -4,8 +4,6 @@ import { BaseService } from '../base/BaseService';
 import { ClassicBrowserStateService } from './ClassicBrowserStateService';
 import { TabState, TabPoolState } from '../../shared/types/window.types';
 
-const DEFAULT_NEW_TAB_URL = 'https://www.are.na';
-
 export interface ClassicBrowserTabServiceDeps {
   stateService: ClassicBrowserStateService;
 }
@@ -24,15 +22,15 @@ export class ClassicBrowserTabService extends BaseService<ClassicBrowserTabServi
     
     const newTab: TabState = {
       id: tabId,
-      url: url || DEFAULT_NEW_TAB_URL,
+      url: url || '',  // Empty string for new tab page
       title: 'New Tab',
       faviconUrl: null,
-      isLoading: makeActive,
+      isLoading: false,  // New tabs don't start loading
       loadingProgress: 0,
       canGoBack: false,
       canGoForward: false,
       error: null,
-      poolState: makeActive ? TabPoolState.LOADING : TabPoolState.INACTIVE,
+      poolState: TabPoolState.INACTIVE,  // New tabs start inactive (no view)
       lastAccessed: Date.now(),
       windowId: windowId,
     };
@@ -54,7 +52,7 @@ export class ClassicBrowserTabService extends BaseService<ClassicBrowserTabServi
     if (!state) return;
 
     if (state.tabs.length === 1) {
-      this.createTab(windowId, DEFAULT_NEW_TAB_URL, true);
+      this.createTab(windowId, '', true);  // Create a new tab with empty URL
       this.deps.stateService.removeTab(windowId, tabIdToClose);
       return;
     }
