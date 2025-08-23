@@ -5,7 +5,6 @@ import type { StoreApi } from 'zustand';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { XCircle, Globe } from 'lucide-react';
-import { HumanComputerIcon } from '@/components/HumanComputerIcon';
 import {
   Tooltip,
   TooltipContent,
