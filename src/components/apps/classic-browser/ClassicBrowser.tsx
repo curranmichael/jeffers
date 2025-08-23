@@ -26,6 +26,7 @@ import { useNativeResource } from '@/hooks/use-native-resource';
 import { useBrowserWindowController } from '@/hooks/useBrowserWindowController';
 import { TabBar } from './TabBar';
 import { isLikelyUrl, formatUrlWithProtocol } from './urlDetection.helpers';
+import { NavObject } from './NavObject';
 
 // Constants from WindowFrame for consistency
 const DRAG_HANDLE_CLASS = 'window-drag-handle';
@@ -814,7 +815,7 @@ const ClassicBrowserViewWrapperComponent: React.FC<ClassicBrowserContentProps> =
         windowId={windowId}
       />
       
-      {/* Content area that will host the BrowserView */}
+      {/* Content area that will host the BrowserView or NavObject */}
       <div 
         ref={webContentsViewRef} 
         className={cn(
@@ -825,6 +826,26 @@ const ClassicBrowserViewWrapperComponent: React.FC<ClassicBrowserContentProps> =
         // We can add a placeholder or loading indicator here if desired.
         // For now, it will be blank until the BrowserView is created and loaded.
       >
+      {/* Check if active tab is a new tab page (no URL) */}
+      {activeTab && !activeTab.url && !isLoading && (
+        <div className="absolute inset-0 z-30">
+          <NavObject 
+            onNavigate={(url) => {
+              // Navigate to the URL using the existing handleLoadUrl logic
+              setAddressBarUrl(url);
+              console.log(`[ClassicBrowser ${windowId}] NavObject requesting navigation to:`, url);
+              if (window.api && typeof window.api.classicBrowserLoadUrl === 'function') {
+                window.api.classicBrowserLoadUrl(windowId, url)
+                  .catch((err: Error) => {
+                    console.error(`[ClassicBrowser ${windowId}] Error calling classicBrowserLoadUrl:`, err);
+                  });
+              }
+            }}
+            isFocused={windowMeta.isFocused}
+          />
+        </div>
+      )}
+      
       {/* Snapshot overlay when frozen or awaiting render */}
       {(isAwaitingRender || isFrozen) && snapshotUrl && (
         <div 
@@ -860,14 +881,7 @@ const ClassicBrowserViewWrapperComponent: React.FC<ClassicBrowserContentProps> =
           pointerEvents: showWebContentsView ? 'auto' : 'none'
         }}
       >
-        {!isLoading && !currentUrl && (
-           <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
-            <div className="mb-4 opacity-30">
-              <HumanComputerIcon />
-            </div>
-            <p className="text-lg text-step-12/60">New Tab</p>
-          </div>
-        )}
+        {/* WebContentsView will be positioned here by Electron */}
       </div>
       </div>
     </div>
