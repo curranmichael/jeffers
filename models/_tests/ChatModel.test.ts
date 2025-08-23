@@ -85,13 +85,13 @@ describe('ChatModel', () => {
     describe('updateSessionTitle', () => {
         it('should update the title and updated_at timestamp', async () => {
             const session = await chatModel.createSession(testNotebook.id, undefined, 'Original Title');
-            const originalUpdatedAt = session.updatedAt.getTime();
+            const originalUpdatedAt = new Date(session.updatedAt).getTime();
             
             await new Promise(resolve => setTimeout(resolve, 50));
             const updatedSession = await chatModel.updateSessionTitle(session.sessionId, 'New Title');
             
             expect(updatedSession?.title).toBe('New Title');
-            expect(updatedSession!.updatedAt.getTime()).toBeGreaterThan(originalUpdatedAt);
+            expect(new Date(updatedSession!.updatedAt).getTime()).toBeGreaterThan(originalUpdatedAt);
         });
 
         it('should return null for non-existent session', async () => {
@@ -179,14 +179,14 @@ describe('ChatModel', () => {
 
         it('should update session updated_at when adding message', async () => {
             const session = await chatModel.getSessionById(sessionId);
-            const initialUpdate = session!.updatedAt.getTime();
+            const initialUpdate = new Date(session!.updatedAt).getTime();
             await new Promise(resolve => setTimeout(resolve, 50));
 
             const newMessage = await chatModel.addMessage({ sessionId, role: 'user', content: 'Test' });
             const updatedSession = await chatModel.getSessionById(sessionId);
 
-            expect(updatedSession!.updatedAt.getTime()).toBeGreaterThan(initialUpdate);
-            expect(updatedSession!.updatedAt.getTime()).toBeCloseTo(newMessage.timestamp.getTime(), 50);
+            expect(new Date(updatedSession!.updatedAt).getTime()).toBeGreaterThan(initialUpdate);
+            expect(new Date(updatedSession!.updatedAt).getTime()).toBeCloseTo(new Date(newMessage.timestamp).getTime(), 50);
         });
 
         it('should throw error for non-existent session', async () => {
@@ -261,6 +261,9 @@ describe('ChatModel', () => {
                 content: 'Hello, assistant!',
                 metadata: null
             });
+            
+            // Small delay to ensure different timestamps
+            await new Promise(resolve => setTimeout(resolve, 5));
             
             const assistantMessage = await chatModel.addMessage({
                 sessionId,

@@ -14,7 +14,7 @@ vi.mock('electron', () => ({
 
 // Mock the logger
 vi.mock('../../utils/logger', () => ({
-  default: {
+  logger: {
     info: vi.fn(),
     error: vi.fn(),
     warn: vi.fn(),
@@ -46,7 +46,7 @@ describe('LanceVectorModel', () => {
       fs.rmSync(testDbPath, { recursive: true, force: true });
     }
     
-    model = new LanceVectorModel();
+    model = LanceVectorModel.createForTesting();
   });
 
   afterEach(async () => {
@@ -113,7 +113,7 @@ describe('LanceVectorModel', () => {
     });
 
     it('should throw error if not initialized', async () => {
-      const uninitializedModel = new LanceVectorModel();
+      const uninitializedModel = LanceVectorModel.createForTesting();
       const documents = [new Document({ pageContent: 'Test' })];
       
       await expect(uninitializedModel.addDocuments(documents))

@@ -172,7 +172,7 @@ describe('IngestionJobModel', () => {
       expect(updated?.errorInfo).toBe('Network error');
       expect(updated?.failedStage).toBe('processing_source');
       expect(updated?.nextAttemptAt).toBeDefined();
-      expect(updated?.nextAttemptAt).toBeGreaterThan(Date.now());
+      expect(new Date(updated!.nextAttemptAt!).getTime()).toBeGreaterThan(Date.now());
     });
 
     it('should mark job as permanently failed', () => {

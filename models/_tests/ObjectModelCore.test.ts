@@ -48,8 +48,8 @@ describe('ObjectModelCore', () => {
       expect(created.originalFileName).toBe('test.pdf');
       expect(created.fileSizeBytes).toBe(1024);
       expect(created.fileMimeType).toBe('application/pdf');
-      expect(created.createdAt).toBeInstanceOf(Date);
-      expect(created.updatedAt).toBeInstanceOf(Date);
+      expect(created.createdAt).toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/);
+      expect(created.updatedAt).toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/);
       expect(created.status).toBe('new');
     });
 
@@ -98,7 +98,7 @@ describe('ObjectModelCore', () => {
 
       expect(created.id).toMatch(/^[0-9a-f-]{36}$/);
       expect(created.title).toBe('Sync Create');
-      expect(created.createdAt).toBeInstanceOf(Date);
+      expect(created.createdAt).toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/);
     });
 
     it('should throw error on duplicate sourceUri in sync mode', () => {
@@ -133,7 +133,7 @@ describe('ObjectModelCore', () => {
       expect(updated!.title).toBe('Updated Title');
       expect(updated!.status).toBe('parsed');
       expect(updated!.parsedContentJson).toBe(JSON.stringify({ parsed: true }));
-      expect(updated!.parsedAt).toBeInstanceOf(Date);
+      expect(updated!.parsedAt).toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/);
       expect(updated!.summary).toBe('Test summary');
       expect(updated!.childObjectIds).toEqual(['child1', 'child2']);
     });
@@ -184,13 +184,13 @@ describe('ObjectModelCore', () => {
   describe('updateStatus', () => {
     it('should update status with parsedAt', async () => {
       const created = await core.create(createTestObject({ status: 'fetched' }));
-      const parsedAt = new Date();
+      const parsedAt = new Date().toISOString();
 
       await core.updateStatus(created.id, 'parsed', parsedAt);
 
       const updated = await core.getById(created.id);
       expect(updated!.status).toBe('parsed');
-      expect(updated!.parsedAt!.toISOString()).toBe(parsedAt.toISOString());
+      expect(updated!.parsedAt).toBe(parsedAt);
       expect(updated!.errorInfo).toBeNull();
     });
 
@@ -271,7 +271,7 @@ describe('ObjectModelCore', () => {
         // Just verify we get results and they have created_at dates
         expect(found.length).toBeGreaterThanOrEqual(3);
         found.forEach(obj => {
-          expect(obj.createdAt).toBeInstanceOf(Date);
+          expect(obj.createdAt).toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/);
         });
       });
     });
@@ -454,7 +454,7 @@ describe('ObjectModelCore', () => {
         
         const updated = await core.getById(created.id);
         expect(updated!.lastAccessedAt).toBeDefined();
-        expect(updated!.lastAccessedAt!.getTime()).toBeGreaterThan(beforeUpdate.getTime());
+        expect(new Date(updated!.lastAccessedAt!).getTime()).toBeGreaterThan(beforeUpdate.getTime());
       });
     });
 

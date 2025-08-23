@@ -21,5 +21,6 @@ export function cleanTestDb(db: Database.Database) {
     DELETE FROM notebook_objects;
     DELETE FROM notebooks WHERE id != 'cover-default_user';
     DELETE FROM objects;
+    DELETE FROM user_profiles WHERE user_id != 'default_user';
   `);
 }

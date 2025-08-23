@@ -23,7 +23,7 @@ export const deleteNotebook: AgentTool = {
     
     const notebooks = await context.services.notebookService.getAllRegularNotebooks();
     const found = notebooks.find((nb: any) => 
-      nb.title.toLowerCase() === notebook_name.toLowerCase()
+      nb.title.trim().toLowerCase() === notebook_name.trim().toLowerCase()
     );
     
     if (!found) {

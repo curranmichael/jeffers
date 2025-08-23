@@ -50,7 +50,7 @@ describe('ChunkModel', () => {
       expect(result.chunkIdx).toBe(0);
       expect(result.content).toBe('This is test content');
       expect(result.summary).toBe('Test summary');
-      expect(result.createdAt).toBeInstanceOf(Date);
+      expect(result.createdAt).toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/);
     });
 
     it('should handle chunks without optional fields', async () => {
@@ -95,7 +95,7 @@ describe('ChunkModel', () => {
 
       expect(result.id).toBeDefined();
       expect(result.content).toBe('Sync chunk content');
-      expect(result.createdAt).toBeInstanceOf(Date);
+      expect(result.createdAt).toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/);
     });
   });
 

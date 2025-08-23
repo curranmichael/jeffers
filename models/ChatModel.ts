@@ -249,8 +249,7 @@ class ChatModel {
      */
     async addMessage(params: AddMessageParams): Promise<IChatMessage> {
         const messageId = randomUUID();
-        const nowEpochMs = Date.now();
-        const nowISO = new Date(nowEpochMs).toISOString();
+        const nowISO = new Date().toISOString();
         
         const metadataString = params.metadata ? JSON.stringify(params.metadata) : null;
 
@@ -385,14 +384,14 @@ class ChatModel {
      * @param beforeTimestamp Optional ISO timestamp to fetch messages strictly before this point.
      * @returns An array of chat message objects in ascending chronological order.
      */
-    async getMessagesBySessionId(sessionId: string, limit?: number, beforeTimestamp?: Date): Promise<IChatMessage[]> {
-        logger.debug(`[ChatModel] Getting messages for session ID: ${sessionId}, limit: ${limit}, before: ${beforeTimestamp?.toISOString()}`);
+    async getMessagesBySessionId(sessionId: string, limit?: number, beforeTimestamp?: string): Promise<IChatMessage[]> {
+        logger.debug(`[ChatModel] Getting messages for session ID: ${sessionId}, limit: ${limit}, before: ${beforeTimestamp || 'none'}`);
         let query = 'SELECT * FROM chat_messages WHERE session_id = @session_id';
         const queryParams: Record<string, any> = { session_id: sessionId };
 
-        if (beforeTimestamp instanceof Date) { // Ensure it's a Date object
+        if (beforeTimestamp) {
             query += ' AND timestamp < @timestamp_before';
-            queryParams.timestamp_before = beforeTimestamp.toISOString();
+            queryParams.timestamp_before = beforeTimestamp;
         }
 
         query += ' ORDER BY timestamp DESC'; // Fetch most recent first for LIMIT, then reverse
